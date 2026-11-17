@@ -15,6 +15,7 @@ function navFor(me, can) {
       can("reports_admin_view") && { to: "/admin/reports", label: "Reports" },
       can("users_admin_view") && { to: "/admin/users", label: "Staff" },
       can("roles_view") && { to: "/admin/roles", label: "Roles" },
+      can("logs_view") && { to: "/admin/logs", label: "Logs" },
     ].filter(Boolean);
   }
   return [

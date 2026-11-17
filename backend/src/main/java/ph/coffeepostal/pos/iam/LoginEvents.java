@@ -26,8 +26,14 @@ class LoginEvents {
     private void log(Authentication a, boolean ok) {
         String ip = a.getDetails() instanceof WebAuthenticationDetails d ? d.getRemoteAddress() : null;
         String name = a.getName();
-        jdbc.update("INSERT INTO login_history(user_id, username, success, ip) VALUES ((SELECT id FROM users WHERE username = ?), ?, ?, ?)",
-            name, name, ok, ip);
+        String ua = null;
+        if (org.springframework.web.context.request.RequestContextHolder.getRequestAttributes()
+                instanceof org.springframework.web.context.request.ServletRequestAttributes sra) {
+            ua = sra.getRequest().getHeader("User-Agent");
+            if (ua != null && ua.length() > 300) ua = ua.substring(0, 300);
+        }
+        jdbc.update("INSERT INTO login_history(user_id, username, success, ip, user_agent) VALUES ((SELECT id FROM users WHERE username = ?), ?, ?, ?, ?)",
+            name, name, ok, ip, ua);
         if (ok) {
             jdbc.update("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE username = ?", name);
         } else {

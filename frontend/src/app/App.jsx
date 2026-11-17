@@ -12,6 +12,7 @@ import InvoiceList from "../features/invoices/InvoiceList.jsx";
 import ReportsPage from "../features/reports/ReportsPage.jsx";
 import StaffPage from "../features/users/StaffPage.jsx";
 import RolesPage from "../features/users/RolesPage.jsx";
+import LogsPage from "../features/logs/LogsPage.jsx";
 import CashPage from "../features/branch/CashPage.jsx";
 import InventoryPage from "../features/branch/InventoryPage.jsx";
 import PurchaseOrdersPage from "../features/branch/PurchaseOrdersPage.jsx";
@@ -52,6 +53,7 @@ export default function App() {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/admin/reports" element={<ReportsPage side="hq" />} />
             <Route path="/admin/users" element={<StaffPage side="hq" />} />
+            <Route path="/admin/logs" element={<LogsPage />} />
             <Route path="/admin/roles" element={<RolesPage />} />
             <Route path="/admin/receivables" element={<InvoiceList side="hq" />} />
             <Route path="/admin/branches" element={<BranchesPage />} />
