@@ -7,8 +7,8 @@ function navFor(me, can) {
       { to: "/admin", label: "Dashboard", end: true },
       can("branches_view") && { to: "/admin/branches", label: "Branches" },
       can("products_view") && { to: "/admin/products", label: "Products" },
-      { label: "Branch PO", soon: true },
-      { label: "Inventory", soon: true },
+      can("branch_po_admin_view") && { to: "/admin/branch-po", label: "Branch PO" },
+      can("items_master_view") && { to: "/admin/items", label: "Items" },
       { label: "Reports", soon: true },
     ].filter(Boolean);
   }
@@ -16,8 +16,8 @@ function navFor(me, can) {
     { to: "/branch", label: "Dashboard", end: true },
     can("pos_view") && { to: "/pos", label: "Point of Sale" },
     can("orders_view") && { to: "/branch/orders", label: "Order List" },
-    { label: "Item Inventory", soon: true },
-    { label: "Purchase Orders", soon: true },
+    can("branch_inventory_view") && { to: "/branch/inventory", label: "Item Inventory" },
+    can("branch_po_view") && { to: "/branch/purchase-orders", label: "Purchase Orders" },
     { label: "Reports", soon: true },
   ].filter(Boolean);
 }

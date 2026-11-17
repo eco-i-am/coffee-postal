@@ -7,6 +7,10 @@ import BranchesPage from "../features/branches/BranchesPage.jsx";
 import ProductsPage from "../features/products/ProductsPage.jsx";
 import PosPage from "../features/pos/PosPage.jsx";
 import OrdersPage from "../features/branch/OrdersPage.jsx";
+import InventoryPage from "../features/branch/InventoryPage.jsx";
+import PurchaseOrdersPage from "../features/branch/PurchaseOrdersPage.jsx";
+import ItemsPage from "../features/admin/ItemsPage.jsx";
+import BranchPoAdminPage from "../features/admin/BranchPoAdminPage.jsx";
 
 function Protected({ scope }) {
   const { me, ready } = useAuth();
@@ -32,10 +36,14 @@ export default function App() {
           <Route path="/branch" element={<Dashboard kind="branch" />} />
           <Route path="/pos" element={<PosPage />} />
           <Route path="/branch/orders" element={<OrdersPage />} />
+          <Route path="/branch/inventory" element={<InventoryPage />} />
+          <Route path="/branch/purchase-orders" element={<PurchaseOrdersPage />} />
           <Route element={<Protected scope="ADMIN" />}>
             <Route path="/admin" element={<Dashboard kind="admin" />} />
             <Route path="/admin/branches" element={<BranchesPage />} />
             <Route path="/admin/products" element={<ProductsPage />} />
+            <Route path="/admin/items" element={<ItemsPage />} />
+            <Route path="/admin/branch-po" element={<BranchPoAdminPage />} />
           </Route>
         </Route>
       </Route>

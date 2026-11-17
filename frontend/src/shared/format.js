@@ -3,6 +3,24 @@ export const METHOD_NAMES = { CASH: "Cash", GCASH: "GCash", MAYA: "Maya", CARD: 
 export const STATUS_NAMES = { PAID: "Paid", REFUNDED: "Refunded", VOID: "Void" };
 export const DISCOUNT_NAMES = { NONE: "None", SENIOR_PWD: "Senior / PWD", PROMO10: "Promo 10%" };
 
+export const PO_STATUS = {
+  REQUESTED: "Waiting for HQ", APPROVED: "Approved", SHIPPED: "Sent by HQ",
+  RECEIVED: "Received", REJECTED: "Rejected", CANCELLED: "Cancelled",
+};
+export const MOVE_NAMES = { OPENING: "Opening stock", ADJUST: "Count correction", WASTE: "Waste", PO_RECEIVE: "Received from HQ" };
+
+/** CSS tag colour for a PO status: green = good, yellow = waiting on someone, red = stopped. */
+export function poTone(status) {
+  if (status === "RECEIVED" || status === "APPROVED" || status === "SHIPPED") return "g";
+  if (status === "REQUESTED") return "y";
+  return "r";
+}
+export const poNo = (id) => `PO-${String(id).padStart(4, "0")}`;
+
+export function dateTimeOf(iso) {
+  return new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });
+}
+
 const MANILA = "Asia/Manila";
 
 export function timeOf(iso) {

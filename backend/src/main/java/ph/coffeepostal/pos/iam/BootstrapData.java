@@ -46,7 +46,28 @@ class BootstrapData implements ApplicationRunner {
                 log.info("Created Super Admin '{}'", adminUser);
             }
         }
-        if (seedDemo && !demoPassword.isBlank()) { seedDemo(); seedCatalog(); }
+        if (seedDemo && !demoPassword.isBlank()) { seedDemo(); seedCatalog(); seedInventory(); }
+    }
+
+    /** Sample stock items and opening stock for the demo branches (dev only). */
+    private void seedInventory() {
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM items", Integer.class);
+        if (n != null && n > 0) return;
+        Object[][] items = {
+            {"Espresso beans (1 kg bag)", "bag", 85000, 4}, {"Fresh milk (1 L)", "carton", 9500, 20},
+            {"Oat milk (1 L)", "carton", 18000, 6}, {"Caramel syrup (750 ml)", "bottle", 52000, 3},
+            {"Cups 12 oz (50 pcs)", "pack", 18000, 5}, {"Lids 12 oz (50 pcs)", "pack", 9000, 5},
+            {"Straws (100 pcs)", "pack", 4500, 4}, {"Butter croissant (frozen, 12 pcs)", "box", 96000, 2}};
+        for (Object[] i : items) {
+            jdbc.update("INSERT INTO items(name, unit, cost, reorder_level) VALUES (?, ?, ?, ?)", i[0], i[1], i[2], i[3]);
+        }
+        // opening stock: plenty of most things, the caramel syrup deliberately low so "low stock" shows up
+        jdbc.update("""
+            INSERT INTO stock_movements(branch_id, item_id, qty, kind, reason)
+            SELECT b.id, i.id, CASE WHEN i.name LIKE 'Caramel%' THEN 2 ELSE i.reorder_level * 3 END, 'OPENING', 'Opening stock'
+            FROM branches b CROSS JOIN items i WHERE b.code IN ('CEB-01','CEB-02')
+            """);
+        log.info("Seeded demo inventory (dev only)");
     }
 
     /** Sample menu so the POS has something to sell in dev. The real menu is entered by HQ. */
