@@ -15,6 +15,9 @@ public class InventoryService {
     public record StockRow(long itemId, String name, String unit, long cost, long onHand, long reorderLevel, boolean low) {}
     public record Movement(long id, long qty, String kind, String reason, String ref, String by, Instant at) {}
 
+    /** Stock is counted in thousandths of an item's unit: 1 bag = 1000. */
+    public static final long SCALE = 1000;
+
     private final JdbcTemplate jdbc;
 
     public InventoryService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
@@ -58,7 +61,7 @@ public class InventoryService {
             """, (rs, i) -> {
                 long onHand = rs.getLong("on_hand"), reorder = rs.getLong("reorder_level");
                 return new StockRow(rs.getLong("id"), rs.getString("name"), rs.getString("unit"), rs.getLong("cost"),
-                    onHand, reorder, reorder > 0 && onHand <= reorder);
+                    onHand, reorder, onHand < 0 || (reorder > 0 && onHand <= reorder * SCALE));
             }, branchId);
     }
 
@@ -73,10 +76,41 @@ public class InventoryService {
     public void move(long branchId, long itemId, long qty, String kind, String reason, String ref, Long userId) {
         jdbc.query("SELECT id FROM items WHERE id = ? FOR UPDATE", rs -> { }, itemId);
         if (qty < 0 && onHand(branchId, itemId) + qty < 0) {
-            throw new ApiException(HttpStatus.CONFLICT, "Only " + onHand(branchId, itemId) + " on hand. You cannot take out " + (-qty) + ".");
+            throw new ApiException(HttpStatus.CONFLICT, "Only " + show(onHand(branchId, itemId)) + " on hand. You cannot take out " + show(-qty) + ".");
         }
         jdbc.update("INSERT INTO stock_movements(branch_id, item_id, qty, kind, reason, ref, user_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
             branchId, itemId, qty, kind, reason, ref, userId);
+    }
+
+    /** 1500 -> "1.5". */
+    public static String show(long thousandths) {
+        return java.math.BigDecimal.valueOf(thousandths, 3).stripTrailingZeros().toPlainString();
+    }
+
+    // ---- recipes ----
+    public record RecipeLine(long itemId, String name, String unit, long qty) {}
+
+    public List<RecipeLine> recipe(long productId) {
+        return jdbc.query("""
+            SELECT r.item_id, i.name, i.unit, r.qty FROM product_recipes r JOIN items i ON i.id = r.item_id
+            WHERE r.product_id = ? ORDER BY lower(i.name)
+            """, (rs, i) -> new RecipeLine(rs.getLong("item_id"), rs.getString("name"), rs.getString("unit"), rs.getLong("qty")), productId);
+    }
+
+    public boolean productExists(long productId) {
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM products WHERE id = ?", Integer.class, productId);
+        return n != null && n > 0;
+    }
+
+    /** Replaces the whole recipe. qty is in thousandths per one product sold. */
+    @Transactional
+    public void saveRecipe(long productId, java.util.Map<Long, Long> qtyByItem) {
+        jdbc.update("DELETE FROM product_recipes WHERE product_id = ?", productId);
+        for (var e : qtyByItem.entrySet()) {
+            int n = jdbc.update("INSERT INTO product_recipes(product_id, item_id, qty) SELECT ?, i.id, ? FROM items i WHERE i.id = ?",
+                productId, e.getValue(), e.getKey());
+            if (n == 0) throw new ApiException(HttpStatus.BAD_REQUEST, "An item in this recipe no longer exists.");
+        }
     }
 
     public boolean itemActive(long itemId) {

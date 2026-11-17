@@ -2,7 +2,7 @@ import { useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { peso } from "../../shared/money.js";
-import { PO_STATUS, dateTimeOf, poNo, poTone } from "../../shared/format.js";
+import { PO_STATUS, dateTimeOf, fmtQty, poNo, poTone } from "../../shared/format.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import PoDetail from "../po/PoDetail.jsx";
 
@@ -47,7 +47,7 @@ function NewPo({ onClose, onCreated }) {
                 {items.map((i) => (
                   <tr key={i.itemId}>
                     <td><b>{i.name}</b> <small>({i.unit})</small>{i.low && <> <span className="tag r">Low</span></>}</td>
-                    <td className="n">{i.onHand}</td>
+                    <td className="n">{fmtQty(i.onHand)}</td>
                     <td className="n">{peso(i.cost)}</td>
                     <td className="n"><input className="qtyin" aria-label={`Order ${i.name}`} inputMode="numeric" value={qty[i.itemId] || ""} onChange={(e) => setQty({ ...qty, [i.itemId]: e.target.value.trim() })} /></td>
                   </tr>

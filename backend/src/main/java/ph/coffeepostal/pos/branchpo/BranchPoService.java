@@ -157,7 +157,7 @@ public class BranchPoService {
                 throw new ApiException(HttpStatus.BAD_REQUEST, "You cannot receive more than HQ approved.");   // rolls the whole receive back
             }
             jdbc.update("UPDATE branch_po_lines SET qty_received = ? WHERE id = ?", q, l.id());
-            if (q > 0) inventory.move(branchId, l.itemId(), q, "PO_RECEIVE", null, "PO-" + id, userId);
+            if (q > 0) inventory.move(branchId, l.itemId(), q * InventoryService.SCALE, "PO_RECEIVE", null, "PO-" + id, userId);
         }
     }
 

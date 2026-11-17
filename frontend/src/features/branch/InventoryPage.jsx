@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
-import { MOVE_NAMES, dateTimeOf } from "../../shared/format.js";
+import { MOVE_NAMES, dateTimeOf, fmtQty } from "../../shared/format.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 
 const loadStock = () => api("/api/branch/inventory");
@@ -32,7 +32,7 @@ function AdjustModal({ item, onClose, onDone }) {
     <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <form className="modal" role="dialog" aria-modal="true" onSubmit={submit}>
         <h2>{item.name}</h2>
-        <p className="hint">On hand now: <b>{item.onHand} {item.unit}</b></p>
+        <p className="hint">On hand now: <b>{fmtQty(item.onHand)} {item.unit}</b></p>
         <div className="opts" role="group" aria-label="What happened">
           <button type="button" className="chip" aria-pressed={kind === "WASTE"} onClick={() => setKind("WASTE")}>Waste / spoiled</button>
           <button type="button" className="chip" aria-pressed={kind === "ADJUST"} onClick={() => setKind("ADJUST")}>Count correction</button>
@@ -74,7 +74,7 @@ function History({ item, onClose }) {
                 {data.map((m) => (
                   <tr key={m.id}>
                     <td>{dateTimeOf(m.at)}</td><td>{MOVE_NAMES[m.kind] || m.kind}</td>
-                    <td className="n"><b>{m.qty > 0 ? `+${m.qty}` : m.qty}</b></td>
+                    <td className="n"><b>{m.qty > 0 ? `+${fmtQty(m.qty)}` : fmtQty(m.qty)}</b></td>
                     <td>{[m.ref, m.reason, m.by].filter(Boolean).join(" · ")}</td>
                   </tr>
                 ))}
@@ -118,7 +118,7 @@ export default function InventoryPage() {
               {shown.map((r) => (
                 <tr key={r.itemId}>
                   <td><b>{r.name}</b></td>
-                  <td className="n"><b>{r.onHand}</b></td>
+                  <td className={`n${r.onHand < 0 ? " short" : ""}`}><b>{fmtQty(r.onHand)}</b></td>
                   <td>{r.unit}</td>
                   <td>{r.low ? <span className="tag r">Low - reorder</span> : <span className="tag g">OK</span>}</td>
                   <td className="rowbtns">

@@ -62,7 +62,7 @@ class BranchInventoryApi {
         if (!inventory.itemActive(r.itemId())) {
             throw new ApiException(HttpStatus.NOT_FOUND, "That item is not available.");
         }
-        long qty = r.kind().equals("WASTE") ? -r.delta() : r.delta();
+        long qty = (r.kind().equals("WASTE") ? -r.delta() : r.delta()) * InventoryService.SCALE;
         long before = inventory.onHand(me.branchId(), r.itemId());
         inventory.move(me.branchId(), r.itemId(), qty, r.kind(), r.reason().trim(), null, me.userId());
         audit.record(who.getName(), me.branchId(), "STOCK_" + r.kind(), "item", String.valueOf(r.itemId()),

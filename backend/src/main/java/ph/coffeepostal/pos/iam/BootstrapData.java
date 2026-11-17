@@ -64,9 +64,19 @@ class BootstrapData implements ApplicationRunner {
         // opening stock: plenty of most things, the caramel syrup deliberately low so "low stock" shows up
         jdbc.update("""
             INSERT INTO stock_movements(branch_id, item_id, qty, kind, reason)
-            SELECT b.id, i.id, CASE WHEN i.name LIKE 'Caramel%' THEN 2 ELSE i.reorder_level * 3 END, 'OPENING', 'Opening stock'
+            SELECT b.id, i.id, CASE WHEN i.name LIKE 'Caramel%' THEN 2000 ELSE i.reorder_level * 3000 END, 'OPENING', 'Opening stock'
             FROM branches b CROSS JOIN items i WHERE b.code IN ('CEB-01','CEB-02')
             """);
+        // recipes (thousandths of the item's unit per drink): 18 g of a 1 kg bag = 18, 200 ml of a 1 L carton = 200, and so on
+        Object[][] recipes = {
+            {"Americano", "Espresso%", 18}, {"Americano", "Cups 12%", 20}, {"Americano", "Lids 12%", 20},
+            {"Cafe Latte", "Espresso%", 18}, {"Cafe Latte", "Fresh milk%", 200}, {"Cafe Latte", "Cups 12%", 20}, {"Cafe Latte", "Lids 12%", 20}};
+        for (Object[] r : recipes) {
+            jdbc.update("""
+                INSERT INTO product_recipes(product_id, item_id, qty)
+                SELECT p.id, i.id, ? FROM products p, items i WHERE p.name = ? AND i.name LIKE ?
+                """, r[2], r[0], r[1]);
+        }
         log.info("Seeded demo inventory (dev only)");
     }
 

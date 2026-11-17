@@ -2,6 +2,8 @@ import { useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { peso } from "../../shared/money.js";
+import { useAuth } from "../../app/AuthContext.jsx";
+import RecipeModal from "./RecipeModal.jsx";
 
 const loadProducts = () => api("/api/admin/products");
 const EMPTY = { name: "", categoryId: "", price: "", cost: "", art: "hot", hasSizes: false };
@@ -13,6 +15,8 @@ export default function ProductsPage() {
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
   const [catName, setCatName] = useState("");
+  const { can } = useAuth();
+  const [recipeFor, setRecipeFor] = useState(null);
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
 
@@ -142,7 +146,10 @@ export default function ProductsPage() {
                     <td>{p.category}</td>
                     <td className="n">{peso(p.price)}</td>
                     <td><span className={`tag ${p.active ? "g" : "r"}`}>{p.active ? "On menu" : "Off menu"}</span></td>
-                    <td><button className="btn ghost sm" type="button" onClick={() => toggle(p)}>{p.active ? "Switch off" : "Switch on"}</button></td>
+                    <td className="rowbtns">
+                      {can("products_edit") && <button className="btn ghost sm" type="button" onClick={() => setRecipeFor(p)}>Recipe</button>}
+                      <button className="btn ghost sm" type="button" onClick={() => toggle(p)}>{p.active ? "Switch off" : "Switch on"}</button>
+                    </td>
                   </tr>
                 ))}
                 {products.length === 0 && (
@@ -153,6 +160,7 @@ export default function ProductsPage() {
           )}
         </div>
       </div>
+      {recipeFor && <RecipeModal product={recipeFor} onClose={() => setRecipeFor(null)} onSaved={(m) => { setRecipeFor(null); setMsg(m); }} />}
     </section>
   );
 }

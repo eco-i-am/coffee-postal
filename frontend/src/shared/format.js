@@ -7,7 +7,13 @@ export const PO_STATUS = {
   REQUESTED: "Waiting for HQ", APPROVED: "Approved", SHIPPED: "Sent by HQ",
   RECEIVED: "Received", REJECTED: "Rejected", CANCELLED: "Cancelled",
 };
-export const MOVE_NAMES = { OPENING: "Opening stock", ADJUST: "Count correction", WASTE: "Waste", PO_RECEIVE: "Received from HQ" };
+export const MOVE_NAMES = { OPENING: "Opening stock", ADJUST: "Count correction", WASTE: "Waste", PO_RECEIVE: "Received from HQ", SALE: "Used in sales" };
+
+/** Stock is counted in thousandths of a unit (1 bag = 1000). 1500 -> "1.5", -36 -> "-0.036". */
+export function fmtQty(thousandths) {
+  const n = thousandths / 1000;
+  return String(Number(n.toFixed(3)));
+}
 
 /** CSS tag colour for a PO status: green = good, yellow = waiting on someone, red = stopped. */
 export function poTone(status) {

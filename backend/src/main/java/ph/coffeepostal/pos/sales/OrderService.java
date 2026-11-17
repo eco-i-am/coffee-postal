@@ -113,6 +113,14 @@ public class OrderService {
             jdbc.update("INSERT INTO order_lines(order_id, product_id, name, variant, addons, unit_price, qty) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 r.id(), p.productId(), p.name(), p.variant(), p.addons(), p.unit(), p.qty());
         }
+        // Use up stock according to each product's recipe. A sale is never blocked by low stock
+        // (the drink is already made); the branch just goes negative and shows as "low".
+        jdbc.update("""
+            INSERT INTO stock_movements(branch_id, item_id, qty, kind, ref, user_id)
+            SELECT ?, r.item_id, -sum(r.qty * ol.qty), 'SALE', ?, ?
+            FROM order_lines ol JOIN product_recipes r ON r.product_id = ol.product_id
+            WHERE ol.order_id = ? GROUP BY r.item_id HAVING sum(r.qty * ol.qty) > 0
+            """, who.branchId(), "ORD-" + orderNo, who.userId(), r.id());
         jdbc.update("INSERT INTO order_payments(order_id, method, amount, tendered, reference) VALUES (?, ?, ?, ?, ?)",
             r.id(), r.paymentMethod(), t.total(), tendered, r.reference());
         return new OrderRes(orderNo, t.subtotal(), t.discount(), t.total(), t.vatable(), t.vat(), tendered - t.total());
