@@ -1,0 +1,16 @@
+# Local development: just the database. Run the app with  ./gradlew bootRun --args='--spring.profiles.active=dev'
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: coffeepostal
+      POSTGRES_USER: coffee
+      POSTGRES_PASSWORD: coffee
+    ports: ["5432:5432"]
+    volumes: [dbdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U coffee -d coffeepostal"]
+      interval: 5s
+      retries: 10
+volumes:
+  dbdata:

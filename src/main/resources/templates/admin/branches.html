@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Branches')}"></head>
+<body>
+<div class="topbar">Coffee Postal - HQ Admin</div>
+<main style="padding:1rem;display:grid;gap:1rem;max-width:960px">
+  <p><a th:href="@{/admin}">&larr; Dashboard</a></p>
+  <h1>Branches</h1>
+  <p th:if="${msg}" th:text="${msg}" role="status"></p>
+
+  <section class="card">
+    <h2>Add a branch</h2>
+    <form method="post" th:action="@{/admin/branches}" th:object="${form}" style="display:grid;gap:.75rem;max-width:420px">
+      <label>Code <input th:field="*{code}" placeholder="CEB-03" required></label>
+      <p th:if="${#fields.hasErrors('code')}" th:errors="*{code}" role="alert"></p>
+      <label>Name <input th:field="*{name}" placeholder="Talisay" required></label>
+      <p th:if="${#fields.hasErrors('name')}" th:errors="*{name}" role="alert"></p>
+      <label>Address <input th:field="*{address}"></label>
+      <label>Phone <input th:field="*{phone}"></label>
+      <button class="btn" type="submit">Add branch</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <table style="width:100%;border-collapse:collapse">
+      <thead><tr><th align="left">Code</th><th align="left">Name</th><th align="left">Status</th><th></th></tr></thead>
+      <tbody>
+        <tr th:each="b : ${branches}">
+          <td th:text="${b.code}">CEB-01</td>
+          <td th:text="${b.name}">Cebu City</td>
+          <td th:text="${b.active} ? 'Open' : 'Closed'">Open</td>
+          <td>
+            <form method="post" th:action="@{/admin/branches/{id}/toggle(id=${b.id})}">
+              <button class="btn btn-warm" type="submit" th:text="${b.active} ? 'Close' : 'Reopen'">Close</button>
+            </form>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body></html>

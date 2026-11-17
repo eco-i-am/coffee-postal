@@ -1,0 +1,10 @@
+# Local development only. Never use these values in production.
+spring:
+  thymeleaf.cache: false
+server.servlet.session.cookie.secure: false
+app:
+  seed-demo: true
+  seed-demo-password: coffee123        # demo manager + cashier (dev only)
+  bootstrap:
+    admin-username: admin
+    admin-password: coffee123          # dev only; prod reads APP_BOOTSTRAP_ADMIN_PASSWORD

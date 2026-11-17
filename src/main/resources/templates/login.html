@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{fragments/layout :: head('Login')}"></head>
+<body>
+<main style="max-width:380px;margin:12vh auto;padding:0 1rem">
+  <div class="card">
+    <h1>Welcome to Coffee Postal</h1>
+    <p th:if="${param.error}">Wrong username or password.</p>
+    <form method="post" th:action="@{/login}" style="display:grid;gap:.75rem">
+      <input name="username" placeholder="Username" autocomplete="username" required>
+      <input name="password" type="password" placeholder="Password" autocomplete="current-password" required>
+      <button class="btn" type="submit">Sign in</button>
+    </form>
+  </div>
+</main>
+</body></html>

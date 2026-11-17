@@ -1,0 +1,19 @@
+/* Coffee Postal brand tokens (from Official Brand Board) */
+:root{
+  --strawberry:#FE8282; --sunglow:#FFC74A; --tiffany:#8DCCC0; --cantaloupe:#FFA076;
+  --bloom:#FDCDC1; --star:#F9F6E3; --midnight:#205966; --reseda:#6F8765;
+  --bg:var(--star); --text:var(--midnight); --muted:var(--reseda);
+  --radius:16px; --tap:56px;
+  --font-head:"Quentin Pro","Fredoka","Baloo 2",system-ui,sans-serif; /* Quentin Pro is licensed; Fredoka is the free fallback */
+  --font-body:"Josefin Sans",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:400 16px/1.4 var(--font-body)}
+h1,h2,h3{font-family:var(--font-head);margin:0 0 .5em}
+/* White on strawberry fails WCAG; use midnight text on warm surfaces, cream on midnight. */
+.btn{min-height:var(--tap);padding:0 1.25rem;border:0;border-radius:var(--radius);font:700 1rem var(--font-body);cursor:pointer;background:var(--midnight);color:var(--star)}
+.btn-warm{background:var(--sunglow);color:var(--midnight)}
+.btn-brand{background:var(--strawberry);color:var(--midnight)}
+.card{background:#fff;border-radius:var(--radius);padding:1rem;box-shadow:0 2px 0 var(--bloom)}
+.topbar{background:var(--strawberry);color:var(--midnight);padding:.75rem 1rem;font-family:var(--font-head);font-weight:700}
+input{min-height:48px;padding:0 .75rem;border-radius:12px;border:2px solid var(--bloom);font:inherit}
