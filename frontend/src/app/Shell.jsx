@@ -18,6 +18,7 @@ function navFor(me, can) {
     can("orders_view") && { to: "/branch/orders", label: "Order List" },
     can("branch_inventory_view") && { to: "/branch/inventory", label: "Item Inventory" },
     can("branch_po_view") && { to: "/branch/purchase-orders", label: "Purchase Orders" },
+    can("cash_inout_view") && { to: "/branch/cash", label: "Cash Drawer" },
     { label: "Reports", soon: true },
   ].filter(Boolean);
 }

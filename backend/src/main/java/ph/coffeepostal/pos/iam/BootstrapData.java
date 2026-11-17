@@ -112,7 +112,7 @@ class BootstrapData implements ApplicationRunner {
         if (b != null && b > 0) return;
         jdbc.update("INSERT INTO branches(code, name, address) VALUES ('CEB-01','Cebu City','Cebu City'),('CEB-02','Mandaue','Mandaue City')");
         long branch1 = jdbc.queryForObject("SELECT id FROM branches WHERE code='CEB-01'", Long.class);
-        createUser("manager", "Branch Manager", "Demo Manager", demoPassword, null, branch1);
+        createUser("manager", "Branch Manager", "Demo Manager", demoPassword, "9999", branch1);   // dev only: manager PIN 9999
         createUser("cashier", "Cashier", "Demo Cashier", demoPassword, "1234", branch1);
         log.info("Seeded demo branches and users (dev only)");
     }

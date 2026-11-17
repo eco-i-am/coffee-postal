@@ -104,11 +104,13 @@ public class OrderService {
             INSERT INTO branch_order_counters(branch_id, last_no) VALUES (?, 1)
             ON CONFLICT (branch_id) DO UPDATE SET last_no = branch_order_counters.last_no + 1 RETURNING last_no
             """, Long.class, who.branchId());
+        // tie the sale to the cashier's open shift, if they have one (so the drawer count can add up)
+        List<Long> open = jdbc.queryForList("SELECT id FROM shifts WHERE cashier_id = ? AND closed_at IS NULL", Long.class, who.userId());
         jdbc.update("""
-            INSERT INTO orders(id, branch_id, order_no, cashier_id, order_type, discount_type, subtotal, discount, total, vatable, vat)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO orders(id, branch_id, order_no, cashier_id, order_type, discount_type, subtotal, discount, total, vatable, vat, shift_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, r.id(), who.branchId(), orderNo, who.userId(), r.orderType(), r.discountType(),
-            t.subtotal(), t.discount(), t.total(), t.vatable(), t.vat());
+            t.subtotal(), t.discount(), t.total(), t.vatable(), t.vat(), open.isEmpty() ? null : open.get(0));
         for (Priced p : lines) {
             jdbc.update("INSERT INTO order_lines(order_id, product_id, name, variant, addons, unit_price, qty) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 r.id(), p.productId(), p.name(), p.variant(), p.addons(), p.unit(), p.qty());

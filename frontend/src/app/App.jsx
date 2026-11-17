@@ -7,6 +7,7 @@ import BranchesPage from "../features/branches/BranchesPage.jsx";
 import ProductsPage from "../features/products/ProductsPage.jsx";
 import PosPage from "../features/pos/PosPage.jsx";
 import OrdersPage from "../features/branch/OrdersPage.jsx";
+import CashPage from "../features/branch/CashPage.jsx";
 import InventoryPage from "../features/branch/InventoryPage.jsx";
 import PurchaseOrdersPage from "../features/branch/PurchaseOrdersPage.jsx";
 import ItemsPage from "../features/admin/ItemsPage.jsx";
@@ -36,6 +37,7 @@ export default function App() {
           <Route path="/branch" element={<Dashboard kind="branch" />} />
           <Route path="/pos" element={<PosPage />} />
           <Route path="/branch/orders" element={<OrdersPage />} />
+          <Route path="/branch/cash" element={<CashPage />} />
           <Route path="/branch/inventory" element={<InventoryPage />} />
           <Route path="/branch/purchase-orders" element={<PurchaseOrdersPage />} />
           <Route element={<Protected scope="ADMIN" />}>

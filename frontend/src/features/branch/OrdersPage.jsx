@@ -6,9 +6,40 @@ import {
   DISCOUNT_NAMES, METHOD_NAMES, STATUS_NAMES, TYPE_NAMES, prettyDate, timeOf, todayManila,
 } from "../../shared/format.js";
 
-function OrderDetail({ id, onClose }) {
+function RefundForm({ id, onDone, onCancel }) {
+  const [reason, setReason] = useState("");
+  const [pin, setPin] = useState("");
+  const [err, setErr] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e) {
+    e.preventDefault();
+    setBusy(true); setErr("");
+    try {
+      await api(`/api/branch/orders/${id}/refund`, { method: "POST", body: { reason, pin } });
+      onDone();
+    } catch (e2) { setErr(e2.message); setBusy(false); setPin(""); }
+  }
+
+  return (
+    <form className="stack" style={{ gap: 10 }} onSubmit={submit}>
+      <div className="addr"><label htmlFor="rfr">Why is it being refunded?</label>
+        <input id="rfr" value={reason} onChange={(e) => setReason(e.target.value)} autoFocus required /></div>
+      <div className="addr"><label htmlFor="rfp">Manager PIN</label>
+        <input id="rfp" type="password" inputMode="numeric" autoComplete="off" value={pin} onChange={(e) => setPin(e.target.value)} required /></div>
+      {err && <p className="err" role="alert">{err}</p>}
+      <div className="opts">
+        <button type="button" className="btn ghost" onClick={onCancel}>Back</button>
+        <button type="submit" className="btn" style={{ flex: 1 }} disabled={busy || !reason.trim() || !pin}>Refund this order</button>
+      </div>
+    </form>
+  );
+}
+
+function OrderDetail({ id, onClose, onChanged }) {
   const load = useCallback(() => api(`/api/branch/orders/${id}`), [id]);
-  const { data: d, error } = useLoad(load);
+  const { data: d, error, reload } = useLoad(load);
+  const [refunding, setRefunding] = useState(false);
   return (
     <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Order details">
@@ -44,7 +75,20 @@ function OrderDetail({ id, onClose }) {
             </div>
           </>
         )}
-        <button className="btn ghost" onClick={onClose}>Close</button>
+        {d?.refund && (
+          <p className="notice" role="status">
+            Refunded {timeOf(d.refund.at)}: {d.refund.reason}. Approved by {d.refund.approvedBy}.
+          </p>
+        )}
+        {d && d.order.status === "PAID" && refunding && (
+          <RefundForm id={id} onCancel={() => setRefunding(false)} onDone={() => { setRefunding(false); onChanged("Order refunded."); reload(); }} />
+        )}
+        {!refunding && (
+          <div className="opts">
+            <button className="btn ghost" onClick={onClose}>Close</button>
+            {d && d.order.status === "PAID" && <button className="btn ghost" onClick={() => setRefunding(true)}>Refund</button>}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -62,7 +106,8 @@ export default function OrdersPage() {
     if (/^\d+$/.test(no.trim())) q.set("no", no.trim());
     return api(`/api/branch/orders?${q}`);
   }, [date, status, no]);
-  const { data: rows, error, loading } = useLoad(load);
+  const { data: rows, error, loading, reload } = useLoad(load);
+  const [msg, setMsg] = useState("");
 
   const total = (rows || []).filter((o) => o.status === "PAID").reduce((s, o) => s + o.total, 0);
 
@@ -115,7 +160,8 @@ export default function OrdersPage() {
         {rows && rows.length > 0 && <p className="hint">{rows.length} orders &middot; paid total {peso(total)}</p>}
       </div>
 
-      {open && <OrderDetail id={open} onClose={() => setOpen(null)} />}
+      {msg && <p className="notice" role="status">{msg}</p>}
+      {open && <OrderDetail id={open} onClose={() => setOpen(null)} onChanged={(m) => { setMsg(m); reload(); }} />}
     </section>
   );
 }

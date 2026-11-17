@@ -34,8 +34,9 @@ class BranchSalesApi {
                      List<Payment> payments, List<TopItem> top, List<Hour> hourly, List<OrderRow> recent) {}
     record Line(String name, String variant, String addons, long unitPrice, int qty) {}
     record Pay(String method, long amount, long tendered, String reference) {}
+    record Refund(String reason, Instant at, String approvedBy) {}
     record OrderDetail(OrderRow order, String discountType, long subtotal, long discount, long vatable, long vat,
-                       List<Line> lines, List<Pay> payments) {}
+                       List<Line> lines, List<Pay> payments, Refund refund) {}
 
     private final JdbcTemplate jdbc;
     private final OrderService orders;
@@ -134,7 +135,15 @@ class BranchSalesApi {
             (rs, i) -> new Line(rs.getString("name"), rs.getString("variant"), rs.getString("addons"), rs.getLong("unit_price"), rs.getInt("qty")), id);
         List<Pay> pays = jdbc.query("SELECT method, amount, tendered, reference FROM order_payments WHERE order_id = ? ORDER BY id",
             (rs, i) -> new Pay(rs.getString("method"), rs.getLong("amount"), rs.getLong("tendered"), rs.getString("reference")), id);
+        Refund refund = null;
+        if ("REFUNDED".equals(r.get(0).status())) {
+            Map<String, Object> f = jdbc.queryForMap("""
+                SELECT o.refund_reason, o.refunded_at, coalesce(a.full_name, '') AS approver
+                FROM orders o LEFT JOIN users a ON a.id = o.refund_approved_by WHERE o.id = ?
+                """, id);
+            refund = new Refund((String) f.get("refund_reason"), ((java.sql.Timestamp) f.get("refunded_at")).toInstant(), (String) f.get("approver"));
+        }
         return new OrderDetail(r.get(0), (String) o.get("discount_type"), ((Number) o.get("subtotal")).longValue(),
-            ((Number) o.get("discount")).longValue(), ((Number) o.get("vatable")).longValue(), ((Number) o.get("vat")).longValue(), lines, pays);
+            ((Number) o.get("discount")).longValue(), ((Number) o.get("vatable")).longValue(), ((Number) o.get("vat")).longValue(), lines, pays, refund);
     }
 }

@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { peso, totals } from "../../shared/money.js";
@@ -14,6 +15,8 @@ export const TYPES = [["DINE_IN", "Dine-in"], ["TAKEOUT", "Takeout"], ["DELIVERY
 export default function PosPage() {
   const loadMenu = useCallback(() => api("/api/pos/menu"), []);
   const { data: menu, error, loading } = useLoad(loadMenu);
+  const loadShift = useCallback(() => api("/api/branch/shift").catch(() => null), []);
+  const { data: shiftInfo } = useLoad(loadShift);
 
   const [cat, setCat] = useState("All");
   const [cart, setCart] = useState([]);
@@ -56,6 +59,9 @@ export default function PosPage() {
         </div>
       </header>
       {error && <p className="notice" role="alert">{error}</p>}
+      {shiftInfo && !shiftInfo.shift && (
+        <p className="notice" role="status">No shift is open, so cash sales will not be counted in your drawer. <Link to="/branch/cash">Open your shift</Link></p>
+      )}
 
       <div className="tabs" role="group" aria-label="Categories">
         {["All", ...(menu?.categories || [])].map((c) => (
