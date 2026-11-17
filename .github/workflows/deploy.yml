@@ -16,6 +16,11 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
       - run: ./gradlew --no-daemon test   # Testcontainers uses the runner's Docker
+        working-directory: backend
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci && npm test && npm run build
+        working-directory: frontend
 
   deploy:
     needs: test
@@ -32,10 +37,16 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
         with:
-          context: .
+          context: backend
           platforms: linux/arm64          # the Oracle Ampere A1 VM
           push: true
-          tags: ghcr.io/${{ github.repository }}:${{ github.sha }},ghcr.io/${{ github.repository }}:latest
+          tags: ghcr.io/${{ github.repository }}-api:${{ github.sha }},ghcr.io/${{ github.repository }}-api:latest
+      - uses: docker/build-push-action@v6
+        with:
+          context: frontend
+          platforms: linux/arm64
+          push: true
+          tags: ghcr.io/${{ github.repository }}-web:${{ github.sha }},ghcr.io/${{ github.repository }}-web:latest
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1
         with:
@@ -44,6 +55,6 @@ jobs:
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script: |
             cd /opt/coffee-postal/deploy
-            docker compose --env-file ../.env -f compose.prod.yaml pull app
+            docker compose --env-file ../.env -f compose.prod.yaml pull app web
             docker compose --env-file ../.env -f compose.prod.yaml up -d
             docker image prune -f
