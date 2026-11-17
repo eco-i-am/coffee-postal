@@ -100,17 +100,31 @@ public class OrderService {
             tendered = r.tendered();
         }
 
+        // An order that waited offline carries the time it was really sold. Accept up to 7 days back, never the future.
+        java.time.Instant now = java.time.Instant.now();
+        java.time.Instant soldAt = now;
+        if (r.soldAt() != null) {
+            if (r.soldAt().isAfter(now.plusSeconds(300))) throw bad("The sale time is in the future. Check the clock on this device.");
+            if (r.soldAt().isBefore(now.minus(java.time.Duration.ofDays(7)))) throw bad("This sale is more than 7 days old and cannot be uploaded. Ask HQ to enter it.");
+            soldAt = r.soldAt().isAfter(now) ? now : r.soldAt();
+        }
+        java.sql.Timestamp soldTs = java.sql.Timestamp.from(soldAt);
+
         long orderNo = jdbc.queryForObject("""
             INSERT INTO branch_order_counters(branch_id, last_no) VALUES (?, 1)
             ON CONFLICT (branch_id) DO UPDATE SET last_no = branch_order_counters.last_no + 1 RETURNING last_no
             """, Long.class, who.branchId());
         // tie the sale to the cashier's open shift, if they have one (so the drawer count can add up)
-        List<Long> open = jdbc.queryForList("SELECT id FROM shifts WHERE cashier_id = ? AND closed_at IS NULL", Long.class, who.userId());
+        // (the shift that was open when it was SOLD, which matters for an order uploaded after the shift closed)
+        List<Long> open = jdbc.queryForList("""
+            SELECT id FROM shifts WHERE cashier_id = ? AND opened_at <= ? AND (closed_at IS NULL OR closed_at >= ?)
+            ORDER BY opened_at DESC LIMIT 1
+            """, Long.class, who.userId(), soldTs, soldTs);
         jdbc.update("""
-            INSERT INTO orders(id, branch_id, order_no, cashier_id, order_type, discount_type, subtotal, discount, total, vatable, vat, shift_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO orders(id, branch_id, order_no, cashier_id, order_type, discount_type, subtotal, discount, total, vatable, vat, shift_id, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, r.id(), who.branchId(), orderNo, who.userId(), r.orderType(), r.discountType(),
-            t.subtotal(), t.discount(), t.total(), t.vatable(), t.vat(), open.isEmpty() ? null : open.get(0));
+            t.subtotal(), t.discount(), t.total(), t.vatable(), t.vat(), open.isEmpty() ? null : open.get(0), soldTs);
         for (Priced p : lines) {
             jdbc.update("INSERT INTO order_lines(order_id, product_id, name, variant, addons, unit_price, qty) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 r.id(), p.productId(), p.name(), p.variant(), p.addons(), p.unit(), p.qty());
@@ -118,11 +132,11 @@ public class OrderService {
         // Use up stock according to each product's recipe. A sale is never blocked by low stock
         // (the drink is already made); the branch just goes negative and shows as "low".
         jdbc.update("""
-            INSERT INTO stock_movements(branch_id, item_id, qty, kind, ref, user_id)
-            SELECT ?, r.item_id, -sum(r.qty * ol.qty), 'SALE', ?, ?
+            INSERT INTO stock_movements(branch_id, item_id, qty, kind, ref, user_id, created_at)
+            SELECT ?, r.item_id, -sum(r.qty * ol.qty), 'SALE', ?, ?, ?
             FROM order_lines ol JOIN product_recipes r ON r.product_id = ol.product_id
             WHERE ol.order_id = ? GROUP BY r.item_id HAVING sum(r.qty * ol.qty) > 0
-            """, who.branchId(), "ORD-" + orderNo, who.userId(), r.id());
+            """, who.branchId(), "ORD-" + orderNo, who.userId(), soldTs, r.id());
         jdbc.update("INSERT INTO order_payments(order_id, method, amount, tendered, reference) VALUES (?, ?, ?, ?, ?)",
             r.id(), r.paymentMethod(), t.total(), tendered, r.reference());
         return new OrderRes(orderNo, t.subtotal(), t.discount(), t.total(), t.vatable(), t.vat(), tendered - t.total());

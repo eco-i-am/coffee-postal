@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import ChangePassword from "./ChangePassword.jsx";
+import { useSync } from "./SyncContext.jsx";
 import { useAuth } from "./AuthContext.jsx";
 
 function navFor(me, can) {
@@ -34,6 +35,7 @@ function navFor(me, can) {
 export default function Shell() {
   const { me, can, signOut } = useAuth();
   const [changing, setChanging] = useState(false);
+  const sync = useSync();
   return (
     <div className="app">
       <aside className="side">
@@ -61,6 +63,9 @@ export default function Shell() {
           )}
         </nav>
         <div className="demo">
+          {(!sync.online || sync.pending > 0) && (
+            <p className="syncchip" role="status">{!sync.online ? "Offline" : "Online"}{sync.pending > 0 ? ` · ${sync.pending} to upload` : ""}</p>
+          )}
           <div className="who">
             <b>{me.fullName || me.username}</b>
             <br />

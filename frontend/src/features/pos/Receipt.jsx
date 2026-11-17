@@ -7,7 +7,8 @@ export default function Receipt({ res, method, tendered, cart, otype, disc, onDo
   const time = new Date().toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
   return (
     <>
-      <h2>Order #{res.orderNo} paid</h2>
+      <h2>{res.offline ? `Paid. Saved as ${res.ref}` : `Order #${res.orderNo} paid`}</h2>
+      {res.offline && <p className="notice offline" role="status">No internet. This order is saved on this device and gets its order number when it uploads.</p>}
       <div className="receipt">
         <div className="c"><b>COFFEE POSTAL</b><br />{time} &middot; {TYPE_NAMES[otype]}<hr /></div>
         {cart.map((l) => (

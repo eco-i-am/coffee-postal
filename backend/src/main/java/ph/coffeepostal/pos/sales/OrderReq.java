@@ -15,5 +15,6 @@ public record OrderReq(
         @NotEmpty @Size(max = 60) List<@Valid OrderLineReq> lines,
         @NotNull String paymentMethod,    // CASH | GCASH | MAYA | CARD
         Long tendered,                    // cash handed over, centavos (cash only)
-        @Size(max = 80) String reference) {
+        @Size(max = 80) String reference,
+        java.time.Instant soldAt) {          // when the sale really happened; only sent by an order that waited offline
 }

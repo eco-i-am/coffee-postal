@@ -259,3 +259,10 @@ tfoot td{border-top:2px solid var(--midnight);padding-top:10px}
 .todo{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .todo a{font-weight:700}
 h3{margin:0}
+
+/* offline selling */
+.notice.offline{background:var(--sun,#FFC74A);color:var(--midnight,#205966)}
+.notice.bad{border-color:#b3261e}
+.notice p{margin:0 0 6px}
+.rejected{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:10px 0;border-top:1px solid rgba(0,0,0,.12);margin-top:8px}
+.syncchip{margin:0 0 8px;padding:4px 10px;border-radius:999px;background:#FFC74A;color:#205966;font-size:.8rem;font-weight:700;display:inline-block}

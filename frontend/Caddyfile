@@ -11,6 +11,8 @@
 	handle {
 		root * /srv
 		try_files {path} /index.html
+		@fresh path / /index.html /sw.js
+		header @fresh Cache-Control "no-cache"
 		file_server
 	}
 

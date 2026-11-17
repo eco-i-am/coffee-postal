@@ -1,10 +1,16 @@
 import { useState } from "react";
 import { api } from "../../shared/api.js";
-import { peso } from "../../shared/money.js";
+import { peso, totals } from "../../shared/money.js";
+import { useAuth } from "../../app/AuthContext.jsx";
+import { useSync } from "../../app/SyncContext.jsx";
+import { makeEntry } from "../../shared/offline.js";
+import { cartGross } from "./cart.js";
 
 const METHODS = [["CASH", "Cash"], ["GCASH", "GCash"], ["MAYA", "Maya"], ["CARD", "Card"]];
 
 export default function PayModal({ cart, otype, disc, orderId, total, onBack, onPaid }) {
+  const { me } = useAuth();
+  const sync = useSync();
   const [method, setMethod] = useState("CASH");
   const [tender, setTender] = useState(total);
   const [reference, setReference] = useState("");
@@ -19,24 +25,31 @@ export default function PayModal({ cart, otype, disc, orderId, total, onBack, on
   async function complete() {
     setBusy(true);
     setErr("");
+    // the browser only says WHAT was sold; the server prices it. The id makes a retry safe.
+    const body = {
+      id: orderId,
+      orderType: otype,
+      discountType: disc,
+      paymentMethod: method,
+      tendered: cash ? tender : null,
+      reference: reference.trim() || null,
+      lines: cart.map((l) => ({ productId: l.productId, variantId: l.variantId, addonIds: l.addonIds, qty: l.qty })),
+    };
     try {
-      // the browser only says WHAT was sold; the server prices it. The id makes a retry safe.
-      const res = await api("/api/pos/orders", {
-        method: "POST",
-        body: {
-          id: orderId,
-          orderType: otype,
-          discountType: disc,
-          paymentMethod: method,
-          tendered: cash ? tender : null,
-          reference: reference.trim() || null,
-          lines: cart.map((l) => ({ productId: l.productId, variantId: l.variantId, addonIds: l.addonIds, qty: l.qty })),
-        },
-      });
+      const res = await api("/api/pos/orders", { method: "POST", body, timeoutMs: 10000 });
       onPaid(res, method, cash ? tender : res.total);
     } catch (e) {
-      setErr(e.status ? e.message : "Could not reach the server. Your order is still here. Try again.");
-      setBusy(false);
+      if (e.status) { setErr(e.message); setBusy(false); return; }
+      // No internet. The sale still happens: save it on this device and upload it later. If the first
+      // attempt did reach the server, the upload just gets the same order back (same id).
+      const t = totals(cartGross(cart), disc);
+      const entry = makeEntry({ request: body, by: me.username, expectedTotal: t.pay, receipt: {} });
+      if (!sync.enqueue(entry)) {
+        setErr("No internet, and this device could not save the order. Do not serve it until it is written down.");
+        setBusy(false);
+        return;
+      }
+      onPaid({ offline: true, ref: entry.ref, subtotal: t.gross, discount: t.discount, total: t.pay, vatable: t.vatable, vat: t.vat, change: cash ? tender - t.pay : 0 }, method, cash ? tender : t.pay);
     }
   }
 

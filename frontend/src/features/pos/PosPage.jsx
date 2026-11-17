@@ -1,6 +1,9 @@
 import { useCallback, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../../shared/api.js";
+import { useAuth } from "../../app/AuthContext.jsx";
+import { loadMenu as loadSavedMenu, saveMenu } from "../../shared/offline.js";
+import SyncPanel from "./SyncPanel.jsx";
 import { useLoad } from "../../shared/hooks.js";
 import { peso, totals } from "../../shared/money.js";
 import TileArt from "./tileArt.jsx";
@@ -13,7 +16,21 @@ export const DISCOUNTS = [["NONE", "None"], ["SENIOR_PWD", "Senior / PWD"], ["PR
 export const TYPES = [["DINE_IN", "Dine-in"], ["TAKEOUT", "Takeout"], ["DELIVERY", "Delivery"]];
 
 export default function PosPage() {
-  const loadMenu = useCallback(() => api("/api/pos/menu"), []);
+  const { me } = useAuth();
+  const [menuSavedAt, setMenuSavedAt] = useState(null);
+  // the menu is saved on every successful load, and used when there is no internet
+  const loadMenu = useCallback(async () => {
+    try {
+      const m = await api("/api/pos/menu", { timeoutMs: 8000 });
+      saveMenu(me.username, m);
+      setMenuSavedAt(null);
+      return m;
+    } catch (e) {
+      const saved = e.status === 0 ? loadSavedMenu(me.username) : null;
+      if (saved) { setMenuSavedAt(saved.savedAt); return saved.menu; }
+      throw e;
+    }
+  }, [me.username]);
   const { data: menu, error, loading } = useLoad(loadMenu);
   const loadShift = useCallback(() => api("/api/branch/shift").catch(() => null), []);
   const { data: shiftInfo } = useLoad(loadShift);
@@ -59,6 +76,7 @@ export default function PosPage() {
         </div>
       </header>
       {error && <p className="notice" role="alert">{error}</p>}
+      <SyncPanel menuSavedAt={menuSavedAt} />
       {shiftInfo && !shiftInfo.shift && (
         <p className="notice" role="status">No shift is open, so cash sales will not be counted in your drawer. <Link to="/branch/cash">Open your shift</Link></p>
       )}

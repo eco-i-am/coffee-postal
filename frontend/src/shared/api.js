@@ -17,7 +17,7 @@ export const setUnauthorizedHandler = (fn) => {
   onUnauthorized = fn;
 };
 
-export async function api(path, { method = "GET", body, form } = {}) {
+export async function api(path, { method = "GET", body, form, timeoutMs } = {}) {
   const headers = { Accept: "application/json" };
   let payload;
   if (form) {
@@ -30,7 +30,9 @@ export async function api(path, { method = "GET", body, form } = {}) {
 
   let res;
   try {
-    res = await fetch(path, { method, headers, body: payload, credentials: "same-origin" });
+    // a connection that is "up" but not carrying data would otherwise wait for minutes
+    const signal = timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined;
+    res = await fetch(path, { method, headers, body: payload, credentials: "same-origin", signal });
   } catch {
     throw new ApiError(0, "Could not reach the server. Check the connection and try again.");
   }
