@@ -39,7 +39,7 @@ class SecurityConfig {
           .authorizeHttpRequests(a -> a
               .requestMatchers("/actuator/health/**").permitAll()
               .requestMatchers("/api/admin/**").hasAuthority("SCOPE_ADMIN")
-              .requestMatchers("/api/pos/**").hasAnyAuthority("SCOPE_BRANCH", "SCOPE_ADMIN")
+              .requestMatchers("/api/pos/**", "/api/branch/**").hasAnyAuthority("SCOPE_BRANCH", "SCOPE_ADMIN")
               .anyRequest().authenticated())
           .formLogin(f -> f.loginProcessingUrl("/api/auth/login")
               .successHandler((req, res, auth) -> res.setStatus(HttpServletResponse.SC_NO_CONTENT))

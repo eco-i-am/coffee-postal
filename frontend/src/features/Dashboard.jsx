@@ -1,9 +1,11 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../app/AuthContext.jsx";
+import BranchDashboard from "./branch/BranchDashboard.jsx";
 
 export default function Dashboard({ kind }) {
   const { can } = useAuth();
   const admin = kind === "admin";
+  if (!admin && can("dashboard_view")) return <BranchDashboard />;
   return (
     <section>
       <header className="pghead">

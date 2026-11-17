@@ -15,7 +15,7 @@ function navFor(me, can) {
   return [
     { to: "/branch", label: "Dashboard", end: true },
     can("pos_view") && { to: "/pos", label: "Point of Sale" },
-    { label: "Order List", soon: true },
+    can("orders_view") && { to: "/branch/orders", label: "Order List" },
     { label: "Item Inventory", soon: true },
     { label: "Purchase Orders", soon: true },
     { label: "Reports", soon: true },

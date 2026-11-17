@@ -6,6 +6,7 @@ import Dashboard from "../features/Dashboard.jsx";
 import BranchesPage from "../features/branches/BranchesPage.jsx";
 import ProductsPage from "../features/products/ProductsPage.jsx";
 import PosPage from "../features/pos/PosPage.jsx";
+import OrdersPage from "../features/branch/OrdersPage.jsx";
 
 function Protected({ scope }) {
   const { me, ready } = useAuth();
@@ -30,6 +31,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/branch" element={<Dashboard kind="branch" />} />
           <Route path="/pos" element={<PosPage />} />
+          <Route path="/branch/orders" element={<OrdersPage />} />
           <Route element={<Protected scope="ADMIN" />}>
             <Route path="/admin" element={<Dashboard kind="admin" />} />
             <Route path="/admin/branches" element={<BranchesPage />} />

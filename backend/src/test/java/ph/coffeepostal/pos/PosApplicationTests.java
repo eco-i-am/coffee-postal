@@ -142,4 +142,35 @@ class PosApplicationTests {
 		assertThat(jdbc.queryForObject("SELECT price FROM products WHERE name='Hazelnut Latte'", Long.class)).isEqualTo(12550L);
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM product_variants v JOIN products p ON p.id=v.product_id WHERE p.name='Hazelnut Latte'", Integer.class)).isEqualTo(2);
 	}
+
+	@Test
+	void dashboardAndOrderListReflectASaleAndRespectPermissions() throws Exception {
+		var cashier = login("cashier");
+		long americano = jdbc.queryForObject("SELECT id FROM products WHERE name='Americano'", Long.class);
+		String id = java.util.UUID.randomUUID().toString();
+		String json = "{\"id\":\"" + id + "\",\"orderType\":\"TAKEOUT\",\"discountType\":\"NONE\","
+			+ "\"paymentMethod\":\"GCASH\",\"reference\":\"R1\",\"lines\":[{\"productId\":" + americano + ",\"qty\":2}]}";
+		mvc.perform(post("/api/pos/orders").session(cashier).with(csrf())
+			.contentType(MediaType.APPLICATION_JSON).content(json)).andExpect(status().isOk());
+
+		// cashiers see the order list but not the dashboard
+		mvc.perform(get("/api/branch/dashboard").session(cashier)).andExpect(status().isForbidden());
+		mvc.perform(get("/api/branch/orders").session(cashier))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$[?(@.id=='" + id + "')].total").value(15800));
+		mvc.perform(get("/api/branch/orders/" + id).session(cashier))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.lines[0].qty").value(2))
+			.andExpect(jsonPath("$.payments[0].method").value("GCASH"));
+		mvc.perform(get("/api/branch/orders/" + java.util.UUID.randomUUID()).session(cashier)).andExpect(status().isNotFound());
+
+		// the manager sees today's numbers
+		mvc.perform(get("/api/branch/dashboard").session(login("manager")))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.orders").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)))
+			.andExpect(jsonPath("$.sales").value(org.hamcrest.Matchers.greaterThanOrEqualTo(15800)))
+			.andExpect(jsonPath("$.hourly.length()").value(17));
+		mvc.perform(get("/api/branch/orders?date=not-a-date").session(cashier)).andExpect(status().isBadRequest());
+	}
+
 }
