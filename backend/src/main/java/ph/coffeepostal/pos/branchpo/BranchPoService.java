@@ -27,7 +27,12 @@ public class BranchPoService {
     private final JdbcTemplate jdbc;
     private final InventoryService inventory;
 
-    public BranchPoService(JdbcTemplate jdbc, InventoryService inventory) { this.jdbc = jdbc; this.inventory = inventory; }
+    private final int termsDays;
+
+    public BranchPoService(JdbcTemplate jdbc, InventoryService inventory,
+                           @org.springframework.beans.factory.annotation.Value("${app.invoice-terms-days:15}") int termsDays) {
+        this.jdbc = jdbc; this.inventory = inventory; this.termsDays = termsDays;
+    }
 
     private static final String ROW = """
         SELECT p.id, p.branch_id, b.name AS branch, p.status, p.requested_at,
@@ -159,6 +164,13 @@ public class BranchPoService {
             jdbc.update("UPDATE branch_po_lines SET qty_received = ? WHERE id = ?", q, l.id());
             if (q > 0) inventory.move(branchId, l.itemId(), q * InventoryService.SCALE, "PO_RECEIVE", null, "PO-" + id, userId);
         }
+        // Bill the branch for what actually arrived (nothing arrived = nothing to pay).
+        jdbc.update("""
+            INSERT INTO invoices(po_id, branch_id, amount, due_date)
+            SELECT p.id, p.branch_id, sum(l.qty_received * l.unit_cost), (now() AT TIME ZONE 'Asia/Manila')::date + ?
+            FROM branch_pos p JOIN branch_po_lines l ON l.po_id = p.id
+            WHERE p.id = ? GROUP BY p.id, p.branch_id HAVING sum(l.qty_received * l.unit_cost) > 0
+            """, termsDays, id);
     }
 
     private ApiException stale(long id, Long branchId, String msg) {

@@ -22,6 +22,20 @@ export function poTone(status) {
   return "r";
 }
 export const poNo = (id) => `PO-${String(id).padStart(4, "0")}`;
+export const invNo = (id) => `INV-${String(id).padStart(4, "0")}`;
+export const PAY_METHODS = { CASH: "Cash", BANK: "Bank transfer", GCASH: "GCash", MAYA: "Maya", CHECK: "Check" };
+
+/** Plain-language status and colour for an invoice row from the API. */
+export function invStatus(inv) {
+  if (inv.status === "PAID") return { label: "Paid", tone: "g" };
+  if (inv.overdue) return { label: `Overdue ${inv.daysOverdue} ${inv.daysOverdue === 1 ? "day" : "days"}`, tone: "r" };
+  return { label: inv.status === "PARTIAL" ? "Part paid" : "Unpaid", tone: "y" };
+}
+
+export function dateOf(ymd) {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString("en-PH", { month: "short", day: "numeric", year: "numeric" });
+}
 
 export function dateTimeOf(iso) {
   return new Date(iso).toLocaleString("en-PH", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "Asia/Manila" });

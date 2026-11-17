@@ -8,6 +8,7 @@ function navFor(me, can) {
       can("branches_view") && { to: "/admin/branches", label: "Branches" },
       can("products_view") && { to: "/admin/products", label: "Products" },
       can("branch_po_admin_view") && { to: "/admin/branch-po", label: "Branch PO" },
+      can("receivables_view") && { to: "/admin/receivables", label: "Receivables" },
       can("items_master_view") && { to: "/admin/items", label: "Items" },
       { label: "Reports", soon: true },
     ].filter(Boolean);
@@ -18,6 +19,7 @@ function navFor(me, can) {
     can("orders_view") && { to: "/branch/orders", label: "Order List" },
     can("branch_inventory_view") && { to: "/branch/inventory", label: "Item Inventory" },
     can("branch_po_view") && { to: "/branch/purchase-orders", label: "Purchase Orders" },
+    can("payables_view") && { to: "/branch/payables", label: "Payables" },
     can("cash_inout_view") && { to: "/branch/cash", label: "Cash Drawer" },
     { label: "Reports", soon: true },
   ].filter(Boolean);

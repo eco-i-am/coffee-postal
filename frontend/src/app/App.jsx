@@ -7,6 +7,8 @@ import BranchesPage from "../features/branches/BranchesPage.jsx";
 import ProductsPage from "../features/products/ProductsPage.jsx";
 import PosPage from "../features/pos/PosPage.jsx";
 import OrdersPage from "../features/branch/OrdersPage.jsx";
+import AdminDashboard from "../features/admin/AdminDashboard.jsx";
+import InvoiceList from "../features/invoices/InvoiceList.jsx";
 import CashPage from "../features/branch/CashPage.jsx";
 import InventoryPage from "../features/branch/InventoryPage.jsx";
 import PurchaseOrdersPage from "../features/branch/PurchaseOrdersPage.jsx";
@@ -37,11 +39,13 @@ export default function App() {
           <Route path="/branch" element={<Dashboard kind="branch" />} />
           <Route path="/pos" element={<PosPage />} />
           <Route path="/branch/orders" element={<OrdersPage />} />
+          <Route path="/branch/payables" element={<InvoiceList side="branch" />} />
           <Route path="/branch/cash" element={<CashPage />} />
           <Route path="/branch/inventory" element={<InventoryPage />} />
           <Route path="/branch/purchase-orders" element={<PurchaseOrdersPage />} />
           <Route element={<Protected scope="ADMIN" />}>
-            <Route path="/admin" element={<Dashboard kind="admin" />} />
+            <Route path="/admin" element={<AdminDashboard />} />
+            <Route path="/admin/receivables" element={<InvoiceList side="hq" />} />
             <Route path="/admin/branches" element={<BranchesPage />} />
             <Route path="/admin/products" element={<ProductsPage />} />
             <Route path="/admin/items" element={<ItemsPage />} />
