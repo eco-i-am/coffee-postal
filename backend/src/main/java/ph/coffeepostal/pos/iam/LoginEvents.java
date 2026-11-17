@@ -11,6 +11,9 @@ import org.springframework.stereotype.Component;
 /** Login history (success and failure) for the "View Login History" requirement. */
 @Component
 class LoginEvents {
+    static final int MAX_FAILURES = 5;
+    static final int LOCK_MINUTES = 15;
+
     private final JdbcTemplate jdbc;
     LoginEvents(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
@@ -25,5 +28,15 @@ class LoginEvents {
         String name = a.getName();
         jdbc.update("INSERT INTO login_history(user_id, username, success, ip) VALUES ((SELECT id FROM users WHERE username = ?), ?, ?, ?)",
             name, name, ok, ip);
+        if (ok) {
+            jdbc.update("UPDATE users SET failed_logins = 0, locked_until = NULL WHERE username = ?", name);
+        } else {
+            // count the miss, and lock for 15 minutes on the 5th in a row. Attempts while already locked do not extend the lock.
+            jdbc.update("""
+                UPDATE users SET failed_logins = failed_logins + 1,
+                    locked_until = CASE WHEN failed_logins + 1 >= ? THEN now() + make_interval(mins => ?) ELSE locked_until END
+                WHERE username = ? AND (locked_until IS NULL OR locked_until < now())
+                """, MAX_FAILURES, LOCK_MINUTES, name);
+        }
     }
 }

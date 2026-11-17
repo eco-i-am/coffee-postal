@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
+import ChangePassword from "./ChangePassword.jsx";
 import { useAuth } from "./AuthContext.jsx";
 
 function navFor(me, can) {
@@ -11,6 +13,8 @@ function navFor(me, can) {
       can("receivables_view") && { to: "/admin/receivables", label: "Receivables" },
       can("items_master_view") && { to: "/admin/items", label: "Items" },
       can("reports_admin_view") && { to: "/admin/reports", label: "Reports" },
+      can("users_admin_view") && { to: "/admin/users", label: "Staff" },
+      can("roles_view") && { to: "/admin/roles", label: "Roles" },
     ].filter(Boolean);
   }
   return [
@@ -22,11 +26,13 @@ function navFor(me, can) {
     can("payables_view") && { to: "/branch/payables", label: "Payables" },
     can("cash_inout_view") && { to: "/branch/cash", label: "Cash Drawer" },
     can("branch_reports_view") && { to: "/branch/reports", label: "Reports" },
+    can("branch_users_view") && { to: "/branch/users", label: "Staff" },
   ].filter(Boolean);
 }
 
 export default function Shell() {
   const { me, can, signOut } = useAuth();
+  const [changing, setChanging] = useState(false);
   return (
     <div className="app">
       <aside className="side">
@@ -59,12 +65,14 @@ export default function Shell() {
             <br />
             <small>{me.role}{me.branchName ? ` · ${me.branchName}` : ""}</small>
           </div>
+          <button className="out" type="button" onClick={() => setChanging(true)}>Change password</button>
           <button className="out" type="button" onClick={signOut}>Sign out</button>
         </div>
       </aside>
       <main>
         <div className="page"><Outlet /></div>
       </main>
+      {changing && <ChangePassword onClose={() => setChanging(false)} />}
     </div>
   );
 }

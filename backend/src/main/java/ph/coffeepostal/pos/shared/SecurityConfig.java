@@ -31,8 +31,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
 class SecurityConfig {
 
     @Bean
-    SecurityFilterChain chain(HttpSecurity http) throws Exception {
+    SecurityFilterChain chain(HttpSecurity http, org.springframework.jdbc.core.JdbcTemplate jdbc, SessionGuard.AuthVersion authVersion) throws Exception {
         http
+          .addFilterAfter(new SessionGuard(jdbc, authVersion), BasicAuthenticationFilter.class)
           .csrf(c -> c.csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
                       .csrfTokenRequestHandler(new CsrfTokenRequestAttributeHandler()))
           .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)

@@ -24,7 +24,7 @@ class DbUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String username) {
         var rows = jdbc.queryForList(
-            "SELECT u.id, u.password_hash, u.status, r.id AS role_id, r.scope FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=?", username);
+            "SELECT u.id, u.password_hash, u.status, u.locked_until, r.id AS role_id, r.scope FROM users u JOIN roles r ON r.id=u.role_id WHERE u.username=?", username);
         if (rows.isEmpty()) throw new UsernameNotFoundException(username);
         var u = rows.get(0);
         List<GrantedAuthority> auth = new ArrayList<>();
@@ -37,7 +37,10 @@ class DbUserDetailsService implements UserDetailsService {
                 if (rs.getBoolean("can_edit"))   auth.add(new SimpleGrantedAuthority("PERM_" + m + "_edit"));
                 if (rs.getBoolean("can_delete")) auth.add(new SimpleGrantedAuthority("PERM_" + m + "_delete"));
             }, u.get("role_id"));
+        // too many wrong passwords locks the account for a while (see LoginEvents); HQ can unlock it
+        var lockedUntil = (java.sql.Timestamp) u.get("locked_until");
+        boolean locked = lockedUntil != null && lockedUntil.toInstant().isAfter(java.time.Instant.now());
         return User.withUsername(username).password((String) u.get("password_hash"))
-            .disabled(!"ACTIVE".equals(u.get("status"))).authorities(auth).build();
+            .disabled(!"ACTIVE".equals(u.get("status"))).accountLocked(locked).authorities(auth).build();
     }
 }
