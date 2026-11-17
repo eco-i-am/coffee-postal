@@ -13,6 +13,7 @@ spring:
   thymeleaf.cache: ${THYMELEAF_CACHE:true}
   threads.virtual.enabled: true
 server:
+  error.include-message: always
   forward-headers-strategy: framework   # behind Caddy/Cloudflare
   servlet.session.cookie:
     secure: ${COOKIE_SECURE:true}

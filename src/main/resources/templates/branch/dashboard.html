@@ -1,7 +1,12 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('Branch Dashboard')}"></head>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/shell :: page('Branch Dashboard', 'dashboard', ~{::section})}">
 <body>
-<div class="topbar">Coffee Postal - Branch Dashboard</div>
-<main style="padding:1rem"><div class="card"><h1>Branch Dashboard</h1><p>Phase 0 shell. Branch sales, P&amp;L and cash on hand land here.</p></div></main>
-</body></html>
+<section class="pg">
+  <header><div><h1>Branch Dashboard</h1><p>Sales, cash on hand and daily performance will land here.</p></div></header>
+  <div class="sec">
+    <h2>Ready to sell?</h2>
+    <p>Open the <a th:href="@{/pos}">Point of Sale</a> to start taking orders.</p>
+  </div>
+</section>
+</body>
+</html>

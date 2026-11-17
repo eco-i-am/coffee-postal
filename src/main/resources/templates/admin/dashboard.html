@@ -1,14 +1,12 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-<head th:replace="~{fragments/layout :: head('HQ Dashboard')}"></head>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/shell :: page('HQ Dashboard', 'dashboard', ~{::section})}">
 <body>
-<div class="topbar">Coffee Postal - HQ Admin</div>
-<main style="padding:1rem;display:grid;gap:1rem;max-width:960px">
-  <div class="card">
-    <h1>HQ Dashboard</h1>
-    <p>Phase 0 shell. Sales, overdue invoices, branch performance and alerts land here.</p>
-    <p><a sec:authorize="hasAuthority('PERM_branches_view')" th:href="@{/admin/branches}">Branches</a></p>
-    <form method="post" th:action="@{/logout}"><button class="btn" type="submit">Sign out</button></form>
+<section class="pg">
+  <header><div><h1>HQ Dashboard</h1><p>Sales, overdue invoices, branch performance and alerts will land here.</p></div></header>
+  <div class="sec">
+    <h2>Set up the chain</h2>
+    <p>Start with your <a th:href="@{/admin/branches}">branches</a>, then build the <a th:href="@{/admin/products}">menu</a> the cashiers will sell.</p>
   </div>
-</main>
-</body></html>
+</section>
+</body>
+</html>

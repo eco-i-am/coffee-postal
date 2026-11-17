@@ -46,7 +46,34 @@ class BootstrapData implements ApplicationRunner {
                 log.info("Created Super Admin '{}'", adminUser);
             }
         }
-        if (seedDemo && !demoPassword.isBlank()) seedDemo();
+        if (seedDemo && !demoPassword.isBlank()) { seedDemo(); seedCatalog(); }
+    }
+
+    /** Sample menu so the POS has something to sell in dev. The real menu is entered by HQ. */
+    private void seedCatalog() {
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM products", Integer.class);
+        if (n != null && n > 0) return;
+        jdbc.update("INSERT INTO product_categories(name, sort_order) VALUES ('Coffee',1),('Frappe',2),('Non-Coffee',3),('Food',4)");
+        jdbc.update("INSERT INTO addons(name, price) VALUES ('Extra shot',2500),('Syrup',1500),('Oat milk',3000),('Whipped cream',1500)");
+        Object[][] menu = {
+            {"Coffee","Americano",7900,"hot","#FFC74A",true},{"Coffee","Cafe Latte",9900,"hot","#FFA076",true},
+            {"Coffee","Spanish Latte",11900,"hot","#FDCDC1",true},{"Coffee","Caramel Macchiato",11900,"iced","#FFC74A",true},
+            {"Coffee","Mocha",10900,"hot","#FDCDC1",true},{"Coffee","Postal Blend Iced Coffee",8900,"iced","#8DCCC0",true},
+            {"Frappe","Java Chip Frappe",13900,"frap","#8DCCC0",true},{"Frappe","Caramel Frappe",13900,"frap","#FFC74A",true},
+            {"Non-Coffee","Matcha Latte",11900,"iced","#8DCCC0",true},{"Non-Coffee","Hot Chocolate",9900,"hot","#FFA076",true},
+            {"Food","Butter Croissant",8500,"pastry","#FDCDC1",false},{"Food","Choco Chip Cookie",6500,"cookie","#8DCCC0",false},
+            {"Food","Ham & Cheese Sandwich",9900,"sand","#FFC74A",false}};
+        for (Object[] m : menu) {
+            long id = jdbc.queryForObject("""
+                INSERT INTO products(category_id, name, price, art, color, has_sizes)
+                VALUES ((SELECT id FROM product_categories WHERE name = ?), ?, ?, ?, ?, ?) RETURNING id
+                """, Long.class, m[0], m[1], m[2], m[3], m[4], m[5]);
+            if ((boolean) m[5]) {
+                jdbc.update("INSERT INTO product_variants(product_id, name, price_delta, sort_order) VALUES (?, 'Regular', 0, 0), (?, 'Large', 2000, 1)", id, id);
+                jdbc.update("INSERT INTO product_addons(product_id, addon_id) SELECT ?, id FROM addons", id);
+            }
+        }
+        log.info("Seeded demo menu (dev only)");
     }
 
     private void seedDemo() {

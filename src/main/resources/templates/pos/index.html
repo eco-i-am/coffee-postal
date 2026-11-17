@@ -1,7 +1,18 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{fragments/layout :: head('Point of Sale')}"></head>
+<html xmlns:th="http://www.thymeleaf.org" th:replace="~{fragments/shell :: page('Point of Sale', 'pos', ~{::section})}">
 <body>
-<div class="topbar">Coffee Postal - Point of Sale</div>
-<main style="padding:1rem"><div class="card"><h1>Point of Sale</h1><p>Phase 1: offline-capable cashier screen mounts here.</p></div></main>
-</body></html>
+<section class="pg">
+  <header>
+    <div><h1>Point of Sale</h1><p>Tap an item to start an order. Prices include 12% VAT.</p></div>
+  </header>
+  <p id="posmsg" class="notice" role="alert" hidden></p>
+  <div class="tabs" id="cats" role="group" aria-label="Categories"></div>
+  <div class="pos">
+    <div class="menu" id="menu"></div>
+    <div class="cart" id="cart"></div>
+  </div>
+  <div class="scrim" id="scrim" hidden><div class="modal" id="modal" role="dialog" aria-modal="true"></div></div>
+  <script th:src="@{/js/pos.js}" defer></script>
+</section>
+</body>
+</html>

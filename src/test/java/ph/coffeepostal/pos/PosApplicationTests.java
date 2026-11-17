@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrl;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.redirectedUrlPattern;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import org.junit.jupiter.api.Test;
@@ -15,6 +16,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -83,6 +85,60 @@ class PosApplicationTests {
 				.param("code", "CEB-09").param("name", "Again"))
 			.andExpect(status().isOk());
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM branches WHERE code='CEB-09'", Integer.class)).isEqualTo(1);
+	}
+
+
+	@Test
+	void cashierSeesTheMenuForTheirBranch() throws Exception {
+		mvc.perform(get("/api/pos/menu").session(login("cashier")))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.items.length()").value(13))
+			.andExpect(jsonPath("$.categories[0]").value("Coffee"));
+	}
+
+	@Test
+	void orderIsPricedByTheServerAndRetriesDoNotDoubleCharge() throws Exception {
+		var session = login("cashier");
+		long latte = jdbc.queryForObject("SELECT id FROM products WHERE name='Cafe Latte'", Long.class);
+		long large = jdbc.queryForObject("SELECT id FROM product_variants WHERE product_id=? AND name='Large'", Long.class, latte);
+		long shot = jdbc.queryForObject("SELECT id FROM addons WHERE name='Extra shot'", Long.class);
+		String id = java.util.UUID.randomUUID().toString();
+		// 99.00 + 20.00 (Large) + 25.00 (Extra shot) = 144.00; pays 150.00 cash -> change 6.00
+		String json = "{\"id\":\"" + id + "\",\"orderType\":\"DINE_IN\",\"discountType\":\"NONE\","
+			+ "\"paymentMethod\":\"CASH\",\"tendered\":15000,\"lines\":[{\"productId\":" + latte
+			+ ",\"variantId\":" + large + ",\"addonIds\":[" + shot + "],\"qty\":1}]}";
+		for (int i = 0; i < 2; i++) {   // the second call is a retry of the same sale
+			mvc.perform(post("/api/pos/orders").session(session).with(csrf())
+					.contentType(MediaType.APPLICATION_JSON).content(json))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.total").value(14400))
+				.andExpect(jsonPath("$.change").value(600));
+		}
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM orders WHERE id=?::uuid", Integer.class, id)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("SELECT sum(unit_price) FROM order_lines WHERE order_id=?::uuid", Long.class, id)).isEqualTo(14400L);
+	}
+
+	@Test
+	void cashShortOfTheTotalIsRefused() throws Exception {
+		var session = login("cashier");
+		long latte = jdbc.queryForObject("SELECT id FROM products WHERE name='Americano'", Long.class);
+		String json = "{\"id\":\"" + java.util.UUID.randomUUID() + "\",\"orderType\":\"TAKEOUT\",\"discountType\":\"NONE\","
+			+ "\"paymentMethod\":\"CASH\",\"tendered\":100,\"lines\":[{\"productId\":" + latte + ",\"qty\":1}]}";
+		mvc.perform(post("/api/pos/orders").session(session).with(csrf())
+				.contentType(MediaType.APPLICATION_JSON).content(json))
+			.andExpect(status().isBadRequest());
+	}
+
+	@Test
+	void adminAddsAProductAndItAppearsOnTheMenu() throws Exception {
+		var session = login("admin");
+		long cat = jdbc.queryForObject("SELECT id FROM product_categories WHERE name='Coffee'", Long.class);
+		mvc.perform(post("/admin/products").session(session).with(csrf())
+				.param("name", "Hazelnut Latte").param("categoryId", String.valueOf(cat))
+				.param("price", "125.50").param("cost", "45").param("art", "hot").param("hasSizes", "true"))
+			.andExpect(redirectedUrl("/admin/products"));
+		assertThat(jdbc.queryForObject("SELECT price FROM products WHERE name='Hazelnut Latte'", Long.class)).isEqualTo(12550L);
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM product_variants v JOIN products p ON p.id=v.product_id WHERE p.name='Hazelnut Latte'", Integer.class)).isEqualTo(2);
 	}
 
 }
