@@ -190,7 +190,6 @@ td.n,th.n{text-align:right} .tw{overflow-x:auto}
 .bigcup{position:absolute;left:-8px;bottom:-6px;width:56%;height:auto}
 .bn{position:absolute}
 .lgart .pm{position:absolute;right:2px;bottom:2px;width:96px;height:96px;opacity:.9}
-.mapcap{font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:.72rem}
 @keyframes rise{0%,100%{transform:translateY(0);opacity:.9}50%{transform:translateY(-5px);opacity:.5}}
 .steam{animation:rise 3.2s ease-in-out infinite}
 .pc-l .logo{position:relative;z-index:2}

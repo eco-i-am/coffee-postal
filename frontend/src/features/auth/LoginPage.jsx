@@ -40,7 +40,6 @@ export default function LoginPage() {
           </div>
           <p>Your affordable freshly brewed coffee destination</p>
           <div dangerouslySetInnerHTML={{ __html: LOGIN_ART }} />
-          <div className="mapcap">Most branches are in Cebu</div>
         </div>
         <form className="pc-r" onSubmit={submit}>
           <h2>Welcome back</h2>
