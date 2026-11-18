@@ -155,7 +155,7 @@ class UserManagementTests {
 		var lead = login("lead.one", "Brew2026x1");
 		mvc.perform(get("/api/me").session(lead)).andExpect(status().isOk());
 		mvc.perform(put("/api/admin/roles/" + id).session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"name\":\"Barista Lead\",\"permissions\":[{\"module\":\"pos\",\"add\":true}]}")).andExpect(status().isOk());
+			.content("{\"name\":\"Barista Lead\",\"permissions\":[{\"module\":\"pos\",\"view\":true,\"add\":true,\"edit\":false,\"delete\":false}]}")).andExpect(status().isOk());
 		mvc.perform(get("/api/me").session(lead)).andExpect(status().isUnauthorized());
 	}
 

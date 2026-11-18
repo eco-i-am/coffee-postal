@@ -1,12 +1,12 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
+import MoreRows from "../../shared/MoreRows.jsx";
 import { peso } from "../../shared/money.js";
 import { PO_STATUS, dateTimeOf, fmtQty, poNo, poTone } from "../../shared/format.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import PoDetail from "../po/PoDetail.jsx";
 
-const loadPos = () => api("/api/branch/purchase-orders");
 const loadItems = () => api("/api/branch/inventory");
 
 function NewPo({ onClose, onCreated }) {
@@ -72,6 +72,8 @@ function NewPo({ onClose, onCreated }) {
 
 export default function PurchaseOrdersPage() {
   const { can } = useAuth();
+  const [limit, setLimit] = useState(100);
+  const loadPos = useCallback(() => api(`/api/branch/purchase-orders?limit=${limit}`), [limit]);
   const { data: rows, error, loading, reload } = useLoad(loadPos);
   const [creating, setCreating] = useState(false);
   const [open, setOpen] = useState(null);
@@ -100,6 +102,7 @@ export default function PurchaseOrdersPage() {
             </tbody>
           </table>
         )}
+        <MoreRows count={(rows || []).length} limit={limit} onMore={() => setLimit(limit + 100)} />
       </div>
       {creating && <NewPo onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); setMsg(`${poNo(id)} sent to HQ.`); reload(); setOpen(id); }} />}
       {open && <PoDetail id={open} side="branch" onClose={() => setOpen(null)} onChanged={(m) => { setMsg(m); reload(); }} />}

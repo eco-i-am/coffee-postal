@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
+import MoreRows from "../../shared/MoreRows.jsx";
 import { peso } from "../../shared/money.js";
 import { dateOf, invNo, invStatus } from "../../shared/format.js";
 import { useAuth } from "../../app/AuthContext.jsx";
@@ -18,7 +19,8 @@ export default function InvoiceList({ side }) {
   const hq = side === "hq";
   const base = hq ? "/api/admin/receivables" : "/api/branch/payables";
   const [filter, setFilter] = useState("open");
-  const loadRows = useCallback(() => api(`${base}?filter=${filter}`), [base, filter]);
+  const [limit, setLimit] = useState(100);
+  const loadRows = useCallback(() => api(`${base}?filter=${filter}&limit=${limit}`), [base, filter, limit]);
   const loadSum = useCallback(() => api(`${base}/summary`), [base]);
   const { data: rows, error, loading, reload } = useLoad(loadRows);
   const sum = useLoad(loadSum);
@@ -79,6 +81,7 @@ export default function InvoiceList({ side }) {
             </tbody>
           </table>
         )}
+        <MoreRows count={(rows || []).length} limit={limit} onMore={() => setLimit(limit + 100)} />
       </div>
       {open && <InvoiceDetail id={open} base={base} canPay={hq && can("receivables_add")} onClose={() => setOpen(null)}
         onChanged={(m) => { setMsg(m); reload(); sum.reload(); }} />}

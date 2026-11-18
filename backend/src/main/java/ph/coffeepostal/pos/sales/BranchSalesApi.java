@@ -109,7 +109,7 @@ class BranchSalesApi {
     @GetMapping("/orders")
     @PreAuthorize("hasAuthority('PERM_orders_view')")
     List<OrderRow> list(@RequestParam(required = false) String date, @RequestParam(required = false) String status,
-                        @RequestParam(required = false) Long no, Principal who) {
+                        @RequestParam(required = false) Long no, @RequestParam(defaultValue = "100") int limit, Principal who) {
         long branch = orders.whoIs(who.getName()).branchId();
         LocalDate day = parse(date);
         List<Object> args = new ArrayList<>(List.of(branch, java.sql.Timestamp.from(start(day)), java.sql.Timestamp.from(start(day.plusDays(1)))));
@@ -120,7 +120,7 @@ class BranchSalesApi {
             args.add(status);
         }
         if (no != null) { sql.append(" AND o.order_no = ?"); args.add(no); }
-        sql.append(" ORDER BY o.created_at DESC LIMIT 300");
+        sql.append(" ORDER BY o.created_at DESC LIMIT ").append(Math.max(1, Math.min(limit, 2000)));
         return jdbc.query(sql.toString(), (rs, i) -> row(rs), args.toArray());
     }
 

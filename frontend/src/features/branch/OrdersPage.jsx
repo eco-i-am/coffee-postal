@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
+import MoreRows from "../../shared/MoreRows.jsx";
 import { peso } from "../../shared/money.js";
 import {
   DISCOUNT_NAMES, METHOD_NAMES, STATUS_NAMES, TYPE_NAMES, prettyDate, timeOf, todayManila,
@@ -100,12 +101,13 @@ export default function OrdersPage() {
   const [no, setNo] = useState("");
   const [open, setOpen] = useState(null);
 
+  const [limit, setLimit] = useState(100);
   const load = useCallback(() => {
-    const q = new URLSearchParams({ date });
+    const q = new URLSearchParams({ date, limit });
     if (status) q.set("status", status);
     if (/^\d+$/.test(no.trim())) q.set("no", no.trim());
     return api(`/api/branch/orders?${q}`);
-  }, [date, status, no]);
+  }, [date, status, no, limit]);
   const { data: rows, error, loading, reload } = useLoad(load);
   const [msg, setMsg] = useState("");
 
@@ -157,6 +159,7 @@ export default function OrdersPage() {
             </tbody>
           </table>
         )}
+        <MoreRows count={(rows || []).length} limit={limit} onMore={() => setLimit(limit + 100)} />
         {rows && rows.length > 0 && <p className="hint">{rows.length} orders &middot; paid total {peso(total)}</p>}
       </div>
 

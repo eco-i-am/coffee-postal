@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
+import MoreRows from "../../shared/MoreRows.jsx";
 import { peso } from "../../shared/money.js";
 import { PO_STATUS, dateTimeOf, poNo, poTone } from "../../shared/format.js";
 import PoDetail from "../po/PoDetail.jsx";
@@ -9,7 +10,8 @@ const FILTERS = [["REQUESTED", "Needs review"], ["APPROVED", "To send"], ["SHIPP
 
 export default function BranchPoAdminPage() {
   const [status, setStatus] = useState("REQUESTED");
-  const load = useCallback(() => api(`/api/admin/branch-pos${status ? `?status=${status}` : ""}`), [status]);
+  const [limit, setLimit] = useState(100);
+  const load = useCallback(() => api(`/api/admin/branch-pos?limit=${limit}${status ? `&status=${status}` : ""}`), [status, limit]);
   const { data: rows, error, loading, reload } = useLoad(load);
   const [open, setOpen] = useState(null);
   const [msg, setMsg] = useState("");
@@ -40,6 +42,7 @@ export default function BranchPoAdminPage() {
             </tbody>
           </table>
         )}
+        <MoreRows count={(rows || []).length} limit={limit} onMore={() => setLimit(limit + 100)} />
       </div>
       {open && <PoDetail id={open} side="hq" onClose={() => setOpen(null)} onChanged={(m) => { setMsg(m); reload(); }} />}
     </section>

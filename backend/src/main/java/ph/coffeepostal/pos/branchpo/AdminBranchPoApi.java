@@ -39,7 +39,9 @@ class AdminBranchPoApi {
 
     @GetMapping
     @PreAuthorize("hasAuthority('PERM_branch_po_admin_view')")
-    List<BranchPoService.Row> list(@RequestParam(required = false) String status) { return pos.list(null, status); }
+    List<BranchPoService.Row> list(@RequestParam(required = false) String status, @RequestParam(defaultValue = "100") int limit) {
+        return pos.list(null, status, limit);
+    }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasAuthority('PERM_branch_po_admin_view')")

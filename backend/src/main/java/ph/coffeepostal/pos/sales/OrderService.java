@@ -10,7 +10,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import ph.coffeepostal.pos.shared.ApiException;
 
 /**
  * Places POS orders. The server prices everything from the database (the client only says WHAT was sold),
@@ -36,7 +36,7 @@ public class OrderService {
             SELECT u.id AS uid, ub.branch_id FROM users u JOIN user_branches ub ON ub.user_id = u.id
             WHERE u.username = ? ORDER BY ub.branch_id LIMIT 1
             """, (rs, i) -> new Who(rs.getLong("uid"), rs.getLong("branch_id")), username);
-        if (r.isEmpty()) throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Your account is not assigned to a branch.");
+        if (r.isEmpty()) throw new ApiException(HttpStatus.FORBIDDEN, "Your account is not assigned to a branch.");
         return r.get(0);
     }
 
@@ -176,7 +176,7 @@ public class OrderService {
         return new Priced(l.productId(), name, variant, addonNames.isEmpty() ? null : String.join(", ", addonNames), unit, l.qty());
     }
 
-    private static ResponseStatusException bad(String m) { return new ResponseStatusException(HttpStatus.BAD_REQUEST, m); }
+    private static ApiException bad(String m) { return new ApiException(HttpStatus.BAD_REQUEST, m); }
 
     public static UUID newId() { return UUID.randomUUID(); }
 }

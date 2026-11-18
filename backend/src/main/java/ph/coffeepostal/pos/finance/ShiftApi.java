@@ -18,6 +18,7 @@ import ph.coffeepostal.pos.sales.OrderService;
 import ph.coffeepostal.pos.shared.ApiException;
 import ph.coffeepostal.pos.shared.AuditService;
 import ph.coffeepostal.pos.shared.Money;
+import ph.coffeepostal.pos.shared.PesoInput;
 
 /** Cash drawer: open a shift, cash in/out, close with a count. Each cashier only ever touches their own shift. */
 @RestController
@@ -76,15 +77,9 @@ class ShiftApi {
     @PreAuthorize("hasAuthority('PERM_cashier_reports_view')")
     List<ShiftService.HistoryRow> history(Principal who) { return shifts.history(orders.whoIs(who.getName()).branchId()); }
 
+    private static final java.math.BigDecimal MAX = new java.math.BigDecimal("10000000");
+
     private static long pesos(String s, boolean allowZero, String field) {
-        try {
-            BigDecimal v = new BigDecimal(s.trim());
-            if (v.signum() < 0 || (!allowZero && v.signum() == 0) || v.scale() > 2 || v.compareTo(new BigDecimal("10000000")) > 0) {
-                throw new IllegalArgumentException();
-            }
-            return Money.ofPesos(v.toPlainString()).centavos();
-        } catch (RuntimeException e) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Enter an amount like 500 or 500.50.", Map.of(field, "Enter an amount like 500 or 500.50."));
-        }
+        return PesoInput.parse(s, allowZero, MAX, field, "Enter an amount like 500 or 500.50.");
     }
 }

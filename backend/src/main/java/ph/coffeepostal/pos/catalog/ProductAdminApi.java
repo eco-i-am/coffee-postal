@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ph.coffeepostal.pos.shared.ApiException;
 import ph.coffeepostal.pos.shared.AuditService;
 import ph.coffeepostal.pos.shared.Money;
+import ph.coffeepostal.pos.shared.PesoInput;
 
 /** HQ: products and categories. */
 @RestController
@@ -49,8 +50,8 @@ class ProductAdminApi {
     @PreAuthorize("hasAuthority('PERM_products_add')")
     Map<String, Object> create(@Valid @RequestBody ProductReq r, Principal who) {
         String name = r.name().trim();
-        long price = pesos(r.price(), "price", "Enter a price like 99 or 99.50.");
-        long cost = r.cost() == null || r.cost().isBlank() ? 0 : pesos(r.cost(), "cost", "Enter a cost like 40 or 40.50.");
+        long price = PesoInput.parse(r.price(), true, "price", "Enter a price like 99 or 99.50.");
+        long cost = r.cost() == null || r.cost().isBlank() ? 0 : PesoInput.parse(r.cost(), true, "cost", "Enter a cost like 40 or 40.50.");
         if (!ARTS.contains(r.art())) throw new ApiException(HttpStatus.BAD_REQUEST, "Pick a picture from the list.", Map.of("art", "Pick one."));
         if (catalog.productNameExists(name)) throw new ApiException(HttpStatus.CONFLICT, "A product with that name already exists.", Map.of("name", "Already used."));
         long id = catalog.createProduct(r.categoryId(), name, price, cost, r.hasSizes(), r.art(), colorFor(r.art()));
@@ -79,16 +80,6 @@ class ProductAdminApi {
         audit.record(who.getName(), null, "CATEGORY_CREATE", "product_category", String.valueOf(id), null,
             "{\"name\":\"" + n.replace("\"", "'") + "\"}", null);
         return Map.of("id", id);
-    }
-
-    private static long pesos(String s, String field, String msg) {
-        try {
-            BigDecimal v = new BigDecimal(s.trim());
-            if (v.signum() < 0 || v.scale() > 2) throw new IllegalArgumentException();
-            return Money.ofPesos(v.toPlainString()).centavos();
-        } catch (RuntimeException e) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, msg, Map.of(field, msg));
-        }
     }
 
     private static String colorFor(String art) {

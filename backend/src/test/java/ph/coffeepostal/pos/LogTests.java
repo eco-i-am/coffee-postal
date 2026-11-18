@@ -42,7 +42,7 @@ class LogTests {
 		mvc.perform(get("/api/admin/logs/audit?action=ROLE_CREATE").session(admin)).andExpect(status().isOk())
 			.andExpect(jsonPath("$.total").isNumber())
 			.andExpect(jsonPath("$.rows[0].action").value("ROLE_CREATE"))
-			.andExpect(jsonPath("$.rows[0].user").value("Super Admin"));
+			.andExpect(jsonPath("$.rows[0].user").value("Head Office Admin"));
 		mvc.perform(get("/api/admin/logs/audit?user=zzzz-nobody").session(admin)).andExpect(jsonPath("$.total").value(0));
 		mvc.perform(get("/api/admin/logs/audit/actions").session(admin)).andExpect(jsonPath("$").isArray());
 

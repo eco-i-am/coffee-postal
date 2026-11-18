@@ -23,6 +23,7 @@ import ph.coffeepostal.pos.sales.OrderService;
 import ph.coffeepostal.pos.shared.ApiException;
 import ph.coffeepostal.pos.shared.AuditService;
 import ph.coffeepostal.pos.shared.Money;
+import ph.coffeepostal.pos.shared.PesoInput;
 
 /** HQ side: receivables. Record payments received from branches. */
 @RestController
@@ -38,7 +39,9 @@ class AdminInvoiceApi {
 
     @GetMapping
     @PreAuthorize("hasAuthority('PERM_receivables_view')")
-    List<InvoiceService.Row> list(@RequestParam(required = false) String filter) { return invoices.list(null, filter); }
+    List<InvoiceService.Row> list(@RequestParam(required = false) String filter, @RequestParam(defaultValue = "100") int limit) {
+        return invoices.list(null, filter, limit);
+    }
 
     @GetMapping("/summary")
     @PreAuthorize("hasAuthority('PERM_receivables_view')")
@@ -51,7 +54,7 @@ class AdminInvoiceApi {
     @PostMapping("/{id}/payments")
     @PreAuthorize("hasAuthority('PERM_receivables_add')")
     Map<String, Object> pay(@PathVariable long id, @Valid @RequestBody PayReq r, Principal who) {
-        long amount = pesos(r.amount());
+        long amount = PesoInput.parse(r.amount(), false, "amount", "Enter an amount like 1500 or 1500.50.");
         LocalDate paidOn;
         try { paidOn = r.paidOn() == null || r.paidOn().isBlank() ? LocalDate.now(InvoiceService.MANILA) : LocalDate.parse(r.paidOn()); }
         catch (DateTimeParseException e) { throw new ApiException(HttpStatus.BAD_REQUEST, "Pick a valid date.", Map.of("paidOn", "Pick a valid date.")); }
@@ -62,15 +65,6 @@ class AdminInvoiceApi {
         return Map.of("id", id);
     }
 
-    private static long pesos(String s) {
-        try {
-            BigDecimal v = new BigDecimal(s.trim());
-            if (v.signum() <= 0 || v.scale() > 2) throw new IllegalArgumentException();
-            return Money.ofPesos(v.toPlainString()).centavos();
-        } catch (RuntimeException e) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Enter an amount like 1500 or 1500.50.", Map.of("amount", "Enter an amount like 1500 or 1500.50."));
-        }
-    }
 }
 
 /** Branch side: payables. Read only; the branch sees what it owes and what has been paid. */
@@ -84,8 +78,8 @@ class BranchInvoiceApi {
 
     @GetMapping
     @PreAuthorize("hasAuthority('PERM_payables_view')")
-    List<InvoiceService.Row> list(@RequestParam(required = false) String filter, Principal who) {
-        return invoices.list(orders.whoIs(who.getName()).branchId(), filter);
+    List<InvoiceService.Row> list(@RequestParam(required = false) String filter, @RequestParam(defaultValue = "100") int limit, Principal who) {
+        return invoices.list(orders.whoIs(who.getName()).branchId(), filter, limit);
     }
 
     @GetMapping("/summary")

@@ -43,7 +43,10 @@ class SecurityConfig {
               .requestMatchers("/api/pos/**", "/api/branch/**").hasAnyAuthority("SCOPE_BRANCH", "SCOPE_ADMIN")
               .anyRequest().authenticated())
           .formLogin(f -> f.loginProcessingUrl("/api/auth/login")
-              .successHandler((req, res, auth) -> res.setStatus(HttpServletResponse.SC_NO_CONTENT))
+              .successHandler((req, res, auth) -> {
+                authVersion.markCurrent(req.getSession(false), auth.getName());
+                res.setStatus(HttpServletResponse.SC_NO_CONTENT);
+              })
               .failureHandler((req, res, ex) -> res.setStatus(HttpServletResponse.SC_UNAUTHORIZED)))
           .logout(l -> l.logoutUrl("/api/auth/logout")
               .logoutSuccessHandler(new HttpStatusReturningLogoutSuccessHandler(HttpStatus.NO_CONTENT)))

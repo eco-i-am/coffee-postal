@@ -39,8 +39,8 @@ class BranchPoApi {
 
     @GetMapping
     @PreAuthorize("hasAuthority('PERM_branch_po_view')")
-    List<BranchPoService.Row> list(@RequestParam(required = false) String status, Principal who) {
-        return pos.list(orders.whoIs(who.getName()).branchId(), status);
+    List<BranchPoService.Row> list(@RequestParam(required = false) String status, @RequestParam(defaultValue = "100") int limit, Principal who) {
+        return pos.list(orders.whoIs(who.getName()).branchId(), status, limit);
     }
 
     @GetMapping("/{id}")

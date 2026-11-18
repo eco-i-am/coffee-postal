@@ -47,7 +47,7 @@ public class BranchPoService {
             rs.getTimestamp("requested_at").toInstant(), rs.getInt("n"), rs.getLong("value"));
     }
 
-    public List<Row> list(Long branchId, String status) {
+    public List<Row> list(Long branchId, String status, int limit) {
         StringBuilder sql = new StringBuilder(ROW + " WHERE 1 = 1");
         List<Object> args = new ArrayList<>();
         if (branchId != null) { sql.append(" AND p.branch_id = ?"); args.add(branchId); }
@@ -57,7 +57,7 @@ public class BranchPoService {
             }
             sql.append(" AND p.status = ?"); args.add(status);
         }
-        sql.append(" ORDER BY p.requested_at DESC, p.id DESC LIMIT 200");
+        sql.append(" ORDER BY p.requested_at DESC, p.id DESC LIMIT " + Math.max(1, Math.min(limit, 2000)));
         return jdbc.query(sql.toString(), (rs, i) -> row(rs), args.toArray());
     }
 

@@ -50,7 +50,10 @@ public class InvoiceService {
     }
 
     /** filter: open (still owed), overdue, paid, or all. branchId non-null limits to one branch. */
-    public List<Row> list(Long branchId, String filter) {
+    public List<Row> list(Long branchId, String filter) { return list(branchId, filter, null); }
+
+    /** limit null = every row (totals and aging need all of them); screens pass a page size. */
+    public List<Row> list(Long branchId, String filter, Integer limit) {
         String where = switch (filter == null || filter.isBlank() ? "all" : filter) {
             case "open" -> " WHERE t.amount - t.paid > 0";
             case "overdue" -> " WHERE t.amount - t.paid > 0 AND t.days_left < 0";
@@ -59,7 +62,7 @@ public class InvoiceService {
             default -> throw new ApiException(HttpStatus.BAD_REQUEST, "Unknown filter.");
         };
         String branchSql = branchId != null ? " WHERE i.branch_id = ?" : "";
-        String sql = "SELECT * FROM (" + BASE + branchSql + ") t" + where + " ORDER BY t.due_date, t.id DESC LIMIT 300";
+        String sql = "SELECT * FROM (" + BASE + branchSql + ") t" + where + " ORDER BY t.due_date, t.id DESC" + (limit != null ? " LIMIT " + Math.max(1, Math.min(limit, 2000)) : "");
         return branchId != null ? jdbc.query(sql, (rs, i) -> row(rs), branchId) : jdbc.query(sql, (rs, i) -> row(rs));
     }
 

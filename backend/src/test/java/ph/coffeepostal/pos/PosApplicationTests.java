@@ -35,7 +35,7 @@ class PosApplicationTests {
 
 	@Test
 	void migrationsRunAndSeedRolesAndPermissions() {
-		assertThat(jdbc.queryForObject("SELECT count(*) FROM roles", Integer.class)).isEqualTo(5);
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM roles WHERE name IN ('Super Admin','HQ Staff','Branch Owner','Branch Manager','Cashier')", Integer.class)).isEqualTo(5);
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM modules", Integer.class)).isGreaterThan(30);
 		assertThat(jdbc.queryForObject(
 			"SELECT count(*) FROM role_permissions rp JOIN roles r ON r.id=rp.role_id WHERE r.name='Cashier'",

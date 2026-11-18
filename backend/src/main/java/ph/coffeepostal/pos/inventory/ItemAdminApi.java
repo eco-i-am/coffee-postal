@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import ph.coffeepostal.pos.shared.ApiException;
 import ph.coffeepostal.pos.shared.AuditService;
 import ph.coffeepostal.pos.shared.Money;
+import ph.coffeepostal.pos.shared.PesoInput;
 
 /** HQ: the master list of items branches can order. */
 @RestController
@@ -77,12 +78,6 @@ class ItemAdminApi {
     }
 
     private static long pesos(String s) {
-        try {
-            BigDecimal v = new BigDecimal(s.trim());
-            if (v.signum() < 0 || v.scale() > 2) throw new IllegalArgumentException();
-            return Money.ofPesos(v.toPlainString()).centavos();
-        } catch (RuntimeException e) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Enter a cost like 850 or 850.50.", Map.of("cost", "Enter a cost like 850 or 850.50."));
-        }
+        return PesoInput.parse(s, true, "cost", "Enter a cost like 850 or 850.50.");
     }
 }
