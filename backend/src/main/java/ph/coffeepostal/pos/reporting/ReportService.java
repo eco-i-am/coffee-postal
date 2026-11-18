@@ -33,6 +33,10 @@ public class ReportService {
     public record ProductRow(String name, long qty, long sales) {}
     public record StockRow(long itemId, String name, String unit, long beginning, long received, long transferIn, long transferOut,
                            long used, long wasted, long adjusted, long ending, long value) {}
+    public record CatAmount(String category, long amount) {}
+    /** Profit and loss. Sales exclude VAT. Cost of goods = stock used in sales x the item's current cost. */
+    public record ProfitLoss(String from, String to, int orders, long grossSales, long discounts, long vat, long netSales, long costOfGoods, long waste,
+                             long grossProfit, List<CatAmount> expenses, long expensesTotal, long outsource, long netProfit) {}
     public record BranchRow(long branchId, String branch, int orders, long sales, long avgOrder, int refunds, long refunded) {}
     public record AgingRow(long branchId, String branch, long current, long d1to30, long d31to60, long d61plus, long total) {}
 
@@ -157,6 +161,47 @@ public class ReportService {
                 return new StockRow(rs.getLong("id"), rs.getString("name"), rs.getString("unit"), rs.getLong("beginning"), rs.getLong("received"),
                     rs.getLong("t_in"), rs.getLong("t_out"), rs.getLong("used"), rs.getLong("wasted"), rs.getLong("adjusted"), ending, value);
             }, f, f, t, f, t, f, t, f, t, f, t, f, t, t, branchId, branchId, branchId, branchId);
+    }
+
+    private static long thousandthsToCentavos(long qtyTimesCost) {
+        return java.math.BigDecimal.valueOf(qtyTimesCost).divide(java.math.BigDecimal.valueOf(1000), 0, java.math.RoundingMode.HALF_UP).longValueExact();
+    }
+
+    /**
+     * Profit and loss for the range. branchId null = every branch plus HQ's own expenses.
+     * Outsource purchases of stocked items are not an expense here (the stock they add reaches cost of goods when it is used);
+     * only the lines that are not stocked items count.
+     */
+    public ProfitLoss profitLoss(Range r, Long branchId) {
+        Timestamp f = ts(r.from()), t = ts(r.to().plusDays(1));
+        Map<String, Object> s = jdbc.queryForMap("""
+            SELECT count(*) AS n, coalesce(sum(o.subtotal), 0) AS gross, coalesce(sum(o.discount), 0) AS disc,
+                   coalesce(sum(o.vat), 0) AS vat, coalesce(sum(o.total), 0) AS total
+            FROM orders o WHERE o.status = 'PAID' AND o.created_at >= ? AND o.created_at < ? AND (?::bigint IS NULL OR o.branch_id = ?)
+            """, f, t, branchId, branchId);
+        long used = jdbc.queryForObject("""
+            SELECT coalesce(sum(-m.qty * i.cost), 0) FROM stock_movements m JOIN items i ON i.id = m.item_id
+            WHERE m.kind = 'SALE' AND m.created_at >= ? AND m.created_at < ? AND (?::bigint IS NULL OR m.branch_id = ?)
+            """, Long.class, f, t, branchId, branchId);
+        long wasted = jdbc.queryForObject("""
+            SELECT coalesce(sum(-m.qty * i.cost), 0) FROM stock_movements m JOIN items i ON i.id = m.item_id
+            WHERE m.kind = 'WASTE' AND m.created_at >= ? AND m.created_at < ? AND (?::bigint IS NULL OR m.branch_id = ?)
+            """, Long.class, f, t, branchId, branchId);
+        List<CatAmount> cats = jdbc.query("""
+            SELECT c.name, sum(e.amount) FROM expenses e JOIN expense_categories c ON c.id = e.category_id
+            WHERE e.voided_at IS NULL AND e.expense_date BETWEEN ? AND ? AND (?::bigint IS NULL OR e.branch_id = ?)
+            GROUP BY c.name ORDER BY sum(e.amount) DESC
+            """, (rs, i) -> new CatAmount(rs.getString(1), rs.getLong(2)), java.sql.Date.valueOf(r.from()), java.sql.Date.valueOf(r.to()), branchId, branchId);
+        long expenses = cats.stream().mapToLong(CatAmount::amount).sum();
+        long outsource = jdbc.queryForObject("""
+            SELECT coalesce(sum(l.amount), 0) FROM outsource_lines l JOIN outsource_purchases p ON p.id = l.purchase_id
+            WHERE l.item_id IS NULL AND p.purchased_on BETWEEN ? AND ? AND (?::bigint IS NULL OR p.branch_id = ?)
+            """, Long.class, java.sql.Date.valueOf(r.from()), java.sql.Date.valueOf(r.to()), branchId, branchId);
+        long total = ((Number) s.get("total")).longValue(), vat = ((Number) s.get("vat")).longValue();
+        long netSales = total - vat, cogs = thousandthsToCentavos(used), waste = thousandthsToCentavos(wasted);
+        long gross = netSales - cogs - waste;
+        return new ProfitLoss(r.from().toString(), r.to().toString(), ((Number) s.get("n")).intValue(), ((Number) s.get("gross")).longValue(),
+            ((Number) s.get("disc")).longValue(), vat, netSales, cogs, waste, gross, cats, expenses, outsource, gross - expenses - outsource);
     }
 
     /** HQ: every open branch side by side. */

@@ -21,6 +21,7 @@ import ItemsPage from "../features/admin/ItemsPage.jsx";
 import BranchPoAdminPage from "../features/admin/BranchPoAdminPage.jsx";
 import SuppliersPage from "../features/admin/SuppliersPage.jsx";
 import OutsourcePage from "../features/branch/OutsourcePage.jsx";
+import ExpensesPage from "../features/expenses/ExpensesPage.jsx";
 import TransfersPage from "../features/inventory/TransfersPage.jsx";
 import ClockPage from "../features/clock/ClockPage.jsx";
 import EmployeesPage from "../features/employees/EmployeesPage.jsx";
@@ -58,6 +59,7 @@ export default function App() {
           <Route path="/branch/clock" element={<ClockPage />} />
           <Route path="/branch/transfers" element={<TransfersPage side="branch" />} />
           <Route path="/branch/outsource" element={<OutsourcePage />} />
+          <Route path="/branch/expenses" element={<ExpensesPage side="branch" />} />
           <Route path="/branch/employees" element={<EmployeesPage side="branch" />} />
           <Route path="/branch/inventory" element={<InventoryPage />} />
           <Route path="/branch/purchase-orders" element={<PurchaseOrdersPage />} />
@@ -74,6 +76,7 @@ export default function App() {
             <Route path="/admin/items" element={<ItemsPage />} />
             <Route path="/admin/transfers" element={<TransfersPage side="hq" />} />
             <Route path="/admin/suppliers" element={<SuppliersPage />} />
+            <Route path="/admin/expenses" element={<ExpensesPage side="hq" />} />
             <Route path="/admin/employees" element={<EmployeesPage side="hq" />} />
             <Route path="/admin/branch-po" element={<BranchPoAdminPage />} />
           </Route>

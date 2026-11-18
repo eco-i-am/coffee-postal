@@ -94,6 +94,39 @@ function ProductsTab({ base, range, branchQ }) {
   );
 }
 
+function PlTab({ base, range, branchQ }) {
+  const r = useReport(`${base}/pl`, range, branchQ);
+  if (!r.data) return <State r={r} />;
+  const p = r.data;
+  const line = (label, v, o = {}) => <tr className={o.bold ? "total" : ""}><td style={{ paddingLeft: o.indent ? 24 : undefined }}>{o.bold ? <b>{label}</b> : label}</td><td className="n">{o.bold ? <b>{peso(v)}</b> : peso(v)}</td></tr>;
+  const csv = [["Line", "Amount"], ["Gross sales (before discounts)", pesoCell(p.grossSales)], ["Discounts", pesoCell(-p.discounts)], ["VAT", pesoCell(-p.vat)],
+    ["Net sales", pesoCell(p.netSales)], ["Cost of goods (stock used)", pesoCell(-p.costOfGoods)], ["Waste", pesoCell(-p.waste)], ["Gross profit", pesoCell(p.grossProfit)],
+    ...p.expenses.map((e) => [`Expense: ${e.category}`, pesoCell(-e.amount)]), ["Outsource (not stocked)", pesoCell(-p.outsource)], ["Net profit", pesoCell(p.netProfit)]];
+  return (
+    <div className="sec tw">
+      <div className="pghead"><h2>Profit and loss</h2><ExportButton name="profit_loss" rows={csv} range={range} /></div>
+      <div className="kpis">
+        <Kpi label="Net sales" value={peso(p.netSales)} note={`${p.orders} orders, VAT out`} />
+        <Kpi label="Gross profit" value={peso(p.grossProfit)} />
+        <Kpi label="Expenses" value={peso(p.expensesTotal + p.outsource)} />
+        <Kpi label="Net profit" value={peso(p.netProfit)} bad={p.netProfit < 0} />
+      </div>
+      <table>
+        <tbody>
+          {line("Gross sales", p.grossSales)}{line("Less discounts", -p.discounts, { indent: true })}{line("Less VAT", -p.vat, { indent: true })}
+          {line("Net sales", p.netSales, { bold: true })}
+          {line("Cost of goods (stock used in sales)", -p.costOfGoods, { indent: true })}{line("Waste", -p.waste, { indent: true })}
+          {line("Gross profit", p.grossProfit, { bold: true })}
+          {p.expenses.map((e) => <tr key={e.category}><td style={{ paddingLeft: 24 }}>{e.category}</td><td className="n">{peso(-e.amount)}</td></tr>)}
+          {p.outsource > 0 && line("Outsource purchases (not stocked)", -p.outsource, { indent: true })}
+          {line("Net profit", p.netProfit, { bold: true })}
+        </tbody>
+      </table>
+      <p className="hint">Cost of goods uses each item's current cost, so it is an estimate. Sales count paid orders only; refunded orders are left out. Outsource items that go into stock reach cost of goods when they are used.</p>
+    </div>
+  );
+}
+
 function StockTab({ base, range, branchQ, needsBranch }) {
   const path = `${base}/stock`;
   const load = useCallback(() => (needsBranch ? Promise.resolve([]) : api(`${path}?from=${range.from}&to=${range.to}${branchQ}`)), [needsBranch, path, range.from, range.to, branchQ]);
@@ -182,8 +215,8 @@ export default function ReportsPage({ side }) {
   const base = hq ? "/api/admin/reports" : "/api/branch/reports";
   const branchQ = hq && branchId ? `&branchId=${branchId}` : "";
   const tabs = hq
-    ? [["sales", "Sales"], ["products", "Products"], ["branches", "Branches"], ["stock", "Stock"], ["aging", "Receivables aging"]]
-    : [["sales", "Sales"], ["products", "Products"], ["stock", "Stock"]];
+    ? [["sales", "Sales"], ["products", "Products"], ["pl", "Profit & loss"], ["branches", "Branches"], ["stock", "Stock"], ["aging", "Receivables aging"]]
+    : [["sales", "Sales"], ["products", "Products"], ["pl", "Profit & loss"], ["stock", "Stock"]];
   const needsRange = tab !== "aging";
   const tooLong = daysBetween(range.from, range.to) > 366;
 
@@ -195,7 +228,7 @@ export default function ReportsPage({ side }) {
       </div>
       <div className="filters">
         {needsRange && <RangeBar range={range} setRange={setRange} />}
-        {hq && ["sales", "products", "stock"].includes(tab) && (
+        {hq && ["sales", "products", "pl", "stock"].includes(tab) && (
           <label className="datepick">Branch
             <select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
               <option value="">All branches</option>
@@ -207,6 +240,7 @@ export default function ReportsPage({ side }) {
       {tooLong && <p className="notice" role="alert">Pick a range of one year or less.</p>}
       {!tooLong && tab === "sales" && <SalesTab base={base} range={range} branchQ={branchQ} />}
       {!tooLong && tab === "products" && <ProductsTab base={base} range={range} branchQ={branchQ} />}
+      {!tooLong && tab === "pl" && <PlTab base={base} range={range} branchQ={branchQ} />}
       {!tooLong && tab === "stock" && <StockTab base={base} range={range} branchQ={branchQ} needsBranch={false} />}
       {!tooLong && tab === "branches" && <BranchesTab range={range} />}
       {tab === "aging" && <AgingTab />}

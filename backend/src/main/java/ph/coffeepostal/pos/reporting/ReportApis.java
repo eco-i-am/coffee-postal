@@ -30,6 +30,12 @@ class BranchReportApi {
         return reports.products(ReportService.range(from, to), orders.whoIs(who.getName()).branchId());
     }
 
+    @GetMapping("/pl")
+    @PreAuthorize("hasAuthority('PERM_branch_reports_view')")
+    ReportService.ProfitLoss pl(@RequestParam(required = false) String from, @RequestParam(required = false) String to, Principal who) {
+        return reports.profitLoss(ReportService.range(from, to), orders.whoIs(who.getName()).branchId());
+    }
+
     @GetMapping("/stock")
     @PreAuthorize("hasAuthority('PERM_branch_reports_view')")
     List<ReportService.StockRow> stock(@RequestParam(required = false) String from, @RequestParam(required = false) String to, Principal who) {
@@ -63,6 +69,13 @@ class AdminReportApi {
     @PreAuthorize("hasAuthority('PERM_reports_admin_view')")
     List<ReportService.BranchRow> branches(@RequestParam(required = false) String from, @RequestParam(required = false) String to) {
         return reports.branches(ReportService.range(from, to));
+    }
+
+    @GetMapping("/pl")
+    @PreAuthorize("hasAuthority('PERM_reports_admin_view')")
+    ReportService.ProfitLoss pl(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
+                                @RequestParam(required = false) Long branchId) {
+        return reports.profitLoss(ReportService.range(from, to), branchId);
     }
 
     @GetMapping("/aging")
