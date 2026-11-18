@@ -28,8 +28,8 @@ import ph.coffeepostal.pos.shared.PesoInput;
 @RequestMapping("/api/admin/items")
 class ItemAdminApi {
     record ItemReq(@NotBlank @Size(max = 120) String name, @NotBlank @Size(max = 20) String unit,
-                   @NotBlank String cost, @Min(0) @Max(1_000_000) long reorderLevel) {}
-    record ItemUpdate(@NotBlank @Size(max = 20) String unit, @NotBlank String cost, @Min(0) @Max(1_000_000) long reorderLevel) {}
+                   @NotBlank String cost, @Min(0) @Max(1_000_000) long reorderLevel, Long categoryId) {}
+    record ItemUpdate(@NotBlank @Size(max = 20) String unit, @NotBlank String cost, @Min(0) @Max(1_000_000) long reorderLevel, Long categoryId) {}
 
     private final InventoryService inventory;
     private final AuditService audit;
@@ -49,7 +49,7 @@ class ItemAdminApi {
         if (inventory.itemNameExists(name, null)) {
             throw new ApiException(HttpStatus.CONFLICT, "An item with that name already exists.", Map.of("name", "Already used."));
         }
-        long id = inventory.createItem(name, r.unit().trim(), cost, r.reorderLevel());
+        long id = inventory.createItem(name, r.unit().trim(), cost, r.reorderLevel(), r.categoryId());
         audit.record(who.getName(), null, "ITEM_CREATE", "item", String.valueOf(id), null,
             "{\"name\":\"" + name.replace("\"", "'") + "\",\"cost\":" + cost + "}", null);
         return Map.of("id", id);
@@ -59,7 +59,7 @@ class ItemAdminApi {
     @PreAuthorize("hasAuthority('PERM_items_master_edit')")
     Map<String, Object> update(@PathVariable long id, @Valid @RequestBody ItemUpdate r, Principal who) {
         long cost = pesos(r.cost());
-        if (!inventory.updateItem(id, r.unit().trim(), cost, r.reorderLevel())) {
+        if (!inventory.updateItem(id, r.unit().trim(), cost, r.reorderLevel(), r.categoryId())) {
             throw new ApiException(HttpStatus.NOT_FOUND, "That item no longer exists.");
         }
         audit.record(who.getName(), null, "ITEM_UPDATE", "item", String.valueOf(id), null,

@@ -11,7 +11,7 @@ import ph.coffeepostal.pos.shared.ApiException;
 /** HQ item master list and each branch's stock ledger. */
 @Service
 public class InventoryService {
-    public record ItemRow(long id, String name, String unit, long cost, long reorderLevel, boolean active) {}
+    public record ItemRow(long id, String name, String unit, long cost, long reorderLevel, boolean active, Long categoryId, String category) {}
     public record StockRow(long itemId, String name, String unit, long cost, long onHand, long reorderLevel, boolean low) {}
     public record Movement(long id, long qty, String kind, String reason, String ref, String by, Instant at) {}
 
@@ -23,9 +23,11 @@ public class InventoryService {
     public InventoryService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
 
     public List<ItemRow> items() {
-        return jdbc.query("SELECT id, name, unit, cost, reorder_level, active FROM items ORDER BY lower(name)",
-            (rs, i) -> new ItemRow(rs.getLong("id"), rs.getString("name"), rs.getString("unit"), rs.getLong("cost"),
-                rs.getLong("reorder_level"), rs.getBoolean("active")));
+        return jdbc.query("""
+            SELECT i.id, i.name, i.unit, i.cost, i.reorder_level, i.active, i.category_id, c.name AS category
+            FROM items i LEFT JOIN item_categories c ON c.id = i.category_id ORDER BY lower(i.name)
+            """, (rs, i) -> new ItemRow(rs.getLong("id"), rs.getString("name"), rs.getString("unit"), rs.getLong("cost"),
+                rs.getLong("reorder_level"), rs.getBoolean("active"), (Long) rs.getObject("category_id"), rs.getString("category")));
     }
 
     public boolean itemNameExists(String name, Long exceptId) {
@@ -35,14 +37,40 @@ public class InventoryService {
     }
 
     @Transactional
-    public long createItem(String name, String unit, long cost, long reorderLevel) {
-        return jdbc.queryForObject("INSERT INTO items(name, unit, cost, reorder_level) VALUES (?, ?, ?, ?) RETURNING id",
-            Long.class, name, unit, cost, reorderLevel);
+    public long createItem(String name, String unit, long cost, long reorderLevel, Long categoryId) {
+        checkCategory(categoryId);
+        registerUnit(unit);
+        return jdbc.queryForObject("INSERT INTO items(name, unit, cost, reorder_level, category_id) VALUES (?, ?, ?, ?, ?) RETURNING id",
+            Long.class, name, unit, cost, reorderLevel, categoryId);
+    }
+
+    private void checkCategory(Long categoryId) {
+        if (categoryId == null) return;
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM item_categories WHERE id = ? AND active", Integer.class, categoryId);
+        if (n == null || n == 0) throw new ApiException(HttpStatus.BAD_REQUEST, "Pick a category from the list.");
+    }
+
+    /** A unit typed on an item joins the units list, so conversions and reports share one spelling. */
+    private void registerUnit(String unit) {
+        jdbc.update("INSERT INTO units(code) SELECT ? WHERE NOT EXISTS (SELECT 1 FROM units WHERE lower(code) = lower(?))", unit, unit);
+    }
+
+    /** A quantity typed in another unit, as the item's own unit in thousandths. Null/blank/own unit means qty is already in the item's unit. */
+    public long toBase(long itemId, long qty, String unit) {
+        if (unit == null || unit.isBlank()) return qty;
+        var row = jdbc.query("SELECT unit FROM items WHERE id = ?", (rs, i) -> rs.getString(1), itemId).stream().findFirst()
+            .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "That item no longer exists."));
+        if (row.equalsIgnoreCase(unit.trim())) return qty;
+        Long f = jdbc.query("SELECT factor FROM item_conversions WHERE item_id = ? AND lower(unit) = lower(?)", (rs, i) -> rs.getLong(1), itemId, unit.trim())
+            .stream().findFirst().orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "This item has no conversion for " + unit.trim() + "."));
+        return java.math.BigDecimal.valueOf(qty).multiply(java.math.BigDecimal.valueOf(f)).divide(java.math.BigDecimal.valueOf(SCALE), 0, java.math.RoundingMode.HALF_UP).longValueExact();
     }
 
     @Transactional
-    public boolean updateItem(long id, String unit, long cost, long reorderLevel) {
-        return jdbc.update("UPDATE items SET unit = ?, cost = ?, reorder_level = ? WHERE id = ?", unit, cost, reorderLevel, id) == 1;
+    public boolean updateItem(long id, String unit, long cost, long reorderLevel, Long categoryId) {
+        checkCategory(categoryId);
+        registerUnit(unit);
+        return jdbc.update("UPDATE items SET unit = ?, cost = ?, reorder_level = ?, category_id = ? WHERE id = ?", unit, cost, reorderLevel, categoryId, id) == 1;
     }
 
     /** Returns the new value of active, or null if the item does not exist. */
