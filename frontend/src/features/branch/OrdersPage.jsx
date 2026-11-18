@@ -1,3 +1,4 @@
+import ReceiptSheet from "../pos/ReceiptSheet.jsx";
 import { useCallback, useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
@@ -41,6 +42,20 @@ function OrderDetail({ id, onClose, onChanged }) {
   const load = useCallback(() => api(`/api/branch/orders/${id}`), [id]);
   const { data: d, error, reload } = useLoad(load);
   const [refunding, setRefunding] = useState(false);
+  const [copy, setCopy] = useState(null);
+  const [perr, setPerr] = useState("");
+  async function reprint() {
+    setPerr("");
+    try { setCopy(await api(`/api/branch/orders/${id}/reprint`, { method: "POST" })); }
+    catch (e) { setPerr(e.message); }
+  }
+  if (copy) {
+    return (
+      <div className="scrim" onClick={(e) => e.target === e.currentTarget && setCopy(null)}>
+        <div className="modal" role="dialog" aria-modal="true" aria-label="Receipt copy"><ReceiptSheet r={copy} onClose={() => setCopy(null)} /></div>
+      </div>
+    );
+  }
   return (
     <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="modal" role="dialog" aria-modal="true" aria-label="Order details">
@@ -86,9 +101,11 @@ function OrderDetail({ id, onClose, onChanged }) {
         {d && d.order.status === "PAID" && refunding && (
           <RefundForm id={id} onCancel={() => setRefunding(false)} onDone={() => { setRefunding(false); onChanged("Order refunded."); reload(); }} />
         )}
+        {perr && <p className="err" role="alert">{perr}</p>}
         {!refunding && (
           <div className="opts">
             <button className="btn ghost" onClick={onClose}>Close</button>
+            {d && <button className="btn ghost" onClick={reprint}>Reprint receipt</button>}
             {d && d.order.status === "PAID" && <button className="btn ghost" onClick={() => setRefunding(true)}>Refund</button>}
           </div>
         )}

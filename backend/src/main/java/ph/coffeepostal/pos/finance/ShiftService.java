@@ -19,9 +19,9 @@ public class ShiftService {
     public record Movement(long id, String kind, long amount, String reason, Instant at, String by) {}
     public record Summary(long id, Instant openedAt, long openingCash, int orders, long sales, long cashSales,
                           long cashIn, long cashOut, long expected, List<Movement> movements) {}
-    public record Closed(long id, Instant openedAt, Instant closedAt, long expected, long counted, long variance) {}
+    public record Closed(long id, int zNo, Instant openedAt, Instant closedAt, long expected, long counted, long variance) {}
     public record HistoryRow(long id, String cashier, Instant openedAt, Instant closedAt, long openingCash,
-                             Long expected, Long counted, Long variance) {}
+                             Long expected, Long counted, Long variance, Integer zNo) {}
 
     private final JdbcTemplate jdbc;
 
@@ -79,16 +79,26 @@ public class ShiftService {
     public Closed close(long userId, long counted) {
         Summary cur = current(userId);
         if (cur == null) throw new ApiException(HttpStatus.CONFLICT, "You do not have an open shift.");
-        int n = jdbc.update("UPDATE shifts SET closed_at = now(), expected_cash = ?, counted_cash = ? WHERE id = ? AND closed_at IS NULL",
-            cur.expected(), counted, cur.id());
+        // the Z number is a running count per branch; locking the branch row keeps two closes from taking the same one
+        long branchId = jdbc.queryForObject("SELECT branch_id FROM shifts WHERE id = ?", Long.class, cur.id());
+        jdbc.queryForObject("SELECT id FROM branches WHERE id = ? FOR UPDATE", Long.class, branchId);
+        int zNo = jdbc.queryForObject("SELECT coalesce(max(z_no), 0) + 1 FROM shifts WHERE branch_id = ?", Integer.class, branchId);
+        int n = jdbc.update("UPDATE shifts SET closed_at = now(), expected_cash = ?, counted_cash = ?, z_no = ? WHERE id = ? AND closed_at IS NULL",
+            cur.expected(), counted, zNo, cur.id());
         if (n == 0) throw new ApiException(HttpStatus.CONFLICT, "This shift was already closed.");
         Instant closedAt = jdbc.queryForObject("SELECT closed_at FROM shifts WHERE id = ?", java.sql.Timestamp.class, cur.id()).toInstant();
-        return new Closed(cur.id(), cur.openedAt(), closedAt, cur.expected(), counted, counted - cur.expected());
+        return new Closed(cur.id(), zNo, cur.openedAt(), closedAt, cur.expected(), counted, counted - cur.expected());
+    }
+
+    /** Who ran this shift, or null if there is no such shift. */
+    public Long cashierOf(long shiftId) {
+        List<Long> r = jdbc.queryForList("SELECT cashier_id FROM shifts WHERE id = ?", Long.class, shiftId);
+        return r.isEmpty() ? null : r.get(0);
     }
 
     public List<HistoryRow> history(long branchId) {
         return jdbc.query("""
-            SELECT s.id, u.full_name, s.opened_at, s.closed_at, s.opening_cash, s.expected_cash, s.counted_cash
+            SELECT s.id, u.full_name, s.opened_at, s.closed_at, s.opening_cash, s.expected_cash, s.counted_cash, s.z_no
             FROM shifts s JOIN users u ON u.id = s.cashier_id WHERE s.branch_id = ?
             ORDER BY s.opened_at DESC LIMIT 40
             """, (rs, i) -> {
@@ -97,7 +107,7 @@ public class ShiftService {
                 long cnt = rs.getLong(7); boolean hasCnt = !rs.wasNull();
                 return new HistoryRow(rs.getLong(1), rs.getString(2), rs.getTimestamp(3).toInstant(),
                     closed == null ? null : closed.toInstant(), rs.getLong(5),
-                    hasExp ? exp : null, hasCnt ? cnt : null, hasExp && hasCnt ? cnt - exp : null);
+                    hasExp ? exp : null, hasCnt ? cnt : null, hasExp && hasCnt ? cnt - exp : null, (Integer) rs.getObject(8));
             }, branchId);
     }
 }

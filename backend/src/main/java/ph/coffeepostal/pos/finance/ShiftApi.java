@@ -9,6 +9,8 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -30,10 +32,13 @@ class ShiftApi {
     record Current(ShiftService.Summary shift) {}
 
     private final ShiftService shifts;
+    private final ReadingService readings;
     private final OrderService orders;
     private final AuditService audit;
 
-    ShiftApi(ShiftService shifts, OrderService orders, AuditService audit) { this.shifts = shifts; this.orders = orders; this.audit = audit; }
+    ShiftApi(ShiftService shifts, ReadingService readings, OrderService orders, AuditService audit) {
+        this.shifts = shifts; this.readings = readings; this.orders = orders; this.audit = audit;
+    }
 
     @GetMapping("/shift")
     @PreAuthorize("hasAuthority('PERM_cash_inout_view')")
@@ -70,6 +75,30 @@ class ShiftApi {
         audit.record(who.getName(), me.branchId(), "SHIFT_CLOSE", "shift", String.valueOf(c.id()), null,
             "{\"expected\":" + c.expected() + ",\"counted\":" + c.counted() + ",\"variance\":" + c.variance() + "}", null);
         return c;
+    }
+
+    /** X reading: the report on your open shift. Changes nothing. */
+    @GetMapping("/shift/reading")
+    @PreAuthorize("hasAuthority('PERM_cash_inout_view')")
+    ReadingService.Reading xReading(Principal who) {
+        var me = orders.whoIs(who.getName());
+        var cur = shifts.current(me.userId());
+        if (cur == null) throw new ApiException(HttpStatus.CONFLICT, "You do not have an open shift.");
+        audit.record(who.getName(), me.branchId(), "X_READING", "shift", String.valueOf(cur.id()), null, null, null);
+        return readings.reading(cur.id());
+    }
+
+    /** The reading of any shift in this branch (a Z reading once closed). A cashier sees only their own; managers see all. */
+    @GetMapping("/shifts/{id}/reading")
+    @PreAuthorize("hasAnyAuthority('PERM_cash_inout_view','PERM_cashier_reports_view')")
+    ReadingService.Reading shiftReading(@PathVariable long id, Authentication auth, Principal who) {
+        var me = orders.whoIs(who.getName());
+        var r = readings.reading(id);
+        boolean manager = auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().equals("PERM_cashier_reports_view"));
+        if (r.branchId() != me.branchId() || (!manager && !Long.valueOf(me.userId()).equals(shifts.cashierOf(id)))) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "That shift was not found.");
+        }
+        return r;
     }
 
     /** Past shifts for the branch, with over/short. Managers only. */

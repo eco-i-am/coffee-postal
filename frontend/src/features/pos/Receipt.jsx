@@ -8,7 +8,7 @@ export default function Receipt({ res, method, tendered, cart, otype, discName, 
     <>
       <h2>{res.offline ? `Paid. Saved as ${res.ref}` : `Order #${res.orderNo} paid`}</h2>
       {res.offline && <p className="notice offline" role="status">No internet. This order is saved on this device and gets its order number when it uploads.</p>}
-      <div className="receipt">
+      <div className="receipt printable">
         <div className="c"><b>COFFEE POSTAL</b><br />{time} &middot; {TYPE_NAMES[otype]}<hr /></div>
         {cart.map((l) => (
           <div key={l.key}>
@@ -28,7 +28,10 @@ export default function Receipt({ res, method, tendered, cart, otype, discName, 
         {vatRegistered && <div className="r"><span>VAT 12%</span><span>{peso(res.vat)}</span></div>}
         <div className="c"><hr />Thank you! Your affordable freshly brewed coffee destination.<br /><i>Not an official receipt.</i></div>
       </div>
-      <button className="btn warm" onClick={onDone}>New order</button>
+      <div className="opts noprint">
+        <button className="btn ghost" onClick={() => window.print()}>Print</button>
+        <button className="btn warm" style={{ flex: 1 }} onClick={onDone}>New order</button>
+      </div>
     </>
   );
 }
