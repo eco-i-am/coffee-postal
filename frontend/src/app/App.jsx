@@ -19,6 +19,7 @@ import InventoryPage from "../features/branch/InventoryPage.jsx";
 import PurchaseOrdersPage from "../features/branch/PurchaseOrdersPage.jsx";
 import ItemsPage from "../features/admin/ItemsPage.jsx";
 import BranchPoAdminPage from "../features/admin/BranchPoAdminPage.jsx";
+import SuppliersPage from "../features/admin/SuppliersPage.jsx";
 import TransfersPage from "../features/inventory/TransfersPage.jsx";
 import ClockPage from "../features/clock/ClockPage.jsx";
 import EmployeesPage from "../features/employees/EmployeesPage.jsx";
@@ -70,6 +71,7 @@ export default function App() {
             <Route path="/admin/discounts" element={<DiscountsPage />} />
             <Route path="/admin/items" element={<ItemsPage />} />
             <Route path="/admin/transfers" element={<TransfersPage side="hq" />} />
+            <Route path="/admin/suppliers" element={<SuppliersPage />} />
             <Route path="/admin/employees" element={<EmployeesPage side="hq" />} />
             <Route path="/admin/branch-po" element={<BranchPoAdminPage />} />
           </Route>

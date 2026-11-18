@@ -17,6 +17,7 @@ function navFor(me, can) {
       can("reports_admin_view") && { to: "/admin/reports", label: "Reports" },
       can("admin_employees_view") && { to: "/admin/employees", label: "Employees" },
       can("admin_transfers_view") && { to: "/admin/transfers", label: "Transfers" },
+      (can("suppliers_view") || can("supplier_po_view")) && { to: "/admin/suppliers", label: "Suppliers" },
       can("users_admin_view") && { to: "/admin/users", label: "Staff" },
       can("roles_view") && { to: "/admin/roles", label: "Roles" },
       can("logs_view") && { to: "/admin/logs", label: "Logs" },
