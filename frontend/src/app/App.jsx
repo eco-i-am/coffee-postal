@@ -19,6 +19,7 @@ import InventoryPage from "../features/branch/InventoryPage.jsx";
 import PurchaseOrdersPage from "../features/branch/PurchaseOrdersPage.jsx";
 import ItemsPage from "../features/admin/ItemsPage.jsx";
 import BranchPoAdminPage from "../features/admin/BranchPoAdminPage.jsx";
+import TransfersPage from "../features/inventory/TransfersPage.jsx";
 import ClockPage from "../features/clock/ClockPage.jsx";
 import EmployeesPage from "../features/employees/EmployeesPage.jsx";
 
@@ -53,6 +54,7 @@ export default function App() {
           <Route path="/branch/users" element={<StaffPage side="branch" />} />
           <Route path="/branch/cash" element={<CashPage />} />
           <Route path="/branch/clock" element={<ClockPage />} />
+          <Route path="/branch/transfers" element={<TransfersPage side="branch" />} />
           <Route path="/branch/employees" element={<EmployeesPage side="branch" />} />
           <Route path="/branch/inventory" element={<InventoryPage />} />
           <Route path="/branch/purchase-orders" element={<PurchaseOrdersPage />} />
@@ -67,6 +69,7 @@ export default function App() {
             <Route path="/admin/products" element={<ProductsPage />} />
             <Route path="/admin/discounts" element={<DiscountsPage />} />
             <Route path="/admin/items" element={<ItemsPage />} />
+            <Route path="/admin/transfers" element={<TransfersPage side="hq" />} />
             <Route path="/admin/employees" element={<EmployeesPage side="hq" />} />
             <Route path="/admin/branch-po" element={<BranchPoAdminPage />} />
           </Route>
