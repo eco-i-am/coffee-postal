@@ -34,3 +34,25 @@ export function presetRange(key, today) {
     default: return { from: addDays(today, -6), to: today };
   }
 }
+
+// Manila has no daylight saving, so it is always UTC+8. The correction form works in Manila time.
+/** An instant as the value of a datetime-local input, in Manila time: "2026-11-18T14:30". */
+export function manilaInput(iso) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+  }).formatToParts(new Date(iso)).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+
+/** The reverse: a datetime-local value typed in Manila time, as an ISO instant. Null if it is not a date. */
+export function fromManilaInput(local) {
+  const d = new Date(`${local}:00+08:00`);
+  return Number.isNaN(d.getTime()) ? null : d.toISOString();
+}
+
+/** Minutes as "7h 30m". */
+export function hoursText(minutes) {
+  if (minutes == null) return "";
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  return h === 0 ? `${m}m` : m === 0 ? `${h}h` : `${h}h ${m}m`;
+}

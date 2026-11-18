@@ -19,6 +19,8 @@ import InventoryPage from "../features/branch/InventoryPage.jsx";
 import PurchaseOrdersPage from "../features/branch/PurchaseOrdersPage.jsx";
 import ItemsPage from "../features/admin/ItemsPage.jsx";
 import BranchPoAdminPage from "../features/admin/BranchPoAdminPage.jsx";
+import ClockPage from "../features/clock/ClockPage.jsx";
+import EmployeesPage from "../features/employees/EmployeesPage.jsx";
 
 function Protected({ scope }) {
   const { me, ready } = useAuth();
@@ -29,7 +31,9 @@ function Protected({ scope }) {
 }
 
 function Home() {
-  const { me } = useAuth();
+  const { me, can } = useAuth();
+  // a tablet account that can only clock people in and out goes straight to the clock
+  if (me.scope !== "ADMIN" && can("time_clock_view") && !can("pos_view") && !can("orders_view")) return <Navigate to="/branch/clock" replace />;
   return <Navigate to={me.scope === "ADMIN" ? "/admin" : "/branch"} replace />;
 }
 
@@ -48,6 +52,8 @@ export default function App() {
           <Route path="/branch/reports" element={<ReportsPage side="branch" />} />
           <Route path="/branch/users" element={<StaffPage side="branch" />} />
           <Route path="/branch/cash" element={<CashPage />} />
+          <Route path="/branch/clock" element={<ClockPage />} />
+          <Route path="/branch/employees" element={<EmployeesPage side="branch" />} />
           <Route path="/branch/inventory" element={<InventoryPage />} />
           <Route path="/branch/purchase-orders" element={<PurchaseOrdersPage />} />
           <Route element={<Protected scope="ADMIN" />}>
@@ -61,6 +67,7 @@ export default function App() {
             <Route path="/admin/products" element={<ProductsPage />} />
             <Route path="/admin/discounts" element={<DiscountsPage />} />
             <Route path="/admin/items" element={<ItemsPage />} />
+            <Route path="/admin/employees" element={<EmployeesPage side="hq" />} />
             <Route path="/admin/branch-po" element={<BranchPoAdminPage />} />
           </Route>
         </Route>

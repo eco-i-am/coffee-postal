@@ -274,3 +274,20 @@ h3{margin:0}
   .printable { position: absolute; left: 0; top: 0; width: 72mm; border: 0; padding: 0; font-size: 11px; box-shadow: none; background: #fff; }
   .noprint { display: none !important; }
 }
+
+/* Time clock keypad */
+.clock{display:grid;grid-template-columns:minmax(280px,380px) 1fr;gap:20px;align-items:start}
+@media (max-width:760px){.clock{grid-template-columns:1fr}}
+.clock .pad{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px;display:grid;gap:12px}
+.clock .result{min-height:84px;display:flex;align-items:center;justify-content:center;text-align:center;border-radius:12px;background:#f6f1ea;padding:10px;font-size:1.05rem}
+.clock .result.in{background:#d9f2e3}.clock .result.out{background:#ffe9c2}.clock .result.bad{background:#fde0dc}
+.clock .result b{font-size:1.4rem}
+.clock .dots{display:flex;justify-content:center;gap:12px}
+.clock .dots i{width:16px;height:16px;border-radius:50%;border:2px solid #999}
+.clock .dots i.on{background:#333;border-color:#333}
+.clock .keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.clock .key{min-height:64px;font-size:1.6rem;border-radius:14px;border:1px solid var(--line);background:#fff;cursor:pointer}
+.clock .key.fn{font-size:1rem;background:#f6f1ea}
+.clock .key:active:not(:disabled){transform:scale(.97)}
+.clock .key:disabled{opacity:.5}
+.clock .whoin .r{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line)}

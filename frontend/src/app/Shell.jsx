@@ -15,6 +15,7 @@ function navFor(me, can) {
       can("receivables_view") && { to: "/admin/receivables", label: "Receivables" },
       can("items_master_view") && { to: "/admin/items", label: "Items" },
       can("reports_admin_view") && { to: "/admin/reports", label: "Reports" },
+      can("admin_employees_view") && { to: "/admin/employees", label: "Employees" },
       can("users_admin_view") && { to: "/admin/users", label: "Staff" },
       can("roles_view") && { to: "/admin/roles", label: "Roles" },
       can("logs_view") && { to: "/admin/logs", label: "Logs" },
@@ -28,6 +29,8 @@ function navFor(me, can) {
     can("branch_po_view") && { to: "/branch/purchase-orders", label: "Purchase Orders" },
     can("payables_view") && { to: "/branch/payables", label: "Payables" },
     can("cash_inout_view") && { to: "/branch/cash", label: "Cash Drawer" },
+    can("time_clock_view") && { to: "/branch/clock", label: "Time In / Out" },
+    can("branch_employees_view") && { to: "/branch/employees", label: "Employees" },
     can("branch_reports_view") && { to: "/branch/reports", label: "Reports" },
     can("branch_users_view") && { to: "/branch/users", label: "Staff" },
   ].filter(Boolean);

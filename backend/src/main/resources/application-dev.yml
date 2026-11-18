@@ -3,6 +3,7 @@ spring:
   thymeleaf.cache: false
 server.servlet.session.cookie.secure: false
 app:
+  timeclock.pin-secret: dev-only-time-clock-secret-0000
   seed-demo: true
   seed-demo-password: coffee123        # demo manager + cashier (dev only)
   bootstrap:
