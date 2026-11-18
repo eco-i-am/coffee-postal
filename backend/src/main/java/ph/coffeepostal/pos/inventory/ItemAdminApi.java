@@ -67,6 +67,17 @@ class ItemAdminApi {
         return Map.of("id", id);
     }
 
+    /** HQ decides whether branches can put this item on a purchase order. */
+    @PostMapping("/{id}/orderable")
+    @PreAuthorize("hasAuthority('PERM_po_items_edit')")
+    Map<String, Object> orderable(@PathVariable long id, @RequestBody Map<String, Boolean> r, Principal who) {
+        boolean on = Boolean.TRUE.equals(r.get("orderable"));
+        Boolean was = inventory.setOrderable(id, on);
+        if (was == null) throw new ApiException(HttpStatus.NOT_FOUND, "That item no longer exists.");
+        audit.record(who.getName(), null, "ITEM_ORDERABLE", "item", String.valueOf(id), "{\"orderable\":" + was + "}", "{\"orderable\":" + on + "}", null);
+        return Map.of("orderable", on);
+    }
+
     @PostMapping("/{id}/toggle")
     @PreAuthorize("hasAuthority('PERM_items_master_edit')")
     Map<String, Object> toggle(@PathVariable long id, Principal who) {

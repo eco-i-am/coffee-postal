@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { peso } from "../../shared/money.js";
+import { useAuth } from "../../app/AuthContext.jsx";
 
 const loadItems = () => api("/api/admin/items");
 const loadCats = () => api("/api/admin/item-categories");
@@ -10,6 +11,7 @@ const EMPTY = { name: "", unit: "", cost: "", reorderLevel: "0", categoryId: "" 
 const catId = (v) => (v === "" || v == null ? null : Number(v));
 
 export default function ItemsPage() {
+  const { can } = useAuth();
   const { data: items, error, loading, reload } = useLoad(loadItems);
   const cats = useLoad(loadCats);
   const units = useLoad(loadUnits).data || [];
@@ -61,6 +63,12 @@ export default function ItemsPage() {
     try { setConvs(await api(`/api/admin/items/${i.id}/conversions`)); } catch { setConvs([]); }
   }
 
+  async function setOrderable(i) {
+    setMsg("");
+    try { await api(`/api/admin/items/${i.id}/orderable`, { method: "POST", body: { orderable: !i.orderable } }); reload(); }
+    catch (err) { setMsg(err.message); }
+  }
+
   async function toggle(i) {
     setMsg("");
     try { await api(`/api/admin/items/${i.id}/toggle`, { method: "POST" }); reload(); }
@@ -71,7 +79,7 @@ export default function ItemsPage() {
     <section>
       <header className="pghead"><div>
         <h1>Items</h1>
-        <p>What branches can order from HQ. Prices here are what a branch pays per unit.</p>
+        <p>The item list. Prices here are what a branch pays per unit. Choose which items branches can order from HQ.</p>
       </div></header>
       {msg && <p className="notice" role="status">{msg}</p>}
 
@@ -127,19 +135,22 @@ export default function ItemsPage() {
           {error && <p className="err" role="alert">{error}</p>}
           {loading && !items ? <p role="status">Loading...</p> : (
             <table>
-              <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th className="n">Cost</th><th className="n">Low at</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th className="n">Cost</th><th className="n">Low at</th><th>Branches can order</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {(items || []).filter((i) => !filter || (filter === "none" ? i.categoryId == null : String(i.categoryId) === filter)).map((i) => (
                   <tr key={i.id}>
                     <td><b>{i.name}</b></td><td>{i.category || ""}</td><td>{i.unit}</td><td className="n">{peso(i.cost)}</td><td className="n">{i.reorderLevel}</td>
-                    <td><span className={`tag ${i.active ? "g" : "r"}`}>{i.active ? "Orderable" : "Hidden"}</span></td>
+                    <td>{can("po_items_edit")
+                      ? <button className="btn ghost sm" type="button" aria-pressed={i.orderable} onClick={() => setOrderable(i)}>{i.orderable ? "Yes" : "No"}</button>
+                      : (i.orderable ? "Yes" : "No")}</td>
+                    <td><span className={`tag ${i.active ? "g" : "r"}`}>{i.active ? "Active" : "Hidden"}</span></td>
                     <td className="rowbtns">
                       <button className="btn ghost sm" type="button" onClick={() => openEdit(i)}>Edit</button>
                       <button className="btn ghost sm" type="button" onClick={() => toggle(i)}>{i.active ? "Hide" : "Show"}</button>
                     </td>
                   </tr>
                 ))}
-                {items && items.length === 0 && <tr><td colSpan="7" className="emptyrow">No items yet. Add the first one.</td></tr>}
+                {items && items.length === 0 && <tr><td colSpan="8" className="emptyrow">No items yet. Add the first one.</td></tr>}
               </tbody>
             </table>
           )}

@@ -120,7 +120,7 @@ public class BranchPoService {
         for (var e : merged.entrySet()) {
             int n = jdbc.update("""
                 INSERT INTO branch_po_lines(po_id, item_id, name, unit, unit_cost, qty_ordered)
-                SELECT ?, i.id, i.name, i.unit, i.cost, ? FROM items i WHERE i.id = ? AND i.active
+                SELECT ?, i.id, i.name, i.unit, i.cost, ? FROM items i WHERE i.id = ? AND i.active AND i.orderable
                 """, id, e.getValue(), e.getKey());
             if (n == 0) throw new ApiException(HttpStatus.BAD_REQUEST, "An item on this order is no longer available. Refresh and try again.");
         }

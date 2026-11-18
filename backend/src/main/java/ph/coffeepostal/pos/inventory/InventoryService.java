@@ -11,8 +11,8 @@ import ph.coffeepostal.pos.shared.ApiException;
 /** HQ item master list and each branch's stock ledger. */
 @Service
 public class InventoryService {
-    public record ItemRow(long id, String name, String unit, long cost, long reorderLevel, boolean active, Long categoryId, String category) {}
-    public record StockRow(long itemId, String name, String unit, long cost, long onHand, long reorderLevel, boolean low) {}
+    public record ItemRow(long id, String name, String unit, long cost, long reorderLevel, boolean active, Long categoryId, String category, boolean orderable) {}
+    public record StockRow(long itemId, String name, String unit, long cost, long onHand, long reorderLevel, boolean low, String category, boolean orderable) {}
     public record Movement(long id, long qty, String kind, String reason, String ref, String by, Instant at) {}
 
     /** Stock is counted in thousandths of an item's unit: 1 bag = 1000. */
@@ -24,10 +24,10 @@ public class InventoryService {
 
     public List<ItemRow> items() {
         return jdbc.query("""
-            SELECT i.id, i.name, i.unit, i.cost, i.reorder_level, i.active, i.category_id, c.name AS category
+            SELECT i.id, i.name, i.unit, i.cost, i.reorder_level, i.active, i.category_id, c.name AS category, i.orderable
             FROM items i LEFT JOIN item_categories c ON c.id = i.category_id ORDER BY lower(i.name)
             """, (rs, i) -> new ItemRow(rs.getLong("id"), rs.getString("name"), rs.getString("unit"), rs.getLong("cost"),
-                rs.getLong("reorder_level"), rs.getBoolean("active"), (Long) rs.getObject("category_id"), rs.getString("category")));
+                rs.getLong("reorder_level"), rs.getBoolean("active"), (Long) rs.getObject("category_id"), rs.getString("category"), rs.getBoolean("orderable")));
     }
 
     public boolean itemNameExists(String name, Long exceptId) {
@@ -73,6 +73,15 @@ public class InventoryService {
         return jdbc.update("UPDATE items SET unit = ?, cost = ?, reorder_level = ?, category_id = ? WHERE id = ?", unit, cost, reorderLevel, categoryId, id) == 1;
     }
 
+    /** Returns the previous value, or null if the item does not exist. */
+    @Transactional
+    public Boolean setOrderable(long id, boolean on) {
+        List<Boolean> was = jdbc.query("SELECT orderable FROM items WHERE id = ? FOR UPDATE", (rs, i) -> rs.getBoolean(1), id);
+        if (was.isEmpty()) return null;
+        jdbc.update("UPDATE items SET orderable = ? WHERE id = ?", on, id);
+        return was.get(0);
+    }
+
     /** Returns the new value of active, or null if the item does not exist. */
     @Transactional
     public Boolean toggleItem(long id) {
@@ -84,12 +93,13 @@ public class InventoryService {
     public List<StockRow> stock(long branchId) {
         return jdbc.query("""
             SELECT i.id, i.name, i.unit, i.cost, i.reorder_level,
-                   coalesce((SELECT sum(m.qty) FROM stock_movements m WHERE m.branch_id = ? AND m.item_id = i.id), 0) AS on_hand
-            FROM items i WHERE i.active ORDER BY lower(i.name)
+                   coalesce((SELECT sum(m.qty) FROM stock_movements m WHERE m.branch_id = ? AND m.item_id = i.id), 0) AS on_hand,
+                   c.name AS category, i.orderable
+            FROM items i LEFT JOIN item_categories c ON c.id = i.category_id WHERE i.active ORDER BY lower(i.name)
             """, (rs, i) -> {
                 long onHand = rs.getLong("on_hand"), reorder = rs.getLong("reorder_level");
                 return new StockRow(rs.getLong("id"), rs.getString("name"), rs.getString("unit"), rs.getLong("cost"),
-                    onHand, reorder, onHand < 0 || (reorder > 0 && onHand <= reorder * SCALE));
+                    onHand, reorder, onHand < 0 || (reorder > 0 && onHand <= reorder * SCALE), rs.getString("category"), rs.getBoolean("orderable"));
             }, branchId);
     }
 

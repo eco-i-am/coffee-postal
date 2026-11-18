@@ -16,7 +16,9 @@ function NewPo({ onClose, onCreated }) {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const picked = (items || []).filter((i) => Number(qty[i.itemId]) > 0);
+  // only what HQ lets branches order, grouped by category
+  const orderable = (items || []).filter((i) => i.orderable).sort((a, b) => (a.category || "~").localeCompare(b.category || "~") || a.name.localeCompare(b.name));
+  const picked = orderable.filter((i) => Number(qty[i.itemId]) > 0);
   const total = picked.reduce((s, i) => s + i.cost * Number(qty[i.itemId]), 0);
   const invalid = Object.values(qty).some((v) => v !== "" && (!/^\d+$/.test(v) || Number(v) > 100000));
 
@@ -44,14 +46,18 @@ function NewPo({ onClose, onCreated }) {
             <table>
               <thead><tr><th>Item</th><th className="n">You have</th><th className="n">Cost</th><th className="n">Order</th></tr></thead>
               <tbody>
-                {items.map((i) => (
+                {orderable.map((i, n) => [
+                  (n === 0 || (orderable[n - 1].category || "") !== (i.category || "")) && (
+                    <tr key={`cat-${i.category || "none"}`} className="grouprow"><td colSpan="4"><b>{i.category || "Other"}</b></td></tr>
+                  ),
                   <tr key={i.itemId}>
                     <td><b>{i.name}</b> <small>({i.unit})</small>{i.low && <> <span className="tag r">Low</span></>}</td>
                     <td className="n">{fmtQty(i.onHand)}</td>
                     <td className="n">{peso(i.cost)}</td>
                     <td className="n"><input className="qtyin" aria-label={`Order ${i.name}`} inputMode="numeric" value={qty[i.itemId] || ""} onChange={(e) => setQty({ ...qty, [i.itemId]: e.target.value.trim() })} /></td>
-                  </tr>
-                ))}
+                  </tr>,
+                ])}
+                {orderable.length === 0 && <tr><td colSpan="4" className="emptyrow">HQ has not made any items orderable yet.</td></tr>}
               </tbody>
             </table>
           </div>

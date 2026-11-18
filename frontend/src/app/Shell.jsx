@@ -32,6 +32,7 @@ function navFor(me, can) {
     can("payables_view") && { to: "/branch/payables", label: "Payables" },
     can("cash_inout_view") && { to: "/branch/cash", label: "Cash Drawer" },
     can("transfers_view") && { to: "/branch/transfers", label: "Transfers" },
+    can("outsource_view") && { to: "/branch/outsource", label: "Outsource" },
     can("time_clock_view") && { to: "/branch/clock", label: "Time In / Out" },
     can("branch_employees_view") && { to: "/branch/employees", label: "Employees" },
     can("branch_reports_view") && { to: "/branch/reports", label: "Reports" },
