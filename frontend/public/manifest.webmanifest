@@ -1,0 +1,18 @@
+{
+  "name": "Coffee Postal POS",
+  "short_name": "Coffee Postal",
+  "description": "Point of sale and branch management for Coffee Postal PH.",
+  "lang": "en-PH",
+  "start_url": "/",
+  "scope": "/",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F9F6E3",
+  "theme_color": "#FE8282",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
