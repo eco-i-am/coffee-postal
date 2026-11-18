@@ -61,7 +61,7 @@ jobs:
       - name: Health check
         run: |
           for i in $(seq 1 24); do
-            if curl -fsS --max-time 10 https://168-144-49-9.sslip.io/actuator/health | grep -q '"status":"UP"'; then echo "site is UP"; exit 0; fi
+            if curl -fsS --max-time 10 https://system.coffeepostalph.com/actuator/health | grep -q '"status":"UP"'; then echo "site is UP"; exit 0; fi
             echo "waiting for the app ($i/24)"; sleep 10
           done
           echo "site did not come up healthy"; exit 1
