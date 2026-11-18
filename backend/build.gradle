@@ -30,6 +30,9 @@ dependencies {
 	implementation 'org.flywaydb:flyway-database-postgresql'
 	// Argon2 password hashing (Spring Security's Argon2PasswordEncoder) needs BouncyCastle at runtime.
 	implementation 'org.bouncycastle:bcprov-jdk18on:1.80'
+	// Excel (.xlsx) and PDF report downloads
+	implementation 'org.apache.poi:poi-ooxml:5.4.0'
+	implementation 'com.github.librepdf:openpdf:2.0.3'
 	developmentOnly 'org.springframework.boot:spring-boot-devtools'
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'

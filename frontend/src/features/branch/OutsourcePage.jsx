@@ -5,8 +5,8 @@ import { useAuth } from "../../app/AuthContext.jsx";
 import { peso } from "../../shared/money.js";
 import { presetRange } from "../../shared/dates.js";
 import { dateOf, todayManila } from "../../shared/format.js";
-import { downloadCsv, pesoCell } from "../../shared/csv.js";
-import { RangeBar } from "../reports/widgets.jsx";
+import { pesoCell } from "../../shared/csv.js";
+import { ExportButton, RangeBar } from "../reports/widgets.jsx";
 
 const METHODS = ["CASH", "GCASH", "MAYA", "BANK", "CHECK"];
 const EMPTY_LINE = { itemId: "", description: "", qty: "", unitCost: "" };
@@ -48,12 +48,10 @@ export default function OutsourcePage() {
     } catch (e2) { setErr(e2.message); } finally { setBusy(false); }
   }
 
-  function exportCsv() {
-    downloadCsv(`outsource_${range.from}_to_${range.to}.csv`, [
-      ["Date", "Vendor", "Receipt", "Paid with", "Item", "Qty", "Cost each", "Amount"],
-      ...rows.flatMap((p) => p.lines.map((l) => [p.purchasedOn, p.vendor, p.receiptNo || "", p.paidWith, l.description, l.qty / 1000, pesoCell(l.unitCost), pesoCell(l.amount)])),
-    ]);
-  }
+  const exportRows = [
+    ["Date", "Vendor", "Receipt", "Paid with", "Item", "Qty", "Cost each", "Amount"],
+    ...rows.flatMap((p) => p.lines.map((l) => [p.purchasedOn, p.vendor, p.receiptNo || "", p.paidWith, l.description, l.qty / 1000, pesoCell(l.unitCost), pesoCell(l.amount)])),
+  ];
 
   return (
     <section>
@@ -93,7 +91,7 @@ export default function OutsourcePage() {
       <RangeBar range={range} setRange={setRange} />
       {error && <p className="err" role="alert">{error}</p>}
       <div className="sec tw">
-        <div className="opts"><h2 style={{ flex: 1 }}>Purchases</h2><button className="btn ghost sm" type="button" disabled={rows.length === 0} onClick={exportCsv}>Download CSV</button></div>
+        <div className="opts"><h2 style={{ flex: 1 }}>Purchases</h2><ExportButton name="outsource" rows={exportRows} range={range} /></div>
         {loading && !data ? <p role="status">Loading...</p> : (
           <table>
             <thead><tr><th>Date</th><th>Bought from</th><th>What</th><th>Paid with</th><th className="n">Total</th></tr></thead>

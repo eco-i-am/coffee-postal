@@ -5,8 +5,8 @@ import { useAuth } from "../../app/AuthContext.jsx";
 import { peso } from "../../shared/money.js";
 import { presetRange } from "../../shared/dates.js";
 import { dateOf, todayManila } from "../../shared/format.js";
-import { downloadCsv, pesoCell } from "../../shared/csv.js";
-import { RangeBar } from "../reports/widgets.jsx";
+import { pesoCell } from "../../shared/csv.js";
+import { ExportButton, RangeBar } from "../reports/widgets.jsx";
 
 const METHODS = ["CASH", "BANK", "GCASH", "MAYA", "CHECK"];
 
@@ -56,12 +56,10 @@ export default function ExpensesPage({ side }) {
     } catch (e2) { setErr(e2.message); setVoiding(null); }
   }
 
-  function exportCsv() {
-    downloadCsv(`expenses_${range.from}_to_${range.to}.csv`, [
-      ["Date", "Branch", "Category", "Description", "Paid with", "Receipt", "Amount", "Status"],
-      ...rows.map((x) => [x.date, x.branch, x.category, x.description, x.paidWith, x.receiptNo || "", pesoCell(x.amount), x.voided ? `Voided: ${x.voidReason}` : "OK"]),
-    ]);
-  }
+  const exportRows = [
+    ["Date", "Branch", "Category", "Description", "Paid with", "Receipt", "Amount", "Status"],
+    ...rows.map((x) => [x.date, x.branch, x.category, x.description, x.paidWith, x.receiptNo || "", pesoCell(x.amount), x.voided ? `Voided: ${x.voidReason}` : "OK"]),
+  ];
 
   return (
     <section>
@@ -108,7 +106,7 @@ export default function ExpensesPage({ side }) {
         {byCat.length === 0 && <p className="hint">Nothing recorded in this range.</p>}
       </div>
       <div className="sec tw">
-        <div className="opts"><h2 style={{ flex: 1 }}>Expenses</h2><button className="btn ghost sm" type="button" disabled={rows.length === 0} onClick={exportCsv}>Download CSV</button></div>
+        <div className="opts"><h2 style={{ flex: 1 }}>Expenses</h2><ExportButton name="expenses" rows={exportRows} range={range} /></div>
         {loading && !data ? <p role="status">Loading...</p> : (
           <table>
             <thead><tr><th>Date</th>{hq && <th>Branch</th>}<th>Category</th><th>What for</th><th>Paid with</th><th className="n">Amount</th><th></th></tr></thead>

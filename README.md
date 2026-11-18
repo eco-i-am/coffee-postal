@@ -50,11 +50,12 @@ backend/src/main/java/ph/coffeepostal/pos/
   branch/      Branch list (HQ)
   catalog/     products, categories, the POS menu
   sales/       orders (server-priced, idempotent), discounts, refunds with manager PIN
-  finance/     shifts, X/Z readings, invoices and payments
+  finance/     shifts, X/Z readings, invoices and payments, expenses
   hr/          employees, time clock (6-digit PIN, offline punches, photo per punch), attendance
   inventory/   items, categories, units + conversions, stock ledger, branch transfers, suppliers, supplier POs
   branchpo/    branch purchase orders to HQ
-  reporting/   sales, products, stock + beginning/ending inventory, branches, receivables aging
+  reporting/   sales, products, profit and loss, stock + beginning/ending inventory, branch POs, PO items, prices, branches,
+               receivables aging, and Excel/PDF downloads (Apache POI, OpenPDF) built from the rows a report screen shows
   engagement/                                                 (later phases)
 backend/src/main/resources/db/migration/   Flyway migrations
 ```

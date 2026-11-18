@@ -4,8 +4,7 @@ import { useLoad } from "../../shared/hooks.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import { fromManilaInput, hoursText, manilaInput, presetRange } from "../../shared/dates.js";
 import { dateOf, timeOf, todayManila } from "../../shared/format.js";
-import { downloadCsv } from "../../shared/csv.js";
-import { Kpi, RangeBar } from "../reports/widgets.jsx";
+import { ExportButton, Kpi, RangeBar } from "../reports/widgets.jsx";
 
 const STATUS = {
   OK: ["g", "Complete"], STILL_IN: ["y", "Still in"], FORGOT_OUT: ["r", "No time out"], NO_TIME_IN: ["r", "No time in"],
@@ -219,13 +218,13 @@ function AttendanceTab({ hq, branchId, canFix }) {
     } catch (err) { setFix({ ...fix, err: err.message }); } finally { setBusy(false); }
   }
 
-  function exportCsv() {
-    downloadCsv(`attendance_${range.from}_to_${range.to}.csv`, [
+  const exportRows = (() => {
+    return [
       ["Date", "Employee", "Branch", "Time in", "Time out", "Hours", "Status", "Photo in", "Photo out", "Notes"],
       ...sessions.map((s) => [s.date, s.employee, s.branch, s.inAt ? timeOf(s.inAt) : "", s.outAt ? timeOf(s.outAt) : "",
         s.minutes == null ? "" : (s.minutes / 60).toFixed(2), STATUS[s.status]?.[1] || s.status, s.inLogId ? (s.inPhoto ? "yes" : "no") : "", s.outLogId ? (s.outPhoto ? "yes" : "no") : "", s.notes.join("; ")]),
-    ]);
-  }
+    ];
+  })();
 
   const photoUrl = (logId) => `${hq ? "/api/admin/attendance/photos" : "/api/branch/attendance/photos"}/${logId}`;
   const shot = (s, kind) => {
@@ -250,7 +249,7 @@ function AttendanceTab({ hq, branchId, canFix }) {
       <div className="sec tw">
         <div className="opts">
           <h2 style={{ flex: 1 }}>Attendance</h2>
-          <button className="btn ghost sm" type="button" disabled={sessions.length === 0} onClick={exportCsv}>Download CSV</button>
+          <ExportButton name="attendance" rows={exportRows} range={range} />
         </div>
         {loading && !data ? <p role="status">Loading...</p> : (
           <table>
