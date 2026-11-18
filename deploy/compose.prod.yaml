@@ -1,4 +1,4 @@
-# Production on the Oracle VM (Ubuntu arm64). Needs a .env next to this file (see ../.env.example).
+# Production on the DigitalOcean Droplet (Ubuntu amd64, 2 GB). Needs a .env next to this file (see ../.env.example).
 services:
   web:
     image: ${WEB_IMAGE}
@@ -21,12 +21,14 @@ services:
       APP_BOOTSTRAP_ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
       APP_BOOTSTRAP_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       COOKIE_SECURE: "true"
+      SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
     depends_on:
       db: { condition: service_healthy }
     expose: ["8080"]
 
   db:
     image: postgres:16-alpine
+    command: ["postgres", "-c", "shared_buffers=256MB", "-c", "max_connections=30", "-c", "work_mem=4MB"]
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}

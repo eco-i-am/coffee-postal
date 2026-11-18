@@ -1,4 +1,4 @@
-# Multi-arch (works on the Oracle Ampere A1 / arm64 VM and on x86 dev machines).
+# Multi-arch (amd64 on the DigitalOcean Droplet, also fine on arm64 / dev machines).
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /src
 COPY gradlew settings.gradle build.gradle ./
@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf 
 WORKDIR /app
 COPY --from=build /src/build/libs/*.jar app.jar
 USER pos
-ENV JAVA_TOOL_OPTIONS="-Xmx1g -XX:+UseG1GC"
+ENV JAVA_TOOL_OPTIONS="-Xmx512m -XX:MaxMetaspaceSize=192m -XX:+UseG1GC"
 EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s \
   CMD curl -fsS http://localhost:8080/actuator/health || exit 1

@@ -8,7 +8,7 @@ Plan and specs live in the `ishiki-os` workspace: `product-dev/coffee-postal/spe
 coffee-postal/
   backend/    Spring Boot 4 (Java 21) JSON API, PostgreSQL 16, Flyway
   frontend/   React + Vite, plain JavaScript (no TypeScript)
-  deploy/     compose.prod.yaml, backup.sh   (Oracle VM)
+  deploy/     compose.prod.yaml, backup.sh   (DigitalOcean Droplet)
   compose.yaml  dev database only
 ```
 
