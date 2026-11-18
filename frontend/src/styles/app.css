@@ -302,3 +302,14 @@ h3{margin:0}
 .voided td{color:#888}
 tr.total td{border-top:1px solid var(--line)}
 .exports{display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* first-sign-in tour */
+.tour{width:min(520px,100%)}
+.tour-count{margin:0;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--reseda)}
+.tour h2{font-size:1.5rem}
+.tour-p{margin:0;font-size:1.02rem;line-height:1.5}
+.tour-links{margin:0;display:flex;gap:18px;flex-wrap:wrap}
+.tour-dots{display:flex;gap:6px;flex-wrap:wrap}
+.tour-dots i{width:10px;height:10px;border-radius:50%;border:2px solid var(--midnight)}
+.tour-dots i.done{background:var(--tiffany)}
+.tour-dots i.on{background:var(--midnight)}

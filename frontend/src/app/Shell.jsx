@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 import ChangePassword from "./ChangePassword.jsx";
+import Tutorial from "./Tutorial.jsx";
+import { markTourSeen, tourSeen } from "./tutorialSteps.js";
 import { useSync } from "./SyncContext.jsx";
 import { useAuth } from "./AuthContext.jsx";
 
@@ -45,7 +47,9 @@ function navFor(me, can) {
 export default function Shell() {
   const { me, can, signOut } = useAuth();
   const [changing, setChanging] = useState(false);
+  const [touring, setTouring] = useState(() => !tourSeen(me));
   const sync = useSync();
+  function closeTour() { markTourSeen(me); setTouring(false); }
   return (
     <div className="app">
       <aside className="side">
@@ -81,6 +85,7 @@ export default function Shell() {
             <br />
             <small>{me.role}{me.branchName ? ` · ${me.branchName}` : ""}</small>
           </div>
+          <button className="out" type="button" onClick={() => setTouring(true)}>Quick tour</button>
           <button className="out" type="button" onClick={() => setChanging(true)}>Change password</button>
           <button className="out" type="button" onClick={signOut}>Sign out</button>
         </div>
@@ -88,6 +93,7 @@ export default function Shell() {
       <main>
         <div className="page"><Outlet /></div>
       </main>
+      {touring && <Tutorial me={me} can={can} onClose={closeTour} onChangePassword={() => setChanging(true)} />}
       {changing && <ChangePassword onClose={() => setChanging(false)} />}
     </div>
   );
