@@ -10,6 +10,7 @@ function navFor(me, can) {
       { to: "/admin", label: "Dashboard", end: true },
       can("branches_view") && { to: "/admin/branches", label: "Branches" },
       can("products_view") && { to: "/admin/products", label: "Products" },
+      can("discounts_view") && { to: "/admin/discounts", label: "Discounts" },
       can("branch_po_admin_view") && { to: "/admin/branch-po", label: "Branch PO" },
       can("receivables_view") && { to: "/admin/receivables", label: "Receivables" },
       can("items_master_view") && { to: "/admin/items", label: "Items" },

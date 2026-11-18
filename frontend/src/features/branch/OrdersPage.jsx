@@ -61,7 +61,9 @@ function OrderDetail({ id, onClose, onChanged }) {
               ))}
               <hr />
               <div className="r"><span>Subtotal</span><span>{peso(d.subtotal)}</span></div>
-              {d.discount > 0 && <div className="r"><span>{DISCOUNT_NAMES[d.discountType]}</span><span>-{peso(d.discount)}</span></div>}
+              {d.discount > 0 && <div className="r"><span>{d.discountName || DISCOUNT_NAMES[d.discountType] || d.discountType}</span><span>-{peso(d.discount)}</span></div>}
+              {d.discount > 0 && d.discountIdNo && <div className="r"><span>ID no.</span><span>{d.discountIdNo}</span></div>}
+              {d.approvalFlag && <p className="notice" role="status">This discount was over its limit and sold offline with no manager PIN. A manager should review it.</p>}
               <div className="r"><b>TOTAL</b><b>{peso(d.order.total)}</b></div>
               {d.payments.map((p, i) => (
                 <div key={i}>

@@ -28,7 +28,7 @@ public class ReportService {
     public record Totals(int orders, long sales, long avgOrder, long discount, long vatable, long vat, int refunds, long refunded) {}
     public record Pay(String method, int orders, long amount) {}
     public record Cashier(String cashier, int orders, long sales, int refunds) {}
-    public record Disc(String type, int orders, long amount) {}
+    public record Disc(String type, String name, int orders, long amount) {}
     public record Sales(String from, String to, List<Day> days, Totals totals, List<Pay> byPayment, List<Cashier> byCashier, List<Disc> discounts) {}
     public record ProductRow(String name, long qty, long sales) {}
     public record StockRow(long itemId, String name, String unit, long received, long used, long wasted, long adjusted, long onHand, long value) {}
@@ -113,9 +113,9 @@ public class ReportService {
             + " GROUP BY u.id, u.full_name ORDER BY sales DESC", (rs, i) -> new Cashier(rs.getString(1), rs.getInt(2), rs.getLong(3), rs.getInt(4)), args(r, branchId));
 
         List<Disc> discs = jdbc.query("""
-            SELECT o.discount_type, count(*) AS n, sum(o.discount) AS amount FROM orders o
+            SELECT o.discount_type, coalesce(max(o.discount_name), o.discount_type) AS name, count(*) AS n, sum(o.discount) AS amount FROM orders o
             WHERE o.status = 'PAID' AND o.discount_type <> 'NONE' AND""" + where(branchId)
-            + " GROUP BY o.discount_type ORDER BY amount DESC", (rs, i) -> new Disc(rs.getString(1), rs.getInt(2), rs.getLong(3)), args(r, branchId));
+            + " GROUP BY o.discount_type ORDER BY amount DESC", (rs, i) -> new Disc(rs.getString(1), rs.getString(2), rs.getInt(3), rs.getLong(4)), args(r, branchId));
 
         return new Sales(r.from().toString(), r.to().toString(), days, totals, pays, cashiers, discs);
     }

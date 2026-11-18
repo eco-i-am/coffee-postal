@@ -19,7 +19,8 @@ public class CatalogService {
     public record Opt(long id, String name, long price) {}
     public record MenuItem(long id, String name, String category, String header, long price, String art, String color,
                            List<Opt> sizes, List<Opt> addons) {}
-    public record Menu(List<String> categories, List<MenuItem> items) {}
+    public record DiscountOpt(String code, String name, String kind, long value, boolean requiresId, Long approvalOver) {}
+    public record Menu(List<String> categories, List<MenuItem> items, List<DiscountOpt> discounts, boolean vatRegistered) {}
 
     /** Extra charge for the Large size on new drinks (centavos). */
     static final long LARGE_EXTRA = 2000;
@@ -189,6 +190,9 @@ public class CatalogService {
                     rs.getString("art"), rs.getString("color"),
                     sizes.getOrDefault(id, List.of()), addons.getOrDefault(id, List.of()));
             }, branchId);
-        return new Menu(new ArrayList<>(cats), items);
+        List<DiscountOpt> discounts = jdbc.query("SELECT code, name, kind, value, requires_id, approval_over FROM discounts WHERE active ORDER BY sort_order, name",
+            (rs, i) -> new DiscountOpt(rs.getString(1), rs.getString(2), rs.getString(3), rs.getLong(4), rs.getBoolean(5), (Long) rs.getObject(6)));
+        boolean vat = Boolean.TRUE.equals(jdbc.queryForObject("SELECT vat_registered FROM branches WHERE id = ?", Boolean.class, branchId));
+        return new Menu(new ArrayList<>(cats), items, discounts, vat);
     }
 }

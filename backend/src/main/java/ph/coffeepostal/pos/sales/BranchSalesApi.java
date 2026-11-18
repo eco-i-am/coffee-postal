@@ -35,7 +35,7 @@ class BranchSalesApi {
     record Line(String name, String variant, String addons, long unitPrice, int qty) {}
     record Pay(String method, long amount, long tendered, String reference) {}
     record Refund(String reason, Instant at, String approvedBy) {}
-    record OrderDetail(OrderRow order, String discountType, long subtotal, long discount, long vatable, long vat,
+    record OrderDetail(OrderRow order, String discountType, String discountName, String discountIdNo, boolean approvalFlag, long subtotal, long discount, long vatable, long vat,
                        List<Line> lines, List<Pay> payments, Refund refund) {}
 
     private final JdbcTemplate jdbc;
@@ -130,7 +130,7 @@ class BranchSalesApi {
         long branch = orders.whoIs(who.getName()).branchId();
         List<OrderRow> r = jdbc.query(ROW + " WHERE o.id = ? AND o.branch_id = ?", (rs, i) -> row(rs), id, branch);
         if (r.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "That order was not found.");
-        Map<String, Object> o = jdbc.queryForMap("SELECT discount_type, subtotal, discount, vatable, vat FROM orders WHERE id = ?", id);
+        Map<String, Object> o = jdbc.queryForMap("SELECT discount_type, discount_name, discount_id_no, approval_flag, subtotal, discount, vatable, vat FROM orders WHERE id = ?", id);
         List<Line> lines = jdbc.query("SELECT name, variant, addons, unit_price, qty FROM order_lines WHERE order_id = ? ORDER BY id",
             (rs, i) -> new Line(rs.getString("name"), rs.getString("variant"), rs.getString("addons"), rs.getLong("unit_price"), rs.getInt("qty")), id);
         List<Pay> pays = jdbc.query("SELECT method, amount, tendered, reference FROM order_payments WHERE order_id = ? ORDER BY id",
@@ -143,7 +143,7 @@ class BranchSalesApi {
                 """, id);
             refund = new Refund((String) f.get("refund_reason"), ((java.sql.Timestamp) f.get("refunded_at")).toInstant(), (String) f.get("approver"));
         }
-        return new OrderDetail(r.get(0), (String) o.get("discount_type"), ((Number) o.get("subtotal")).longValue(),
+        return new OrderDetail(r.get(0), (String) o.get("discount_type"), (String) o.get("discount_name"), (String) o.get("discount_id_no"), Boolean.TRUE.equals(o.get("approval_flag")), ((Number) o.get("subtotal")).longValue(),
             ((Number) o.get("discount")).longValue(), ((Number) o.get("vatable")).longValue(), ((Number) o.get("vat")).longValue(), lines, pays, refund);
     }
 }

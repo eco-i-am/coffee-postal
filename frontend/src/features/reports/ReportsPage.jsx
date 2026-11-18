@@ -63,7 +63,7 @@ function SalesTab({ base, range, branchQ }) {
           <table>
             <thead><tr><th>Type</th><th className="n">Orders</th><th className="n">Given</th></tr></thead>
             <tbody>
-              {d.discounts.map((x) => <tr key={x.type}><td><b>{DISCOUNT_NAMES[x.type]}</b></td><td className="n">{x.orders}</td><td className="n">{peso(x.amount)}</td></tr>)}
+              {d.discounts.map((x) => <tr key={x.type}><td><b>{x.name || DISCOUNT_NAMES[x.type] || x.type}</b></td><td className="n">{x.orders}</td><td className="n">{peso(x.amount)}</td></tr>)}
               {d.discounts.length === 0 && <tr><td colSpan="3" className="emptyrow">No discounts given.</td></tr>}
             </tbody>
           </table>

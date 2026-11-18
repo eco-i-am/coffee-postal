@@ -5,6 +5,7 @@ import LoginPage from "../features/auth/LoginPage.jsx";
 import Dashboard from "../features/Dashboard.jsx";
 import BranchesPage from "../features/branches/BranchesPage.jsx";
 import ProductsPage from "../features/products/ProductsPage.jsx";
+import DiscountsPage from "../features/products/DiscountsPage.jsx";
 import PosPage from "../features/pos/PosPage.jsx";
 import OrdersPage from "../features/branch/OrdersPage.jsx";
 import AdminDashboard from "../features/admin/AdminDashboard.jsx";
@@ -58,6 +59,7 @@ export default function App() {
             <Route path="/admin/receivables" element={<InvoiceList side="hq" />} />
             <Route path="/admin/branches" element={<BranchesPage />} />
             <Route path="/admin/products" element={<ProductsPage />} />
+            <Route path="/admin/discounts" element={<DiscountsPage />} />
             <Route path="/admin/items" element={<ItemsPage />} />
             <Route path="/admin/branch-po" element={<BranchPoAdminPage />} />
           </Route>

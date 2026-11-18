@@ -20,16 +20,19 @@ import ph.coffeepostal.pos.shared.ApiException;
 @Service
 public class OrderService {
     static final Set<String> TYPES = Set.of("DINE_IN", "TAKEOUT", "DELIVERY");
-    static final Set<String> DISCOUNTS = Set.of("NONE", "SENIOR_PWD", "PROMO10");
     static final Set<String> METHODS = Set.of("CASH", "GCASH", "MAYA", "CARD");
     private static final BigDecimal VAT_DIVISOR = new BigDecimal("1.12");
 
     public record Who(long userId, long branchId) {}
     public record Totals(long subtotal, long discount, long total, long vatable, long vat) {}
+    public record DiscountRule(String code, String name, String kind, long value, boolean requiresId, Long approvalOver) {}
+
+    static final DiscountRule NO_DISCOUNT = new DiscountRule("NONE", "None", "NONE", 0, false, null);
 
     private final JdbcTemplate jdbc;
+    private final ManagerApproval approval;
 
-    public OrderService(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+    public OrderService(JdbcTemplate jdbc, ManagerApproval approval) { this.jdbc = jdbc; this.approval = approval; }
 
     public Who whoIs(String username) {
         List<Who> r = jdbc.query("""
@@ -40,27 +43,43 @@ public class OrderService {
         return r.get(0);
     }
 
-    /** Discount and VAT rules. Senior/PWD: VAT-exempt, then 20% off the VAT-exclusive price. */
-    public static Totals compute(long gross, String discountType) {
+    /**
+     * Discount and VAT rules, in whole centavos (BigDecimal, half up; never double).
+     * Prices include 12% VAT. A branch that is not VAT-registered has no VAT in its prices, so vatable and vat are 0.
+     * SENIOR_PWD: VAT-exempt, then 20% off the VAT-exclusive price.
+     * PERCENT: value is basis points off the gross. FIXED: value is centavos, never more than the gross.
+     */
+    public static Totals compute(long gross, String kind, long value, boolean vatRegistered) {
         long discount, total, vatable, vat;
-        switch (discountType) {
+        switch (kind) {
             case "SENIOR_PWD" -> {
-                long net = divVat(gross);
-                discount = Math.round(net * 0.20) + (gross - net);
+                long net = vatRegistered ? divVat(gross) : gross;
+                discount = pct(net, 2000) + (gross - net);
                 total = gross - discount;
                 vatable = 0; vat = 0;
             }
-            case "PROMO10" -> {
-                discount = Math.round(gross * 0.10);
+            case "PERCENT" -> {
+                discount = pct(gross, value);
                 total = gross - discount;
-                vatable = divVat(total); vat = total - vatable;
+                vatable = vatRegistered ? divVat(total) : 0; vat = vatRegistered ? total - vatable : 0;
+            }
+            case "FIXED" -> {
+                discount = Math.min(value, gross);
+                total = gross - discount;
+                vatable = vatRegistered ? divVat(total) : 0; vat = vatRegistered ? total - vatable : 0;
             }
             default -> {
                 discount = 0; total = gross;
-                vatable = divVat(total); vat = total - vatable;
+                vatable = vatRegistered ? divVat(total) : 0; vat = vatRegistered ? total - vatable : 0;
             }
         }
         return new Totals(gross, discount, total, vatable, vat);
+    }
+
+    /** basis points of an amount, rounded half up to a centavo */
+    private static long pct(long amount, long basisPoints) {
+        return BigDecimal.valueOf(amount).multiply(BigDecimal.valueOf(basisPoints))
+            .divide(BigDecimal.valueOf(10000), 0, RoundingMode.HALF_UP).longValueExact();
     }
 
     private static long divVat(long v) {
@@ -82,7 +101,7 @@ public class OrderService {
         if (!existing.isEmpty()) return existing.get(0);
 
         if (!TYPES.contains(r.orderType())) throw bad("Pick dine-in, takeout or delivery.");
-        if (!DISCOUNTS.contains(r.discountType())) throw bad("Unknown discount.");
+        DiscountRule rule = discountRule(r.discountType());
         if (!METHODS.contains(r.paymentMethod())) throw bad("Unknown payment method.");
 
         List<Priced> lines = new ArrayList<>();
@@ -92,7 +111,11 @@ public class OrderService {
             lines.add(p);
             gross = Math.addExact(gross, Math.multiplyExact(p.unit(), (long) p.qty()));
         }
-        Totals t = compute(gross, r.discountType());
+        boolean vatRegistered = Boolean.TRUE.equals(jdbc.queryForObject("SELECT vat_registered FROM branches WHERE id = ?", Boolean.class, who.branchId()));
+        Totals t = compute(gross, rule.kind(), rule.value(), vatRegistered);
+
+        String idNo = r.discountIdNo() == null || r.discountIdNo().isBlank() ? null : r.discountIdNo().trim();
+        if (rule.requiresId() && idNo == null) throw bad("Enter the ID number for the " + rule.name() + " discount.");
 
         long tendered = t.total();
         if ("CASH".equals(r.paymentMethod())) {
@@ -110,6 +133,17 @@ public class OrderService {
         }
         java.sql.Timestamp soldTs = java.sql.Timestamp.from(soldAt);
 
+        // A discount over its limit needs a manager PIN. A sale that waited offline cannot ask for one at upload,
+        // so it is accepted (the drink is already served) and flagged for a manager to review.
+        Long approvedBy = null;
+        boolean flag = false;
+        if (rule.approvalOver() != null && t.discount() > rule.approvalOver()) {
+            boolean waited = r.soldAt() != null && r.soldAt().isBefore(now.minusSeconds(300));
+            if (r.managerPin() != null && !r.managerPin().isBlank()) approvedBy = approval.approve(who, r.managerPin(), "refunds").id();
+            else if (waited) flag = true;
+            else throw new ApiException(HttpStatus.FORBIDDEN, "This discount needs a manager PIN.");
+        }
+
         long orderNo = jdbc.queryForObject("""
             INSERT INTO branch_order_counters(branch_id, last_no) VALUES (?, 1)
             ON CONFLICT (branch_id) DO UPDATE SET last_no = branch_order_counters.last_no + 1 RETURNING last_no
@@ -121,10 +155,12 @@ public class OrderService {
             ORDER BY opened_at DESC LIMIT 1
             """, Long.class, who.userId(), soldTs, soldTs);
         jdbc.update("""
-            INSERT INTO orders(id, branch_id, order_no, cashier_id, order_type, discount_type, subtotal, discount, total, vatable, vat, shift_id, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, r.id(), who.branchId(), orderNo, who.userId(), r.orderType(), r.discountType(),
-            t.subtotal(), t.discount(), t.total(), t.vatable(), t.vat(), open.isEmpty() ? null : open.get(0), soldTs);
+            INSERT INTO orders(id, branch_id, order_no, cashier_id, order_type, discount_type, subtotal, discount, total, vatable, vat, shift_id, created_at,
+                               discount_name, discount_id_no, discount_approved_by, approval_flag)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, r.id(), who.branchId(), orderNo, who.userId(), r.orderType(), rule.code(),
+            t.subtotal(), t.discount(), t.total(), t.vatable(), t.vat(), open.isEmpty() ? null : open.get(0), soldTs,
+            "NONE".equals(rule.code()) ? null : rule.name(), idNo, approvedBy, flag);
         for (Priced p : lines) {
             jdbc.update("INSERT INTO order_lines(order_id, product_id, name, variant, addons, unit_price, qty) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 r.id(), p.productId(), p.name(), p.variant(), p.addons(), p.unit(), p.qty());
@@ -140,6 +176,14 @@ public class OrderService {
         jdbc.update("INSERT INTO order_payments(order_id, method, amount, tendered, reference) VALUES (?, ?, ?, ?, ?)",
             r.id(), r.paymentMethod(), t.total(), tendered, r.reference());
         return new OrderRes(orderNo, t.subtotal(), t.discount(), t.total(), t.vatable(), t.vat(), tendered - t.total());
+    }
+
+    private DiscountRule discountRule(String code) {
+        if ("NONE".equals(code)) return NO_DISCOUNT;
+        List<DiscountRule> r = jdbc.query("SELECT code, name, kind, value, requires_id, approval_over FROM discounts WHERE code = ? AND active",
+            (rs, i) -> new DiscountRule(rs.getString(1), rs.getString(2), rs.getString(3), rs.getLong(4), rs.getBoolean(5), (Long) rs.getObject(6)), code);
+        if (r.isEmpty()) throw bad("Unknown discount. Refresh the screen.");
+        return r.get(0);
     }
 
     private Priced price(long branchId, OrderLineReq l) {

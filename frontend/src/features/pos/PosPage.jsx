@@ -12,7 +12,6 @@ import ItemModal from "./ItemModal.jsx";
 import PayModal from "./PayModal.jsx";
 import Receipt from "./Receipt.jsx";
 
-export const DISCOUNTS = [["NONE", "None"], ["SENIOR_PWD", "Senior / PWD"], ["PROMO10", "Promo 10%"]];
 export const TYPES = [["DINE_IN", "Dine-in"], ["TAKEOUT", "Takeout"], ["DELIVERY", "Delivery"]];
 
 export default function PosPage() {
@@ -39,10 +38,15 @@ export default function PosPage() {
   const [cart, setCart] = useState([]);
   const [otype, setOtype] = useState("DINE_IN");
   const [disc, setDisc] = useState("NONE");
+  const [idNo, setIdNo] = useState("");
   const [orderId, setOrderId] = useState(null);
   const [modal, setModal] = useState(null); // { kind: "item", item } | { kind: "pay" } | { kind: "receipt", data }
 
-  const t = totals(cartGross(cart), disc);
+  const rule = (menu?.discounts || []).find((d) => d.code === disc) || null;
+  const vatRegistered = menu?.vatRegistered ?? true;
+  const t = totals(cartGross(cart), rule, vatRegistered);
+  const needsId = !!rule?.requiresId;
+  const needsPin = rule?.approvalOver != null && t.discount > rule.approvalOver;
   const items = (menu?.items || []).filter((m) => cat === "All" || m.category === cat);
 
   function edit(fn) {
@@ -61,9 +65,10 @@ export default function PosPage() {
   }
 
   function paid(res, method, tendered) {
-    setModal({ kind: "receipt", data: { res, method, tendered, cart, otype, disc } });
+    setModal({ kind: "receipt", data: { res, method, tendered, cart, otype, discName: rule?.name, idNo: needsId ? idNo.trim() : "", vatRegistered } });
     setCart([]);
     setDisc("NONE");
+    setIdNo("");
     setOrderId(null);
   }
 
@@ -72,7 +77,7 @@ export default function PosPage() {
       <header className="pghead">
         <div>
           <h1>Point of Sale</h1>
-          <p>Tap an item to start an order. Prices include 12% VAT.</p>
+          <p>Tap an item to start an order.{vatRegistered ? " Prices include 12% VAT." : ""}</p>
         </div>
       </header>
       {error && <p className="notice" role="alert">{error}</p>}
@@ -104,7 +109,7 @@ export default function PosPage() {
         <div className="cart">
           <div className="hd">
             <h2>New order</h2>
-            <button className="btn ghost sm" onClick={() => { setCart([]); setDisc("NONE"); setOrderId(null); }}>Clear</button>
+            <button className="btn ghost sm" onClick={() => { setCart([]); setDisc("NONE"); setIdNo(""); setOrderId(null); }}>Clear</button>
           </div>
           <div className="seg" role="group" aria-label="Order type">
             {TYPES.map(([k, label]) => (
@@ -129,13 +134,20 @@ export default function PosPage() {
           <label className="discrow">
             Discount
             <select value={disc} onChange={(e) => { setDisc(e.target.value); setOrderId(null); }}>
-              {DISCOUNTS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+              <option value="NONE">None</option>
+              {(menu?.discounts || []).map((d) => <option key={d.code} value={d.code}>{d.name}</option>)}
             </select>
           </label>
+          {needsId && (
+            <label className="discrow">
+              ID no.
+              <input aria-label="Senior or PWD ID number" value={idNo} maxLength={40} onChange={(e) => { setIdNo(e.target.value); setOrderId(null); }} placeholder="ID number" />
+            </label>
+          )}
           {t.discount > 0 && <div className="tot"><span>Discount</span><span>&minus;{peso(t.discount)}</span></div>}
-          <div className="tot vatrow"><span>incl. VAT 12%</span><span>{peso(t.vat)}</span></div>
+          {vatRegistered && <div className="tot vatrow"><span>incl. VAT 12%</span><span>{peso(t.vat)}</span></div>}
           <div className="tot big"><span>Total</span><span>{peso(t.pay)}</span></div>
-          <button className="btn brand chargebtn" disabled={cart.length === 0} onClick={openPay}>Charge {peso(t.pay)}</button>
+          <button className="btn brand chargebtn" disabled={cart.length === 0 || (needsId && !idNo.trim())} onClick={openPay}>Charge {peso(t.pay)}</button>
         </div>
       </div>
 
@@ -147,7 +159,7 @@ export default function PosPage() {
                 onAdd={(size, addons) => { edit((c) => addToCart(c, modal.item, size, addons)); setModal(null); }} />
             )}
             {modal.kind === "pay" && (
-              <PayModal cart={cart} otype={otype} disc={disc} orderId={orderId} total={t.pay}
+              <PayModal cart={cart} otype={otype} disc={disc} rule={rule} vatRegistered={vatRegistered} idNo={needsId ? idNo.trim() : ""} needsPin={needsPin} orderId={orderId} total={t.pay}
                 onBack={() => setModal(null)} onPaid={paid} />
             )}
             {modal.kind === "receipt" && <Receipt {...modal.data} onDone={() => setModal(null)} />}
