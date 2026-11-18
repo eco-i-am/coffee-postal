@@ -102,22 +102,23 @@ function StockTab({ base, range, branchQ, needsBranch }) {
   if (!r.data) return <State r={r} />;
   const rows = r.data;
   const value = rows.reduce((s, x) => s + x.value, 0);
-  const csv = [["Item", "Unit", "Received", "Used in sales", "Wasted", "Count corrections", "On hand now", "Value"],
-    ...rows.map((x) => [x.name, x.unit, fmtQty(x.received), fmtQty(x.used), fmtQty(x.wasted), fmtQty(x.adjusted), fmtQty(x.onHand), pesoCell(x.value)])];
+  const csv = [["Item", "Unit", "Beginning", "Received", "Transfers in", "Transfers out", "Used in sales", "Wasted", "Corrections", "Ending", "Value"],
+    ...rows.map((x) => [x.name, x.unit, fmtQty(x.beginning), fmtQty(x.received), fmtQty(x.transferIn), fmtQty(x.transferOut), fmtQty(x.used), fmtQty(x.wasted), fmtQty(x.adjusted), fmtQty(x.ending), pesoCell(x.value)])];
   return (
     <div className="sec tw">
-      <div className="pghead"><h2>Stock movement</h2><ExportButton name="stock" rows={csv} range={range} /></div>
+      <div className="pghead"><h2>Stock and inventory</h2><ExportButton name="stock" rows={csv} range={range} /></div>
       <table>
-        <thead><tr><th>Item</th><th className="n">Received</th><th className="n">Used in sales</th><th className="n">Wasted</th><th className="n">Corrections</th><th className="n">On hand now</th><th className="n">Value</th></tr></thead>
+        <thead><tr><th>Item</th><th className="n">Beginning</th><th className="n">Received</th><th className="n">Transfers in</th><th className="n">Transfers out</th><th className="n">Used in sales</th><th className="n">Wasted</th><th className="n">Corrections</th><th className="n">Ending</th><th className="n">Value</th></tr></thead>
         <tbody>
           {rows.map((x) => (
-            <tr key={x.itemId}><td><b>{x.name}</b> <small>({x.unit})</small></td><td className="n">{fmtQty(x.received)}</td><td className="n">{fmtQty(x.used)}</td>
+            <tr key={x.itemId}><td><b>{x.name}</b> <small>({x.unit})</small></td><td className="n">{fmtQty(x.beginning)}</td><td className="n">{fmtQty(x.received)}</td>
+              <td className="n">{fmtQty(x.transferIn)}</td><td className="n">{fmtQty(x.transferOut)}</td><td className="n">{fmtQty(x.used)}</td>
               <td className="n">{fmtQty(x.wasted)}</td><td className="n">{fmtQty(x.adjusted)}</td>
-              <td className={`n${x.onHand < 0 ? " short" : ""}`}><b>{fmtQty(x.onHand)}</b></td><td className="n">{peso(x.value)}</td></tr>
+              <td className={`n${x.ending < 0 ? " short" : ""}`}><b>{fmtQty(x.ending)}</b></td><td className="n">{peso(x.value)}</td></tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan="7" className="emptyrow">No items yet.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan="10" className="emptyrow">No items yet.</td></tr>}
         </tbody>
-        <tfoot><tr><td colSpan="6" className="n">Stock on hand, at cost</td><td className="n"><b>{peso(value)}</b></td></tr></tfoot>
+        <tfoot><tr><td colSpan="9" className="n">Ending stock, at cost</td><td className="n"><b>{peso(value)}</b></td></tr></tfoot>
       </table>
     </div>
   );
@@ -197,7 +198,7 @@ export default function ReportsPage({ side }) {
         {hq && ["sales", "products", "stock"].includes(tab) && (
           <label className="datepick">Branch
             <select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
-              <option value="">{tab === "stock" ? "Pick a branch" : "All branches"}</option>
+              <option value="">All branches</option>
               {(branches.data || []).map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </label>
@@ -206,7 +207,7 @@ export default function ReportsPage({ side }) {
       {tooLong && <p className="notice" role="alert">Pick a range of one year or less.</p>}
       {!tooLong && tab === "sales" && <SalesTab base={base} range={range} branchQ={branchQ} />}
       {!tooLong && tab === "products" && <ProductsTab base={base} range={range} branchQ={branchQ} />}
-      {!tooLong && tab === "stock" && <StockTab base={base} range={range} branchQ={branchQ} needsBranch={hq && !branchId} />}
+      {!tooLong && tab === "stock" && <StockTab base={base} range={range} branchQ={branchQ} needsBranch={false} />}
       {!tooLong && tab === "branches" && <BranchesTab range={range} />}
       {tab === "aging" && <AgingTab />}
     </section>

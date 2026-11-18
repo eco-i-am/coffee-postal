@@ -31,7 +31,8 @@ public class ReportService {
     public record Disc(String type, String name, int orders, long amount) {}
     public record Sales(String from, String to, List<Day> days, Totals totals, List<Pay> byPayment, List<Cashier> byCashier, List<Disc> discounts) {}
     public record ProductRow(String name, long qty, long sales) {}
-    public record StockRow(long itemId, String name, String unit, long received, long used, long wasted, long adjusted, long onHand, long value) {}
+    public record StockRow(long itemId, String name, String unit, long beginning, long received, long transferIn, long transferOut,
+                           long used, long wasted, long adjusted, long ending, long value) {}
     public record BranchRow(long branchId, String branch, int orders, long sales, long avgOrder, int refunds, long refunded) {}
     public record AgingRow(long branchId, String branch, long current, long d1to30, long d31to60, long d61plus, long total) {}
 
@@ -129,26 +130,33 @@ public class ReportService {
             (rs, i) -> new ProductRow(rs.getString(1), rs.getLong(2), rs.getLong(3)), args(r, branchId));
     }
 
-    /** What moved in the range, and what is on hand now (all quantities in thousandths of a unit). */
-    public List<StockRow> stock(Range r, long branchId) {
+    /**
+     * Stock and beginning/ending inventory, as of the range: beginning + received + transfers in - transfers out - used - wasted
+     * + corrections = ending. Quantities are thousandths of a unit; value is ending stock at the item's current cost.
+     * branchId null = every branch added together (HQ).
+     */
+    public List<StockRow> stock(Range r, Long branchId) {
+        Timestamp f = ts(r.from()), t = ts(r.to().plusDays(1));
         return jdbc.query("""
             SELECT i.id, i.name, i.unit, i.cost,
+              coalesce(sum(m.qty) FILTER (WHERE m.created_at < ?), 0) AS beginning,
               coalesce(sum(m.qty) FILTER (WHERE m.kind = 'PO_RECEIVE' AND m.created_at >= ? AND m.created_at < ?), 0) AS received,
+              coalesce(sum(m.qty) FILTER (WHERE m.kind = 'TRANSFER_IN' AND m.created_at >= ? AND m.created_at < ?), 0) AS t_in,
+              coalesce(-sum(m.qty) FILTER (WHERE m.kind = 'TRANSFER_OUT' AND m.created_at >= ? AND m.created_at < ?), 0) AS t_out,
               coalesce(-sum(m.qty) FILTER (WHERE m.kind = 'SALE' AND m.created_at >= ? AND m.created_at < ?), 0) AS used,
               coalesce(-sum(m.qty) FILTER (WHERE m.kind = 'WASTE' AND m.created_at >= ? AND m.created_at < ?), 0) AS wasted,
-              coalesce(sum(m.qty) FILTER (WHERE m.kind = 'ADJUST' AND m.created_at >= ? AND m.created_at < ?), 0) AS adjusted,
-              coalesce(sum(m.qty), 0) AS on_hand
-            FROM items i LEFT JOIN stock_movements m ON m.item_id = i.id AND m.branch_id = ?
-            WHERE i.active OR EXISTS (SELECT 1 FROM stock_movements x WHERE x.item_id = i.id AND x.branch_id = ?)
+              coalesce(sum(m.qty) FILTER (WHERE m.kind IN ('ADJUST','OPENING') AND m.created_at >= ? AND m.created_at < ?), 0) AS adjusted,
+              coalesce(sum(m.qty) FILTER (WHERE m.created_at < ?), 0) AS ending
+            FROM items i LEFT JOIN stock_movements m ON m.item_id = i.id AND (?::bigint IS NULL OR m.branch_id = ?)
+            WHERE i.active OR EXISTS (SELECT 1 FROM stock_movements x WHERE x.item_id = i.id AND (?::bigint IS NULL OR x.branch_id = ?))
             GROUP BY i.id, i.name, i.unit, i.cost ORDER BY lower(i.name)
             """, (rs, i) -> {
-                long onHand = rs.getLong("on_hand");
-                long value = java.math.BigDecimal.valueOf(onHand).multiply(java.math.BigDecimal.valueOf(rs.getLong("cost")))
+                long ending = rs.getLong("ending");
+                long value = java.math.BigDecimal.valueOf(ending).multiply(java.math.BigDecimal.valueOf(rs.getLong("cost")))
                     .divide(java.math.BigDecimal.valueOf(1000), 0, java.math.RoundingMode.HALF_UP).longValueExact();
-                return new StockRow(rs.getLong("id"), rs.getString("name"), rs.getString("unit"), rs.getLong("received"),
-                    rs.getLong("used"), rs.getLong("wasted"), rs.getLong("adjusted"), onHand, value);
-            }, ts(r.from()), ts(r.to().plusDays(1)), ts(r.from()), ts(r.to().plusDays(1)), ts(r.from()), ts(r.to().plusDays(1)),
-            ts(r.from()), ts(r.to().plusDays(1)), branchId, branchId);
+                return new StockRow(rs.getLong("id"), rs.getString("name"), rs.getString("unit"), rs.getLong("beginning"), rs.getLong("received"),
+                    rs.getLong("t_in"), rs.getLong("t_out"), rs.getLong("used"), rs.getLong("wasted"), rs.getLong("adjusted"), ending, value);
+            }, f, f, t, f, t, f, t, f, t, f, t, f, t, t, branchId, branchId, branchId, branchId);
     }
 
     /** HQ: every open branch side by side. */

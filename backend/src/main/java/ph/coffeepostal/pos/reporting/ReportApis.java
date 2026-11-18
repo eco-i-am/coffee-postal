@@ -72,7 +72,7 @@ class AdminReportApi {
     @GetMapping("/stock")
     @PreAuthorize("hasAuthority('PERM_reports_admin_view')")
     List<ReportService.StockRow> stock(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
-                                       @RequestParam Long branchId) {
+                                       @RequestParam(required = false) Long branchId) {
         return reports.stock(ReportService.range(from, to), branchId);
     }
 }

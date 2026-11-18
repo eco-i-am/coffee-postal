@@ -49,8 +49,13 @@ backend/src/main/java/ph/coffeepostal/pos/
   iam/         users, roles, permissions (module x view/add/edit/delete), login history, /api/me
   branch/      Branch list (HQ)
   catalog/     products, categories, the POS menu
-  sales/       orders (server-priced, idempotent)
-  inventory/ branchpo/ finance/ reporting/ engagement/ hr/   (later phases)
+  sales/       orders (server-priced, idempotent), discounts, refunds with manager PIN
+  finance/     shifts, X/Z readings, invoices and payments
+  hr/          employees, time clock (6-digit PIN, offline punches, photo per punch), attendance
+  inventory/   items, categories, units + conversions, stock ledger, branch transfers, suppliers, supplier POs
+  branchpo/    branch purchase orders to HQ
+  reporting/   sales, products, stock + beginning/ending inventory, branches, receivables aging
+  engagement/                                                 (later phases)
 backend/src/main/resources/db/migration/   Flyway migrations
 ```
 
@@ -66,6 +71,16 @@ frontend/src/
 
 Rules: money is integer centavos; every money/stock/price/role change goes through `AuditService`;
 branch users are scoped to their branch on the server; the browser never sends prices.
+
+## Settings you must set in production
+
+| Variable | What it is |
+|---|---|
+| `TIMECLOCK_PIN_SECRET` | Random text, at least 16 characters. Hashes employees' time clock PINs. The app will not start without it. Changing it later invalidates every PIN. |
+| `TIMECLOCK_PHOTO_DAYS` | Days to keep time in / time out photos (default 90). A nightly job deletes older ones. |
+
+Time clock photos are personal data. The clock screen tells staff a photo is taken; keep a signed notice or consent on file.
+Each branch's "VAT registered" setting changes receipts and totals, so set it correctly for every real branch.
 
 ## API in one minute
 
