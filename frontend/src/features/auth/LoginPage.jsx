@@ -39,7 +39,7 @@ export default function LoginPage() {
             <b><span>COFFEE</span><br /><span>POSTAL</span></b>
           </div>
           <p>Your affordable freshly brewed coffee destination</p>
-          <div dangerouslySetInnerHTML={{ __html: LOGIN_ART }} />
+          <div className="lgart" dangerouslySetInnerHTML={{ __html: LOGIN_ART }} />
         </div>
         <form className="pc-r" onSubmit={submit}>
           <h2>Welcome back</h2>
