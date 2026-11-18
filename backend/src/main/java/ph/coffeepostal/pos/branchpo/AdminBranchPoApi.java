@@ -25,6 +25,7 @@ import ph.coffeepostal.pos.shared.AuditService;
 class AdminBranchPoApi {
     record Qty(@NotNull Long lineId, long qty) {}
     record ApproveReq(List<@Valid Qty> lines) {}
+    record AdvanceReq(@NotBlank String to, @Size(max = 300) String note) {}
     record RejectReq(@NotBlank @Size(max = 300) String reason) {}
 
     private final BranchPoService pos;
@@ -64,11 +65,12 @@ class AdminBranchPoApi {
         return Map.of("id", id);
     }
 
-    @PostMapping("/{id}/ship")
+    /** Moves the order to the next stage (to = TO_PAY, PROCESSING, FOR_PICKUP, IN_TRANSIT, PICKED_UP or DELIVERED). */
+    @PostMapping("/{id}/advance")
     @PreAuthorize("hasAuthority('PERM_branch_po_admin_edit')")
-    Map<String, Object> ship(@PathVariable long id, Principal who) {
-        pos.ship(id);
-        audit.record(who.getName(), null, "BRANCH_PO_SHIP", "branch_po", String.valueOf(id), null, null, null);
+    Map<String, Object> advance(@PathVariable long id, @Valid @RequestBody AdvanceReq r, Principal who) {
+        pos.advance(id, r.to(), adminId(who), r.note());
+        audit.record(who.getName(), null, "BRANCH_PO_" + r.to(), "branch_po", String.valueOf(id), null, null, null);
         return Map.of("id", id);
     }
 }

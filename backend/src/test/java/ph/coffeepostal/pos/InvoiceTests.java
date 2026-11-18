@@ -45,7 +45,13 @@ class InvoiceTests {
 		long line = jdbc.queryForObject("SELECT id FROM branch_po_lines WHERE po_id=?", Long.class, po);
 		mvc.perform(post("/api/admin/branch-pos/" + po + "/approve").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON)
 			.content("{\"lines\":[]}")).andExpect(status().isOk());
-		mvc.perform(post("/api/admin/branch-pos/" + po + "/ship").session(admin).with(csrf())).andExpect(status().isOk());
+		mvc.perform(post("/api/admin/branch-pos/" + po + "/advance").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"to\":\"PROCESSING\"}")).andExpect(status().isOk());
+		mvc.perform(post("/api/admin/branch-pos/" + po + "/advance").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"to\":\"FOR_PICKUP\"}")).andExpect(status().isOk());
+		mvc.perform(post("/api/admin/branch-pos/" + po + "/advance").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"to\":\"IN_TRANSIT\"}")).andExpect(status().isOk());
+		if (received == 0) {   // nothing came: the branch completes the order, and there is nothing to pay
+			mvc.perform(post("/api/branch/purchase-orders/" + po + "/close").session(manager).with(csrf())).andExpect(status().isOk());
+			return po;
+		}
 		mvc.perform(post("/api/branch/purchase-orders/" + po + "/receive").session(manager).with(csrf()).contentType(MediaType.APPLICATION_JSON)
 			.content("{\"lines\":[{\"lineId\":" + line + ",\"qty\":" + received + "}]}")).andExpect(status().isOk());
 		return po;

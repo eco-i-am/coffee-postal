@@ -3,10 +3,26 @@ export const METHOD_NAMES = { CASH: "Cash", GCASH: "GCash", MAYA: "Maya", CARD: 
 export const STATUS_NAMES = { PAID: "Paid", REFUNDED: "Refunded", VOID: "Void" };
 export const DISCOUNT_NAMES = { NONE: "None", SENIOR_PWD: "Senior / PWD", PROMO10: "Promo 10%" };
 
+// Nine stages from request to completed, then the two ways an order can stop.
 export const PO_STATUS = {
-  REQUESTED: "Waiting for HQ", APPROVED: "Approved", SHIPPED: "Sent by HQ",
-  RECEIVED: "Received", REJECTED: "Rejected", CANCELLED: "Cancelled",
+  REQUESTED: "Requested", PENDING: "Pending", TO_PAY: "To pay", PROCESSING: "Processing", FOR_PICKUP: "For pick-up",
+  IN_TRANSIT: "In transit", PICKED_UP: "Picked up", DELIVERED: "Delivered", COMPLETED: "Completed",
+  REJECTED: "Rejected", CANCELLED: "Cancelled",
 };
+export const PO_STAGES = ["REQUESTED", "PENDING", "TO_PAY", "PROCESSING", "FOR_PICKUP", "IN_TRANSIT", "PICKED_UP", "DELIVERED", "COMPLETED"];
+/** The steps HQ can take from each stage (the server enforces the same table). */
+export const PO_NEXT = {
+  PENDING: ["TO_PAY", "PROCESSING"], TO_PAY: ["PROCESSING"], PROCESSING: ["FOR_PICKUP"],
+  FOR_PICKUP: ["IN_TRANSIT", "PICKED_UP"], IN_TRANSIT: ["PICKED_UP", "DELIVERED"], PICKED_UP: ["DELIVERED"],
+};
+/** The button text for moving to a stage. */
+export const PO_STEP_LABEL = {
+  TO_PAY: "Ask branch to pay", PROCESSING: "Start processing", FOR_PICKUP: "Ready for pick-up",
+  IN_TRANSIT: "Mark in transit", PICKED_UP: "Mark picked up", DELIVERED: "Mark delivered",
+};
+export const PO_REJECTABLE = ["REQUESTED", "PENDING", "TO_PAY"];
+/** From these stages the branch can count what has arrived. */
+export const PO_RECEIVABLE = ["FOR_PICKUP", "IN_TRANSIT", "PICKED_UP", "DELIVERED"];
 export const MOVE_NAMES = { OPENING: "Opening stock", ADJUST: "Count correction", WASTE: "Waste", PO_RECEIVE: "Received from HQ", SALE: "Used in sales" };
 
 /** Stock is counted in thousandths of a unit (1 bag = 1000). 1500 -> "1.5", -36 -> "-0.036". */
@@ -15,11 +31,11 @@ export function fmtQty(thousandths) {
   return String(Number(n.toFixed(3)));
 }
 
-/** CSS tag colour for a PO status: green = good, yellow = waiting on someone, red = stopped. */
+/** CSS tag colour for a PO status: green = done or arriving, yellow = waiting on someone, red = stopped. */
 export function poTone(status) {
-  if (status === "RECEIVED" || status === "APPROVED" || status === "SHIPPED") return "g";
-  if (status === "REQUESTED") return "y";
-  return "r";
+  if (status === "COMPLETED" || status === "DELIVERED") return "g";
+  if (status === "REJECTED" || status === "CANCELLED") return "r";
+  return "y";
 }
 export const poNo = (id) => `PO-${String(id).padStart(4, "0")}`;
 export const invNo = (id) => `INV-${String(id).padStart(4, "0")}`;

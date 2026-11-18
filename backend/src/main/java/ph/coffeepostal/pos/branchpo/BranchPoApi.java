@@ -65,7 +65,7 @@ class BranchPoApi {
     @PreAuthorize("hasAuthority('PERM_branch_po_edit')")
     Map<String, Object> cancel(@PathVariable long id, Principal who) {
         var me = orders.whoIs(who.getName());
-        pos.cancel(id, me.branchId());
+        pos.cancel(id, me.branchId(), me.userId());
         audit.record(who.getName(), me.branchId(), "BRANCH_PO_CANCEL", "branch_po", String.valueOf(id), null, null, null);
         return Map.of("id", id);
     }
@@ -77,6 +77,15 @@ class BranchPoApi {
         Map<Long, Long> q = r.lines().stream().collect(Collectors.toMap(Qty::lineId, Qty::qty, (a, b) -> b));
         pos.receive(id, me.branchId(), me.userId(), q);
         audit.record(who.getName(), me.branchId(), "BRANCH_PO_RECEIVE", "branch_po", String.valueOf(id), null, null, null);
+        return Map.of("id", id);
+    }
+
+    @PostMapping("/{id}/close")
+    @PreAuthorize("hasAuthority('PERM_branch_po_edit')")
+    Map<String, Object> closeShort(@PathVariable long id, Principal who) {
+        var me = orders.whoIs(who.getName());
+        pos.closeShort(id, me.branchId(), me.userId());
+        audit.record(who.getName(), me.branchId(), "BRANCH_PO_CLOSE", "branch_po", String.valueOf(id), null, null, null);
         return Map.of("id", id);
     }
 }

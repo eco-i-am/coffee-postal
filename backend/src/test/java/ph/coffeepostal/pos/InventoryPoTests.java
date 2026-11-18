@@ -78,19 +78,21 @@ class InventoryPoTests {
 			.contentType(MediaType.APPLICATION_JSON).content("{\"lines\":[{\"lineId\":" + beansLine + ",\"qty\":3}]}")).andExpect(status().isOk());
 		mvc.perform(post("/api/admin/branch-pos/" + po + "/approve").session(admin).with(csrf())
 			.contentType(MediaType.APPLICATION_JSON).content("{\"lines\":[]}")).andExpect(status().isConflict());
-		mvc.perform(post("/api/admin/branch-pos/" + po + "/ship").session(admin).with(csrf())).andExpect(status().isOk());
+		mvc.perform(post("/api/admin/branch-pos/" + po + "/advance").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"to\":\"PROCESSING\"}")).andExpect(status().isOk());
+		mvc.perform(post("/api/admin/branch-pos/" + po + "/advance").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"to\":\"FOR_PICKUP\"}")).andExpect(status().isOk());
+		mvc.perform(post("/api/admin/branch-pos/" + po + "/advance").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"to\":\"IN_TRANSIT\"}")).andExpect(status().isOk());
 
 		// more than approved is refused and changes nothing
 		mvc.perform(post("/api/branch/purchase-orders/" + po + "/receive").session(manager).with(csrf())
 			.contentType(MediaType.APPLICATION_JSON).content("{\"lines\":[{\"lineId\":" + beansLine + ",\"qty\":4}]}")).andExpect(status().isBadRequest());
-		assertThat(jdbc.queryForObject("SELECT status FROM branch_pos WHERE id=?", String.class, po)).isEqualTo("SHIPPED");
+		assertThat(jdbc.queryForObject("SELECT status FROM branch_pos WHERE id=?", String.class, po)).isEqualTo("IN_TRANSIT");
 
 		// 2 of the 3 bags arrive
 		mvc.perform(post("/api/branch/purchase-orders/" + po + "/receive").session(manager).with(csrf())
 			.contentType(MediaType.APPLICATION_JSON).content("{\"lines\":[{\"lineId\":" + beansLine + ",\"qty\":2}]}")).andExpect(status().isOk());
 		assertThat(stock(branch, beans) - before).isEqualTo(2000);   // stock is counted in thousandths: 2 bags
 		mvc.perform(get("/api/branch/purchase-orders/" + po).session(manager))
-			.andExpect(jsonPath("$.po.status").value("RECEIVED"))
+			.andExpect(jsonPath("$.po.status").value("DELIVERED"))   // 2 of 3 bags: the last one can still arrive
 			.andExpect(jsonPath("$.lines.length()").value(2));
 	}
 

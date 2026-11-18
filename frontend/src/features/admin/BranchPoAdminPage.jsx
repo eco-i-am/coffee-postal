@@ -6,7 +6,9 @@ import { peso } from "../../shared/money.js";
 import { PO_STATUS, dateTimeOf, poNo, poTone } from "../../shared/format.js";
 import PoDetail from "../po/PoDetail.jsx";
 
-const FILTERS = [["REQUESTED", "Needs review"], ["APPROVED", "To send"], ["SHIPPED", "On the way"], ["", "All"]];
+import { PO_STAGES } from "../../shared/format.js";
+
+const FILTERS = [["REQUESTED", "Needs review"], ...PO_STAGES.slice(1).map((s) => [s, PO_STATUS[s]]), ["REJECTED", "Rejected"], ["", "All"]];
 
 export default function BranchPoAdminPage() {
   const [status, setStatus] = useState("REQUESTED");
@@ -19,7 +21,7 @@ export default function BranchPoAdminPage() {
   return (
     <section>
       <header className="pghead">
-        <div><h1>Branch PO</h1><p>Review what branches ask for, approve it, and mark it as sent.</p></div>
+        <div><h1>Branch PO</h1><p>Review what branches ask for, approve it, and move it along: pay, process, pick-up, transit, delivered.</p></div>
       </header>
       <div className="tabs" role="group" aria-label="Filter">
         {FILTERS.map(([k, label]) => <button key={k} className="chip" aria-pressed={status === k} onClick={() => setStatus(k)}>{label}</button>)}
