@@ -88,4 +88,47 @@ class CatalogEditTests {
 		mvc.perform(put("/api/admin/products/" + prod).session(cashier).with(csrf()).contentType(MediaType.APPLICATION_JSON)
 			.content("{\"name\":\"Z\",\"categoryId\":" + cat + ",\"price\":\"1\",\"hasSizes\":false,\"published\":true,\"art\":\"hot\"}")).andExpect(status().isForbidden());
 	}
+
+	@Test
+	void addonsAndPerBranchPriceAndAvailabilityReachTheMenu() throws Exception {
+		var admin = login("admin");
+		var cashier = login("cashier");
+		String tag = UUID.randomUUID().toString().substring(0, 6);
+		long addon = create(admin, "/api/admin/addons", "{\"name\":\"Add " + tag + "\",\"price\":\"15.50\",\"active\":true}");
+		mvc.perform(post("/api/admin/addons").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"name\":\"add " + tag + "\",\"price\":\"1\",\"active\":true}")).andExpect(status().isConflict());
+		assertThat(jdbc.queryForObject("SELECT price FROM addons WHERE id = ?", Long.class, addon)).isEqualTo(1550L);
+
+		long cat = jdbc.queryForObject("SELECT id FROM product_categories WHERE name='Coffee'", Long.class);
+		long prod = create(admin, "/api/admin/products", "{\"name\":\"Br " + tag + "\",\"categoryId\":" + cat + ",\"price\":\"100\",\"cost\":\"0\",\"hasSizes\":false,\"art\":\"hot\"}");
+		mvc.perform(put("/api/admin/products/" + prod + "/addons").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"addonIds\":[" + addon + "]}")).andExpect(status().isOk());
+		String menu = mvc.perform(get("/api/pos/menu").session(cashier)).andReturn().getResponse().getContentAsString();
+		java.util.List<Integer> prices = JsonPath.read(menu, "$.items[?(@.name=='Br " + tag + "')].addons[0].price");
+		assertThat(prices).containsExactly(1550);
+
+		long branch = jdbc.queryForObject("SELECT ub.branch_id FROM user_branches ub JOIN users u ON u.id = ub.user_id WHERE u.username='cashier'", Long.class);
+		mvc.perform(put("/api/admin/products/" + prod + "/branches").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"branches\":[{\"branchId\":" + branch + ",\"available\":true,\"price\":\"90\"}]}")).andExpect(status().isOk());
+		menu = mvc.perform(get("/api/pos/menu").session(cashier)).andReturn().getResponse().getContentAsString();
+		java.util.List<Integer> branchPrice = JsonPath.read(menu, "$.items[?(@.name=='Br " + tag + "')].price");
+		assertThat(branchPrice).containsExactly(9000);
+
+		mvc.perform(put("/api/admin/products/" + prod + "/branches").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"branches\":[{\"branchId\":" + branch + ",\"available\":false}]}")).andExpect(status().isOk());
+		menu = mvc.perform(get("/api/pos/menu").session(cashier)).andReturn().getResponse().getContentAsString();
+		java.util.List<?> gone = JsonPath.read(menu, "$.items[?(@.name=='Br " + tag + "')]");
+		assertThat(gone).isEmpty();
+
+		// back to the HQ price: no row left
+		mvc.perform(put("/api/admin/products/" + prod + "/branches").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"branches\":[{\"branchId\":" + branch + ",\"available\":true}]}")).andExpect(status().isOk());
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM branch_products WHERE product_id = ?", Integer.class, prod)).isZero();
+
+		mvc.perform(put("/api/admin/products/" + prod + "/branches").session(cashier).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"branches\":[]}")).andExpect(status().isForbidden());
+		jdbc.update("UPDATE products SET active = FALSE WHERE id = ?", prod);   // the database is shared: keep other tests' menu counts steady
+		mvc.perform(put("/api/admin/products/999999/addons").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"addonIds\":[]}")).andExpect(status().isNotFound());
+	}
 }

@@ -4,8 +4,10 @@ import { useLoad } from "../../shared/hooks.js";
 import { peso } from "../../shared/money.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import RecipeModal from "./RecipeModal.jsx";
+import OptionsModal from "./OptionsModal.jsx";
 
 const loadProducts = () => api("/api/admin/products");
+const loadAddons = () => api("/api/admin/addons").catch(() => []);
 const EMPTY = { name: "", categoryId: "", price: "", cost: "", art: "hot", hasSizes: false, published: true };
 const pesoText = (c) => (c / 100).toFixed(2);
 
@@ -19,6 +21,10 @@ export default function ProductsPage() {
   const { can } = useAuth();
   const [recipeFor, setRecipeFor] = useState(null);
   const [editId, setEditId] = useState(null);
+  const addonsLoad = useLoad(loadAddons);
+  const addons = addonsLoad.data || [];
+  const [optionsFor, setOptionsFor] = useState(null);
+  const [addonForm, setAddonForm] = useState({ name: "", price: "" });
   const [headerName, setHeaderName] = useState("");
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
@@ -71,6 +77,30 @@ export default function ProductsPage() {
       await api(`/api/admin/categories/${c.id}`, { method: "PUT",
         body: { name: c.name, headerId: c.headerId, sortOrder: c.sortOrder, active: c.active, ...patch } });
       reload();
+    } catch (err) {
+      setMsg(err.message);
+    }
+  }
+
+  async function addAddon(e) {
+    e.preventDefault();
+    setMsg("");
+    try {
+      await api("/api/admin/addons", { method: "POST", body: { ...addonForm, active: true } });
+      setMsg(`${addonForm.name.trim()} add-on added.`);
+      setAddonForm({ name: "", price: "" });
+      addonsLoad.reload();
+    } catch (err) {
+      setMsg(err.message);
+    }
+  }
+
+  async function saveAddon(a, patch) {
+    setMsg("");
+    try {
+      await api(`/api/admin/addons/${a.id}`, { method: "PUT",
+        body: { name: a.name, price: (a.price / 100).toFixed(2), active: a.active, ...patch } });
+      addonsLoad.reload();
     } catch (err) {
       setMsg(err.message);
     }
@@ -215,6 +245,33 @@ export default function ProductsPage() {
             </>
           )}
 
+          {can("product_addons_view") && (
+            <>
+              <h2 style={{ marginTop: 24 }}>Add-ons</h2>
+              {addons.map((a) => (
+                <div className="opts" key={a.id}>
+                  <span style={{ flex: 1 }}>{a.name} &middot; {peso(a.price)}{!a.active && " (off)"}</span>
+                  {can("product_addons_edit") && (
+                    <button className="btn ghost sm" type="button" onClick={() => saveAddon(a, { active: !a.active })}>{a.active ? "Switch off" : "Switch on"}</button>
+                  )}
+                </div>
+              ))}
+              {can("product_addons_add") && (
+                <form onSubmit={addAddon} className="opts">
+                  <div className="addr" style={{ flex: 1 }}>
+                    <label htmlFor="addonname">New add-on</label>
+                    <input id="addonname" value={addonForm.name} onChange={(e) => setAddonForm({ ...addonForm, name: e.target.value })} placeholder="Extra shot" required />
+                  </div>
+                  <div className="addr" style={{ width: 100 }}>
+                    <label htmlFor="addonprice">Price (&#8369;)</label>
+                    <input id="addonprice" value={addonForm.price} onChange={(e) => setAddonForm({ ...addonForm, price: e.target.value })} inputMode="decimal" placeholder="20" required />
+                  </div>
+                  <button className="btn ghost" type="submit" style={{ alignSelf: "end" }}>Add</button>
+                </form>
+              )}
+            </>
+          )}
+
           <h2 style={{ marginTop: 24 }}>Add a category</h2>
           <form onSubmit={addCategory} className="opts">
             <div className="addr" style={{ flex: 1 }}>
@@ -244,6 +301,7 @@ export default function ProductsPage() {
                     <td><span className={`tag ${p.active && p.published ? "g" : "r"}`}>{!p.published ? "Draft" : p.active ? "On menu" : "Off menu"}</span></td>
                     <td className="rowbtns">
                       {can("products_edit") && <button className="btn ghost sm" type="button" onClick={() => startEdit(p)}>Edit</button>}
+                      {can("products_edit") && <button className="btn ghost sm" type="button" onClick={() => setOptionsFor(p)}>Branches</button>}
                       {can("products_edit") && <button className="btn ghost sm" type="button" onClick={() => setRecipeFor(p)}>Recipe</button>}
                       <button className="btn ghost sm" type="button" onClick={() => toggle(p)}>{p.active ? "Switch off" : "Switch on"}</button>
                     </td>
@@ -257,6 +315,7 @@ export default function ProductsPage() {
           )}
         </div>
       </div>
+      {optionsFor && <OptionsModal product={optionsFor} addons={addons} onClose={() => setOptionsFor(null)} onSaved={(m) => { setOptionsFor(null); setMsg(m); }} />}
       {recipeFor && <RecipeModal product={recipeFor} onClose={() => setRecipeFor(null)} onSaved={(m) => { setRecipeFor(null); setMsg(m); }} />}
     </section>
   );
