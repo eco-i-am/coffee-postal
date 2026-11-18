@@ -24,7 +24,7 @@ jobs:
 
   deploy:
     needs: test
-    if: github.event_name == 'workflow_dispatch'   # manual only while deployment is paused
+    concurrency: { group: deploy-prod, cancel-in-progress: false }   # one deploy at a time
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,3 +58,10 @@ jobs:
             docker compose --env-file ../.env -f compose.prod.yaml pull app web
             docker compose --env-file ../.env -f compose.prod.yaml up -d
             docker image prune -f
+      - name: Health check
+        run: |
+          for i in $(seq 1 24); do
+            if curl -fsS --max-time 10 https://168-144-49-9.sslip.io/actuator/health | grep -q '"status":"UP"'; then echo "site is UP"; exit 0; fi
+            echo "waiting for the app ($i/24)"; sleep 10
+          done
+          echo "site did not come up healthy"; exit 1
