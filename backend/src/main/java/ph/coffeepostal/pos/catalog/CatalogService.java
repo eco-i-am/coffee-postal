@@ -13,9 +13,11 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CatalogService {
     public record Category(long id, String name) {}
-    public record ProductRow(long id, String name, String category, long price, boolean hasSizes, boolean active) {}
+    public record ProductRow(long id, String name, String category, long categoryId, long price, long cost, boolean hasSizes, boolean active, boolean published, String art) {}
+    public record CategoryRow(long id, String name, Long headerId, String header, int sortOrder, boolean active) {}
+    public record Header(long id, String name, int sortOrder, boolean active) {}
     public record Opt(long id, String name, long price) {}
-    public record MenuItem(long id, String name, String category, long price, String art, String color,
+    public record MenuItem(long id, String name, String category, String header, long price, String art, String color,
                            List<Opt> sizes, List<Opt> addons) {}
     public record Menu(List<String> categories, List<MenuItem> items) {}
 
@@ -33,11 +35,86 @@ public class CatalogService {
 
     public List<ProductRow> adminProducts() {
         return jdbc.query("""
-            SELECT p.id, p.name, c.name AS category, p.price, p.has_sizes, p.active
+            SELECT p.id, p.name, c.name AS category, p.category_id, p.price, p.cost, p.has_sizes, p.active, p.published, p.art
             FROM products p JOIN product_categories c ON c.id = p.category_id
             ORDER BY c.sort_order, c.name, p.name
             """, (rs, i) -> new ProductRow(rs.getLong("id"), rs.getString("name"), rs.getString("category"),
-                rs.getLong("price"), rs.getBoolean("has_sizes"), rs.getBoolean("active")));
+                rs.getLong("category_id"), rs.getLong("price"), rs.getLong("cost"), rs.getBoolean("has_sizes"),
+                rs.getBoolean("active"), rs.getBoolean("published"), rs.getString("art")));
+    }
+
+    public List<CategoryRow> adminCategories() {
+        return jdbc.query("""
+            SELECT c.id, c.name, c.header_id, h.name AS header, c.sort_order, c.active
+            FROM product_categories c LEFT JOIN product_headers h ON h.id = c.header_id
+            ORDER BY c.sort_order, c.name
+            """, (rs, i) -> new CategoryRow(rs.getLong("id"), rs.getString("name"), (Long) rs.getObject("header_id"),
+                rs.getString("header"), rs.getInt("sort_order"), rs.getBoolean("active")));
+    }
+
+    public List<Header> headers() {
+        return jdbc.query("SELECT id, name, sort_order, active FROM product_headers ORDER BY sort_order, name",
+            (rs, i) -> new Header(rs.getLong(1), rs.getString(2), rs.getInt(3), rs.getBoolean(4)));
+    }
+
+    @Transactional
+    public long createHeader(String name) {
+        return jdbc.queryForObject("""
+            INSERT INTO product_headers(name, sort_order)
+            VALUES (?, (SELECT coalesce(max(sort_order), 0) + 1 FROM product_headers)) RETURNING id
+            """, Long.class, name);
+    }
+
+    public boolean headerNameTaken(String name, long exceptId) {
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM product_headers WHERE lower(name) = lower(?) AND id <> ?", Integer.class, name, exceptId);
+        return n != null && n > 0;
+    }
+
+    /** Returns false if the header does not exist. */
+    @Transactional
+    public boolean updateHeader(long id, String name, int sortOrder, boolean active) {
+        return jdbc.update("UPDATE product_headers SET name = ?, sort_order = ?, active = ? WHERE id = ?", name, sortOrder, active, id) > 0;
+    }
+
+    public boolean categoryNameTaken(String name, long exceptId) {
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM product_categories WHERE lower(name) = lower(?) AND id <> ?", Integer.class, name, exceptId);
+        return n != null && n > 0;
+    }
+
+    @Transactional
+    public boolean updateCategory(long id, String name, Long headerId, int sortOrder, boolean active) {
+        return jdbc.update("UPDATE product_categories SET name = ?, header_id = ?, sort_order = ?, active = ? WHERE id = ?",
+            name, headerId, sortOrder, active, id) > 0;
+    }
+
+    public ProductRow product(long id) {
+        return adminProducts().stream().filter(p -> p.id() == id).findFirst().orElse(null);
+    }
+
+    public boolean productNameTaken(String name, long exceptId) {
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM products WHERE lower(name) = lower(?) AND id <> ?", Integer.class, name, exceptId);
+        return n != null && n > 0;
+    }
+
+    /** Edits a product. Switching sizes on creates Regular/Large if the product has none yet. */
+    @Transactional
+    public boolean updateProduct(long id, long categoryId, String name, long price, long cost, boolean hasSizes, String art, String color, boolean published) {
+        int n = jdbc.update("""
+            UPDATE products SET category_id = ?, name = ?, price = ?, cost = ?, has_sizes = ?, art = ?, color = ?,
+                   published = ?, updated_at = now() WHERE id = ?
+            """, categoryId, name, price, cost, hasSizes, art, color, published, id);
+        if (n == 0) return false;
+        if (hasSizes) {
+            jdbc.update("""
+                INSERT INTO product_variants(product_id, name, price_delta, sort_order)
+                SELECT ?, 'Regular', 0, 0 WHERE NOT EXISTS (SELECT 1 FROM product_variants WHERE product_id = ?)
+                """, id, id);
+            jdbc.update("""
+                INSERT INTO product_variants(product_id, name, price_delta, sort_order)
+                SELECT ?, 'Large', ?, 1 WHERE NOT EXISTS (SELECT 1 FROM product_variants WHERE product_id = ? AND name = 'Large')
+                """, id, LARGE_EXTRA, id);
+        }
+        return true;
     }
 
     @Transactional
@@ -98,16 +175,17 @@ public class CatalogService {
         });
         LinkedHashSet<String> cats = new LinkedHashSet<>();
         List<MenuItem> items = jdbc.query("""
-            SELECT p.id, p.name, c.name AS category, coalesce(bp.price, p.price) AS price, p.art, p.color
+            SELECT p.id, p.name, c.name AS category, h.name AS header, coalesce(bp.price, p.price) AS price, p.art, p.color
             FROM products p
             JOIN product_categories c ON c.id = p.category_id AND c.active
+            LEFT JOIN product_headers h ON h.id = c.header_id
             LEFT JOIN branch_products bp ON bp.product_id = p.id AND bp.branch_id = ?
-            WHERE p.active AND coalesce(bp.available, TRUE)
-            ORDER BY c.sort_order, c.name, p.name
+            WHERE p.active AND p.published AND coalesce(bp.available, TRUE) AND (h.id IS NULL OR h.active)
+            ORDER BY coalesce(h.sort_order, 2147483647), c.sort_order, c.name, p.name
             """, (rs, i) -> {
                 long id = rs.getLong("id");
                 cats.add(rs.getString("category"));
-                return new MenuItem(id, rs.getString("name"), rs.getString("category"), rs.getLong("price"),
+                return new MenuItem(id, rs.getString("name"), rs.getString("category"), rs.getString("header"), rs.getLong("price"),
                     rs.getString("art"), rs.getString("color"),
                     sizes.getOrDefault(id, List.of()), addons.getOrDefault(id, List.of()));
             }, branchId);

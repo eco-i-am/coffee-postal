@@ -6,7 +6,8 @@ import { useAuth } from "../../app/AuthContext.jsx";
 import RecipeModal from "./RecipeModal.jsx";
 
 const loadProducts = () => api("/api/admin/products");
-const EMPTY = { name: "", categoryId: "", price: "", cost: "", art: "hot", hasSizes: false };
+const EMPTY = { name: "", categoryId: "", price: "", cost: "", art: "hot", hasSizes: false, published: true };
+const pesoText = (c) => (c / 100).toFixed(2);
 
 export default function ProductsPage() {
   const { data, error, loading, reload } = useLoad(loadProducts);
@@ -17,6 +18,8 @@ export default function ProductsPage() {
   const [catName, setCatName] = useState("");
   const { can } = useAuth();
   const [recipeFor, setRecipeFor] = useState(null);
+  const [editId, setEditId] = useState(null);
+  const [headerName, setHeaderName] = useState("");
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
 
@@ -26,18 +29,60 @@ export default function ProductsPage() {
     setFields({});
     setMsg("");
     try {
-      await api("/api/admin/products", {
-        method: "POST",
-        body: { ...form, categoryId: form.categoryId ? Number(form.categoryId) : null },
-      });
-      setMsg(`${form.name.trim()} added to the menu.`);
+      const body = { ...form, categoryId: form.categoryId ? Number(form.categoryId) : null };
+      if (editId) await api(`/api/admin/products/${editId}`, { method: "PUT", body });
+      else await api("/api/admin/products", { method: "POST", body });
+      setMsg(editId ? `${form.name.trim()} saved.` : `${form.name.trim()} added to the menu.`);
       setForm(EMPTY);
+      setEditId(null);
       reload();
     } catch (err) {
       setFields(err.fields || {});
       setMsg(err.message);
     } finally {
       setBusy(false);
+    }
+  }
+
+  function startEdit(p) {
+    setEditId(p.id);
+    setFields({});
+    setMsg("");
+    setForm({ name: p.name, categoryId: String(p.categoryId), price: pesoText(p.price), cost: pesoText(p.cost),
+      art: p.art, hasSizes: p.hasSizes, published: p.published });
+  }
+
+  async function addHeader(e) {
+    e.preventDefault();
+    setMsg("");
+    try {
+      await api("/api/admin/headers", { method: "POST", body: { name: headerName } });
+      setMsg(`${headerName.trim()} header added.`);
+      setHeaderName("");
+      reload();
+    } catch (err) {
+      setMsg(err.message);
+    }
+  }
+
+  async function saveCategory(c, patch) {
+    setMsg("");
+    try {
+      await api(`/api/admin/categories/${c.id}`, { method: "PUT",
+        body: { name: c.name, headerId: c.headerId, sortOrder: c.sortOrder, active: c.active, ...patch } });
+      reload();
+    } catch (err) {
+      setMsg(err.message);
+    }
+  }
+
+  async function saveHeader(h, patch) {
+    setMsg("");
+    try {
+      await api(`/api/admin/headers/${h.id}`, { method: "PUT", body: { name: h.name, sortOrder: h.sortOrder, active: h.active, ...patch } });
+      reload();
+    } catch (err) {
+      setMsg(err.message);
     }
   }
 
@@ -67,6 +112,8 @@ export default function ProductsPage() {
   const products = data?.products || [];
   const categories = data?.categories || [];
   const arts = data?.arts || [];
+  const headers = data?.headers || [];
+  const allCategories = data?.allCategories || [];
 
   return (
     <section>
@@ -80,7 +127,7 @@ export default function ProductsPage() {
 
       <div className="two">
         <div className="sec">
-          <h2>Add a product</h2>
+          <h2>{editId ? "Edit product" : "Add a product"}</h2>
           <form onSubmit={add} className="stack" noValidate>
             <div className="addr">
               <label htmlFor="pname">Name</label>
@@ -116,8 +163,57 @@ export default function ProductsPage() {
             <label className="check">
               <input type="checkbox" checked={form.hasSizes} onChange={set("hasSizes")} /> Offers Regular and Large (+&#8369;20)
             </label>
-            <button className="btn warm" type="submit" disabled={busy}>Add product</button>
+            {editId && (
+              <label className="check">
+                <input type="checkbox" checked={form.published} onChange={set("published")} /> Published (untick to keep it as a draft)
+              </label>
+            )}
+            <div className="opts">
+              <button className="btn warm" type="submit" disabled={busy}>{editId ? "Save changes" : "Add product"}</button>
+              {editId && <button className="btn ghost" type="button" onClick={() => { setEditId(null); setForm(EMPTY); setFields({}); }}>Cancel</button>}
+            </div>
           </form>
+
+          {can("product_headers_view") && (
+            <>
+              <h2 style={{ marginTop: 24 }}>Headers</h2>
+              <p className="hint">Headers group categories on the POS, for example Drinks and Food.</p>
+              {headers.map((h) => (
+                <div className="opts" key={h.id}>
+                  <b style={{ flex: 1 }}>{h.name}</b>
+                  {can("product_headers_edit") && (
+                    <button className="btn ghost sm" type="button" onClick={() => saveHeader(h, { active: !h.active })}>{h.active ? "Hide" : "Show"}</button>
+                  )}
+                </div>
+              ))}
+              {can("product_headers_add") && (
+                <form onSubmit={addHeader} className="opts">
+                  <div className="addr" style={{ flex: 1 }}>
+                    <label htmlFor="hdrname">New header</label>
+                    <input id="hdrname" value={headerName} onChange={(e) => setHeaderName(e.target.value)} placeholder="Drinks" required />
+                  </div>
+                  <button className="btn ghost" type="submit" style={{ alignSelf: "end" }}>Add</button>
+                </form>
+              )}
+            </>
+          )}
+
+          {can("product_categories_edit") && allCategories.length > 0 && (
+            <>
+              <h2 style={{ marginTop: 24 }}>Categories</h2>
+              {allCategories.map((c) => (
+                <div className="opts" key={c.id}>
+                  <span style={{ flex: 1 }}>{c.name}{!c.active && " (hidden)"}</span>
+                  <select className="line" aria-label={`Header for ${c.name}`} value={c.headerId ?? ""}
+                    onChange={(e) => saveCategory(c, { headerId: e.target.value ? Number(e.target.value) : null })}>
+                    <option value="">No header</option>
+                    {headers.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  </select>
+                  <button className="btn ghost sm" type="button" onClick={() => saveCategory(c, { active: !c.active })}>{c.active ? "Hide" : "Show"}</button>
+                </div>
+              ))}
+            </>
+          )}
 
           <h2 style={{ marginTop: 24 }}>Add a category</h2>
           <form onSubmit={addCategory} className="opts">
@@ -145,8 +241,9 @@ export default function ProductsPage() {
                     <td><b>{p.name}</b></td>
                     <td>{p.category}</td>
                     <td className="n">{peso(p.price)}</td>
-                    <td><span className={`tag ${p.active ? "g" : "r"}`}>{p.active ? "On menu" : "Off menu"}</span></td>
+                    <td><span className={`tag ${p.active && p.published ? "g" : "r"}`}>{!p.published ? "Draft" : p.active ? "On menu" : "Off menu"}</span></td>
                     <td className="rowbtns">
+                      {can("products_edit") && <button className="btn ghost sm" type="button" onClick={() => startEdit(p)}>Edit</button>}
                       {can("products_edit") && <button className="btn ghost sm" type="button" onClick={() => setRecipeFor(p)}>Recipe</button>}
                       <button className="btn ghost sm" type="button" onClick={() => toggle(p)}>{p.active ? "Switch off" : "Switch on"}</button>
                     </td>
