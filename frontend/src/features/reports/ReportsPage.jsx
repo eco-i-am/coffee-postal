@@ -3,7 +3,7 @@ import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { peso } from "../../shared/money.js";
 import { PRESETS, presetRange, daysBetween } from "../../shared/dates.js";
-import { DISCOUNT_NAMES, METHOD_NAMES, fmtQty, todayManila } from "../../shared/format.js";
+import { DISCOUNT_NAMES, METHOD_NAMES, PO_STATUS, dateTimeOf, fmtQty, poNo, todayManila } from "../../shared/format.js";
 import { pesoCell } from "../../shared/csv.js";
 import { Kpi, ExportButton, RangeBar, useReport, State } from "./widgets.jsx";
 
@@ -90,6 +90,73 @@ function ProductsTab({ base, range, branchQ }) {
         </tbody>
       </table>
       <p className="hint">Sales are item prices before any order-level discount, so they can be a little higher than the Sales tab.</p>
+    </div>
+  );
+}
+
+function BranchPoTab({ base, range, branchQ, hq }) {
+  const r = useReport(`${base}/branch-pos`, range, branchQ);
+  if (!r.data) return <State r={r} />;
+  const rows = r.data;
+  const csv = [["PO", "Branch", "Status", "Requested", "Items", "Value"], ...rows.map((x) => [poNo(x.id), x.branch, PO_STATUS[x.status] || x.status, x.requestedAt, x.lines, pesoCell(x.value)])];
+  return (
+    <div className="sec tw">
+      <div className="pghead"><h2>Branch purchase orders</h2><ExportButton name="branch_pos" rows={csv} range={range} /></div>
+      <table>
+        <thead><tr><th>PO</th>{hq && <th>Branch</th>}<th>Status</th><th>Requested</th><th className="n">Items</th><th className="n">Value</th></tr></thead>
+        <tbody>
+          {rows.map((x) => <tr key={x.id}><td><b>{poNo(x.id)}</b></td>{hq && <td>{x.branch}</td>}<td>{PO_STATUS[x.status] || x.status}</td><td>{dateTimeOf(x.requestedAt)}</td><td className="n">{x.lines}</td><td className="n">{peso(x.value)}</td></tr>)}
+          {rows.length === 0 && <tr><td colSpan={hq ? 6 : 5} className="emptyrow">No purchase orders in this range.</td></tr>}
+        </tbody>
+        <tfoot><tr><td colSpan={hq ? 5 : 4} className="n">Total value</td><td className="n"><b>{peso(rows.reduce((s, x) => s + x.value, 0))}</b></td></tr></tfoot>
+      </table>
+      <p className="hint">Value is what has arrived, or what was approved or asked for if it has not arrived yet.</p>
+    </div>
+  );
+}
+
+function PoItemsTab({ base, range, branchQ }) {
+  const r = useReport(`${base}/po-items`, range, branchQ);
+  if (!r.data) return <State r={r} />;
+  const rows = r.data;
+  const csv = [["Item", "Unit", "Ordered", "Approved", "Received", "Value received"], ...rows.map((x) => [x.name, x.unit, x.ordered, x.approved, x.received, pesoCell(x.value)])];
+  return (
+    <div className="sec tw">
+      <div className="pghead"><h2>Items ordered from HQ</h2><ExportButton name="po_items" rows={csv} range={range} /></div>
+      <table>
+        <thead><tr><th>Item</th><th className="n">Ordered</th><th className="n">Approved</th><th className="n">Received</th><th className="n">Value received</th></tr></thead>
+        <tbody>
+          {rows.map((x) => <tr key={x.name + x.unit}><td><b>{x.name}</b> <small>({x.unit})</small></td><td className="n">{x.ordered}</td><td className="n">{x.approved}</td><td className="n">{x.received}</td><td className="n">{peso(x.value)}</td></tr>)}
+          {rows.length === 0 && <tr><td colSpan="5" className="emptyrow">Nothing was ordered in this range.</td></tr>}
+        </tbody>
+        <tfoot><tr><td colSpan="4" className="n">Total</td><td className="n"><b>{peso(rows.reduce((s, x) => s + x.value, 0))}</b></td></tr></tfoot>
+      </table>
+      <p className="hint">Rejected and cancelled orders are left out.</p>
+    </div>
+  );
+}
+
+function PricesTab({ base, branchQ, hq, branchId }) {
+  const load = useCallback(() => api(`${base}/prices${branchQ ? `?${branchQ.slice(1)}` : ""}`), [base, branchQ]);
+  const r = useLoad(load);
+  if (!r.data) return <State r={r} />;
+  const rows = r.data;
+  const csv = [["Product", "Category", "HQ price", "Price", "Sold here", ...(hq && !branchId ? ["Branches with another price"] : [])],
+    ...rows.map((x) => [x.name, x.category, pesoCell(x.basePrice), pesoCell(x.price), x.available ? "yes" : "no", ...(hq && !branchId ? [x.branchOverrides] : [])])];
+  return (
+    <div className="sec tw">
+      <div className="pghead"><h2>Prices</h2><ExportButton name="prices" rows={csv} /></div>
+      <table>
+        <thead><tr><th>Product</th><th>Category</th><th className="n">HQ price</th>{(!hq || branchId) && <th className="n">This branch</th>}{(!hq || branchId) && <th>Sold here</th>}{hq && !branchId && <th className="n">Branches with another price</th>}</tr></thead>
+        <tbody>
+          {rows.map((x) => (
+            <tr key={x.productId}><td><b>{x.name}</b></td><td>{x.category}</td><td className="n">{peso(x.basePrice)}</td>
+              {(!hq || branchId) && <td className={`n${x.price !== x.basePrice ? " short" : ""}`}>{peso(x.price)}</td>}
+              {(!hq || branchId) && <td>{x.available ? "Yes" : "No"}</td>}
+              {hq && !branchId && <td className="n">{x.branchOverrides || ""}</td>}</tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -215,9 +282,9 @@ export default function ReportsPage({ side }) {
   const base = hq ? "/api/admin/reports" : "/api/branch/reports";
   const branchQ = hq && branchId ? `&branchId=${branchId}` : "";
   const tabs = hq
-    ? [["sales", "Sales"], ["products", "Products"], ["pl", "Profit & loss"], ["branches", "Branches"], ["stock", "Stock"], ["aging", "Receivables aging"]]
-    : [["sales", "Sales"], ["products", "Products"], ["pl", "Profit & loss"], ["stock", "Stock"]];
-  const needsRange = tab !== "aging";
+    ? [["sales", "Sales"], ["products", "Products"], ["pl", "Profit & loss"], ["branches", "Branches"], ["stock", "Stock"], ["branch-pos", "Branch POs"], ["po-items", "PO items"], ["prices", "Prices"], ["aging", "Receivables aging"]]
+    : [["sales", "Sales"], ["products", "Products"], ["pl", "Profit & loss"], ["stock", "Stock"], ["branch-pos", "Branch POs"], ["po-items", "PO items"], ["prices", "Prices"]];
+  const needsRange = tab !== "aging" && tab !== "prices";
   const tooLong = daysBetween(range.from, range.to) > 366;
 
   return (
@@ -228,7 +295,7 @@ export default function ReportsPage({ side }) {
       </div>
       <div className="filters">
         {needsRange && <RangeBar range={range} setRange={setRange} />}
-        {hq && ["sales", "products", "pl", "stock"].includes(tab) && (
+        {hq && ["sales", "products", "pl", "stock", "branch-pos", "po-items", "prices"].includes(tab) && (
           <label className="datepick">Branch
             <select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
               <option value="">All branches</option>
@@ -242,6 +309,9 @@ export default function ReportsPage({ side }) {
       {!tooLong && tab === "products" && <ProductsTab base={base} range={range} branchQ={branchQ} />}
       {!tooLong && tab === "pl" && <PlTab base={base} range={range} branchQ={branchQ} />}
       {!tooLong && tab === "stock" && <StockTab base={base} range={range} branchQ={branchQ} needsBranch={false} />}
+      {!tooLong && tab === "branch-pos" && <BranchPoTab base={base} range={range} branchQ={branchQ} hq={hq} />}
+      {!tooLong && tab === "po-items" && <PoItemsTab base={base} range={range} branchQ={branchQ} />}
+      {tab === "prices" && <PricesTab base={base} branchQ={branchQ} hq={hq} branchId={branchId} />}
       {!tooLong && tab === "branches" && <BranchesTab range={range} />}
       {tab === "aging" && <AgingTab />}
     </section>

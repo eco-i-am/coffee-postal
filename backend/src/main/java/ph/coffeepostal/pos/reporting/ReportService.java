@@ -33,6 +33,9 @@ public class ReportService {
     public record ProductRow(String name, long qty, long sales) {}
     public record StockRow(long itemId, String name, String unit, long beginning, long received, long transferIn, long transferOut,
                            long used, long wasted, long adjusted, long ending, long value) {}
+    public record PriceRow(long productId, String name, String category, long basePrice, long price, boolean available, int branchOverrides) {}
+    public record PoRow(long id, long branchId, String branch, String status, java.time.Instant requestedAt, int lines, long value) {}
+    public record PoItemRow(String name, String unit, long ordered, long approved, long received, long value) {}
     public record CatAmount(String category, long amount) {}
     /** Profit and loss. Sales exclude VAT. Cost of goods = stock used in sales x the item's current cost. */
     public record ProfitLoss(String from, String to, int orders, long grossSales, long discounts, long vat, long netSales, long costOfGoods, long waste,
@@ -202,6 +205,47 @@ public class ReportService {
         long gross = netSales - cogs - waste;
         return new ProfitLoss(r.from().toString(), r.to().toString(), ((Number) s.get("n")).intValue(), ((Number) s.get("gross")).longValue(),
             ((Number) s.get("disc")).longValue(), vat, netSales, cogs, waste, gross, cats, expenses, outsource, gross - expenses - outsource);
+    }
+
+    /**
+     * Selling prices. With a branch: what that branch charges and whether it sells the product. Without: the HQ price, and how many
+     * branches charge something different.
+     */
+    public List<PriceRow> prices(Long branchId) {
+        return jdbc.query("""
+            SELECT p.id, p.name, coalesce(c.name, ''), p.price,
+                   coalesce(bp.price, p.price) AS price, coalesce(bp.available, TRUE) AS available,
+                   (SELECT count(*) FROM branch_products x WHERE x.product_id = p.id AND x.price IS NOT NULL AND x.price <> p.price) AS overrides
+            FROM products p LEFT JOIN product_categories c ON c.id = p.category_id
+            LEFT JOIN branch_products bp ON bp.product_id = p.id AND bp.branch_id = ?
+            WHERE p.active ORDER BY lower(coalesce(c.name, '')), lower(p.name)
+            """, (rs, i) -> new PriceRow(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getLong(4), rs.getLong(5), rs.getBoolean(6), rs.getInt(7)),
+            branchId);
+    }
+
+    /** Purchase orders requested in the range, with what they are worth (received if it has arrived, else approved, else ordered). */
+    public List<PoRow> branchPos(Range r, Long branchId) {
+        return jdbc.query("""
+            SELECT p.id, p.branch_id, b.name, p.status, p.requested_at,
+                   (SELECT count(*) FROM branch_po_lines l WHERE l.po_id = p.id),
+                   (SELECT coalesce(sum(coalesce(l.qty_received, l.qty_approved, l.qty_ordered) * l.unit_cost), 0) FROM branch_po_lines l WHERE l.po_id = p.id)
+            FROM branch_pos p JOIN branches b ON b.id = p.branch_id
+            WHERE p.requested_at >= ? AND p.requested_at < ? AND (?::bigint IS NULL OR p.branch_id = ?)
+            ORDER BY p.requested_at DESC, p.id DESC LIMIT 1000
+            """, (rs, i) -> new PoRow(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getString(4), rs.getTimestamp(5).toInstant(), rs.getInt(6), rs.getLong(7)),
+            ts(r.from()), ts(r.to().plusDays(1)), branchId, branchId);
+    }
+
+    /** What HQ sold to branches through purchase orders (rejected and cancelled orders left out), by item. */
+    public List<PoItemRow> poItems(Range r, Long branchId) {
+        return jdbc.query("""
+            SELECT l.name, l.unit, sum(l.qty_ordered), coalesce(sum(l.qty_approved), 0), coalesce(sum(l.qty_received), 0),
+                   coalesce(sum(coalesce(l.qty_received, 0) * l.unit_cost), 0)
+            FROM branch_po_lines l JOIN branch_pos p ON p.id = l.po_id
+            WHERE p.status NOT IN ('REJECTED','CANCELLED') AND p.requested_at >= ? AND p.requested_at < ? AND (?::bigint IS NULL OR p.branch_id = ?)
+            GROUP BY l.name, l.unit ORDER BY 6 DESC, l.name
+            """, (rs, i) -> new PoItemRow(rs.getString(1), rs.getString(2), rs.getLong(3), rs.getLong(4), rs.getLong(5), rs.getLong(6)),
+            ts(r.from()), ts(r.to().plusDays(1)), branchId, branchId);
     }
 
     /** HQ: every open branch side by side. */

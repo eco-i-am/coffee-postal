@@ -30,6 +30,22 @@ class BranchReportApi {
         return reports.products(ReportService.range(from, to), orders.whoIs(who.getName()).branchId());
     }
 
+    @GetMapping("/prices")
+    @PreAuthorize("hasAuthority('PERM_branch_reports_view')")
+    List<ReportService.PriceRow> prices(Principal who) { return reports.prices(orders.whoIs(who.getName()).branchId()); }
+
+    @GetMapping("/branch-pos")
+    @PreAuthorize("hasAuthority('PERM_branch_reports_view')")
+    List<ReportService.PoRow> branchPos(@RequestParam(required = false) String from, @RequestParam(required = false) String to, Principal who) {
+        return reports.branchPos(ReportService.range(from, to), orders.whoIs(who.getName()).branchId());
+    }
+
+    @GetMapping("/po-items")
+    @PreAuthorize("hasAuthority('PERM_branch_reports_view')")
+    List<ReportService.PoItemRow> poItems(@RequestParam(required = false) String from, @RequestParam(required = false) String to, Principal who) {
+        return reports.poItems(ReportService.range(from, to), orders.whoIs(who.getName()).branchId());
+    }
+
     @GetMapping("/pl")
     @PreAuthorize("hasAuthority('PERM_branch_reports_view')")
     ReportService.ProfitLoss pl(@RequestParam(required = false) String from, @RequestParam(required = false) String to, Principal who) {
@@ -69,6 +85,24 @@ class AdminReportApi {
     @PreAuthorize("hasAuthority('PERM_reports_admin_view')")
     List<ReportService.BranchRow> branches(@RequestParam(required = false) String from, @RequestParam(required = false) String to) {
         return reports.branches(ReportService.range(from, to));
+    }
+
+    @GetMapping("/prices")
+    @PreAuthorize("hasAuthority('PERM_reports_admin_view')")
+    List<ReportService.PriceRow> prices(@RequestParam(required = false) Long branchId) { return reports.prices(branchId); }
+
+    @GetMapping("/branch-pos")
+    @PreAuthorize("hasAuthority('PERM_reports_admin_view')")
+    List<ReportService.PoRow> branchPos(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
+                                        @RequestParam(required = false) Long branchId) {
+        return reports.branchPos(ReportService.range(from, to), branchId);
+    }
+
+    @GetMapping("/po-items")
+    @PreAuthorize("hasAuthority('PERM_reports_admin_view')")
+    List<ReportService.PoItemRow> poItems(@RequestParam(required = false) String from, @RequestParam(required = false) String to,
+                                          @RequestParam(required = false) Long branchId) {
+        return reports.poItems(ReportService.range(from, to), branchId);
     }
 
     @GetMapping("/pl")
