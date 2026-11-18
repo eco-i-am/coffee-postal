@@ -193,6 +193,7 @@ function AttendanceTab({ hq, branchId, canFix }) {
     return api(`${hq ? "/api/admin/attendance" : "/api/branch/attendance"}?${q}`);
   }, [hq, branchId, range.from, range.to]);
   const { data, error, loading, reload } = useLoad(load);
+  const [look, setLook] = useState(null);   // { src, label }
   const [fix, setFix] = useState(null);   // { mode: "edit" | "add", logId?, employeeId, employee, kind, at, err }
   const [msg, setMsg] = useState("");
   const [form, setForm] = useState({ when: "", reason: "", pin: "" });
@@ -220,11 +221,20 @@ function AttendanceTab({ hq, branchId, canFix }) {
 
   function exportCsv() {
     downloadCsv(`attendance_${range.from}_to_${range.to}.csv`, [
-      ["Date", "Employee", "Branch", "Time in", "Time out", "Hours", "Status", "Notes"],
+      ["Date", "Employee", "Branch", "Time in", "Time out", "Hours", "Status", "Photo in", "Photo out", "Notes"],
       ...sessions.map((s) => [s.date, s.employee, s.branch, s.inAt ? timeOf(s.inAt) : "", s.outAt ? timeOf(s.outAt) : "",
-        s.minutes == null ? "" : (s.minutes / 60).toFixed(2), STATUS[s.status]?.[1] || s.status, s.notes.join("; ")]),
+        s.minutes == null ? "" : (s.minutes / 60).toFixed(2), STATUS[s.status]?.[1] || s.status, s.inLogId ? (s.inPhoto ? "yes" : "no") : "", s.outLogId ? (s.outPhoto ? "yes" : "no") : "", s.notes.join("; ")]),
     ]);
   }
+
+  const photoUrl = (logId) => `${hq ? "/api/admin/attendance/photos" : "/api/branch/attendance/photos"}/${logId}`;
+  const shot = (s, kind) => {
+    const logId = kind === "in" ? s.inLogId : s.outLogId;
+    const has = kind === "in" ? s.inPhoto : s.outPhoto;
+    if (!logId) return null;
+    if (has) return <img className="thumb" src={photoUrl(logId)} alt={`${s.employee} time ${kind}`} loading="lazy" onClick={() => setLook({ src: photoUrl(logId), label: `${s.employee}, time ${kind}` })} />;
+    return s.notes.includes("Added by a manager") ? null : <small>No photo</small>;
+  };
 
   const missing = sessions.filter((s) => s.status === "FORGOT_OUT" || s.status === "NO_TIME_IN").length;
 
@@ -244,7 +254,7 @@ function AttendanceTab({ hq, branchId, canFix }) {
         </div>
         {loading && !data ? <p role="status">Loading...</p> : (
           <table>
-            <thead><tr><th>Date</th><th>Employee</th>{hq && <th>Branch</th>}<th>Time in</th><th>Time out</th><th className="n">Hours</th><th>Status</th><th>Notes</th>{canFix && <th></th>}</tr></thead>
+            <thead><tr><th>Date</th><th>Employee</th>{hq && <th>Branch</th>}<th>Time in</th><th>Time out</th><th className="n">Hours</th><th>Status</th><th>Photos</th><th>Notes</th>{canFix && <th></th>}</tr></thead>
             <tbody>
               {sessions.map((s, i) => {
                 const [tone, label] = STATUS[s.status] || ["y", s.status];
@@ -254,6 +264,7 @@ function AttendanceTab({ hq, branchId, canFix }) {
                     <td>{s.inAt ? timeOf(s.inAt) : "-"}</td><td>{s.outAt ? timeOf(s.outAt) : "-"}</td>
                     <td className="n">{hoursText(s.minutes)}</td>
                     <td><span className={`tag ${tone}`}>{label}</span></td>
+                    <td><div className="shots">{shot(s, "in")}{shot(s, "out")}</div></td>
                     <td><small>{s.notes.join(", ")}</small></td>
                     {canFix && (
                       <td className="rowbtns">
@@ -266,11 +277,17 @@ function AttendanceTab({ hq, branchId, canFix }) {
                   </tr>
                 );
               })}
-              {sessions.length === 0 && <tr><td colSpan={hq ? 9 : 8} className="emptyrow">Nobody punched in this range.</td></tr>}
+              {sessions.length === 0 && <tr><td colSpan={hq ? 10 : 9} className="emptyrow">Nobody punched in this range.</td></tr>}
             </tbody>
           </table>
         )}
       </div>
+      {look && (
+        <Modal title={look.label} onClose={() => setLook(null)}>
+          <img src={look.src} alt={look.label} style={{ width: "100%", borderRadius: 12 }} />
+          <div className="opts"><button type="button" className="btn ghost" style={{ flex: 1 }} onClick={() => setLook(null)}>Close</button></div>
+        </Modal>
+      )}
       {fix && (
         <Modal title={`${fix.mode === "edit" ? "Fix" : "Add"} ${fix.kind === "IN" ? "time in" : "time out"}: ${fix.employee}`} onClose={() => setFix(null)}>
           <form onSubmit={submit} className="stack">

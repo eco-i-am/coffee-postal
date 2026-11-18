@@ -10,7 +10,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -40,6 +43,11 @@ final class HrApis {
         if (s == null || s.isBlank()) return fallback;
         try { return LocalDate.parse(s); }
         catch (DateTimeParseException e) { throw new ApiException(HttpStatus.BAD_REQUEST, "Dates look like 2026-11-18."); }
+    }
+
+    static ResponseEntity<byte[]> jpeg(byte[] bytes) {
+        if (bytes == null) throw new ApiException(HttpStatus.NOT_FOUND, "There is no photo for that punch.");
+        return ResponseEntity.ok().contentType(MediaType.IMAGE_JPEG).cacheControl(CacheControl.maxAge(java.time.Duration.ofHours(1)).cachePrivate()).body(bytes);
     }
 
     static LocalDate today() { return LocalDate.now(AttendanceService.MANILA); }
@@ -121,8 +129,16 @@ final class HrApis {
     static class BranchAttendanceApi {
         private final AttendanceService attendance;
         private final OrderService orders;
+        private final PhotoService photos;
 
-        BranchAttendanceApi(AttendanceService attendance, OrderService orders) { this.attendance = attendance; this.orders = orders; }
+        BranchAttendanceApi(AttendanceService attendance, OrderService orders, PhotoService photos) { this.attendance = attendance; this.orders = orders; this.photos = photos; }
+
+        /** The photo taken at a time in, for managers of the branch it belongs to. */
+        @GetMapping("/photos/{logId}")
+        @PreAuthorize("hasAuthority('PERM_branch_employees_view')")
+        ResponseEntity<byte[]> photo(@PathVariable long logId, Principal who) {
+            return jpeg(photos.get(logId, orders.whoIs(who.getName()).branchId()));
+        }
 
         @GetMapping
         @PreAuthorize("hasAuthority('PERM_branch_employees_view')")
@@ -156,7 +172,15 @@ final class HrApis {
         private final AttendanceService attendance;
         private final AuditService audit;
 
-        AdminHrApi(EmployeeService employees, AttendanceService attendance, AuditService audit) { this.employees = employees; this.attendance = attendance; this.audit = audit; }
+        private final PhotoService photos;
+
+        AdminHrApi(EmployeeService employees, AttendanceService attendance, AuditService audit, PhotoService photos) {
+            this.employees = employees; this.attendance = attendance; this.audit = audit; this.photos = photos;
+        }
+
+        @GetMapping("/attendance/photos/{logId}")
+        @PreAuthorize("hasAuthority('PERM_admin_employees_view')")
+        ResponseEntity<byte[]> photo(@PathVariable long logId) { return jpeg(photos.get(logId, null)); }
 
         @GetMapping("/employees")
         @PreAuthorize("hasAuthority('PERM_admin_employees_view')")

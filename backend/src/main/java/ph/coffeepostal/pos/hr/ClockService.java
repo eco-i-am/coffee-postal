@@ -34,10 +34,10 @@ public class ClockService {
     static final long DOUBLE_TAP_SECONDS = 20;
 
     /** Send either pin (online), or employeeId + check (a punch kept on the tablet while offline). */
-    public record PunchReq(String pin, UUID clientId, Instant deviceTime, Long employeeId, String check) {}
-    public record PunchRes(long employeeId, String name, String kind, Instant at, boolean offline, String flag) {}
+    public record PunchReq(String pin, UUID clientId, Instant deviceTime, Long employeeId, String check, String photo) {}
+    public record PunchRes(long employeeId, String name, String kind, Instant at, boolean offline, String flag, boolean photo) {}
     public record RosterEntry(long id, String name, String position, String salt, String check, boolean in) {}
-    public record Roster(List<RosterEntry> employees, Instant serverTime) {}
+    public record Roster(List<RosterEntry> employees, Instant serverTime, int photoDays) {}
 
     private record Emp(long id, String name) {}
     private record Last(String kind, Instant at) {}
@@ -45,9 +45,10 @@ public class ClockService {
     private final JdbcTemplate jdbc;
     private final PinCodec pins;
     private final TransactionTemplate tx;
+    private final PhotoService photos;
 
-    public ClockService(JdbcTemplate jdbc, PinCodec pins, PlatformTransactionManager tm) {
-        this.jdbc = jdbc; this.pins = pins; this.tx = new TransactionTemplate(tm);
+    public ClockService(JdbcTemplate jdbc, PinCodec pins, PlatformTransactionManager tm, PhotoService photos) {
+        this.jdbc = jdbc; this.pins = pins; this.tx = new TransactionTemplate(tm); this.photos = photos;
     }
 
     /** Active branch employees with a PIN, for the clock screen and for its offline copy. No PINs in here. */
@@ -59,7 +60,7 @@ public class ClockService {
             FROM employees e WHERE e.branch_id = ? AND e.status = 'ACTIVE' AND e.pin_lookup IS NOT NULL ORDER BY e.full_name
             """, (rs, i) -> new RosterEntry(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getBoolean(6)),
             (int) FORGOT_OUT_HOURS, branchId);
-        return new Roster(list, Instant.now());
+        return new Roster(list, Instant.now(), photos.retentionDays());
     }
 
     public PunchRes punch(long branchId, long recordedBy, PunchReq r) {
@@ -114,6 +115,7 @@ public class ClockService {
 
         final Instant punchedAt = at;
         final String punchFlag = flag;
+        final byte[] photo = PhotoService.decode(r.photo());   // every punch, in or out, keeps its photo; a bad photo never stops the punch
         try {
             return tx.execute(status -> {
                 jdbc.queryForObject("SELECT id FROM employees WHERE id = ? FOR UPDATE", Long.class, who.id());
@@ -127,12 +129,14 @@ public class ClockService {
                     if (gap.getSeconds() < DOUBLE_TAP_SECONDS) throw new ApiException(HttpStatus.CONFLICT, "Already recorded a moment ago.");
                     if (last.get(0).kind().equals("IN") && gap.toHours() < FORGOT_OUT_HOURS) kind = "OUT";
                 }
-                jdbc.update("""
+                long logId = jdbc.queryForObject("""
                     INSERT INTO attendance_logs(employee_id, branch_id, kind, punched_at, device_time, source, client_id, flag, recorded_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    """, who.id(), branchId, kind, java.sql.Timestamp.from(punchedAt), java.sql.Timestamp.from(device),
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                    """, Long.class, who.id(), branchId, kind, java.sql.Timestamp.from(punchedAt), java.sql.Timestamp.from(device),
                     offline ? "OFFLINE" : "ONLINE", r.clientId(), punchFlag, recordedBy);
-                return new PunchRes(who.id(), who.name(), kind, punchedAt, offline, punchFlag);
+                boolean kept = photo != null;
+                if (kept) photos.store(logId, photo);
+                return new PunchRes(who.id(), who.name(), kind, punchedAt, offline, punchFlag, kept);
             });
         } catch (DuplicateKeyException e) {
             PunchRes seen = r.clientId() == null ? null : existing(r.clientId(), branchId);
@@ -143,10 +147,11 @@ public class ClockService {
 
     private PunchRes existing(UUID clientId, long branchId) {
         List<PunchRes> r = jdbc.query("""
-            SELECT l.employee_id, e.full_name, l.kind, l.punched_at, l.source, l.flag
+            SELECT l.employee_id, e.full_name, l.kind, l.punched_at, l.source, l.flag,
+                   EXISTS (SELECT 1 FROM attendance_photos p WHERE p.log_id = l.id)
             FROM attendance_logs l JOIN employees e ON e.id = l.employee_id WHERE l.client_id = ? AND l.branch_id = ?
             """, (rs, i) -> new PunchRes(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getTimestamp(4).toInstant(),
-                "OFFLINE".equals(rs.getString(5)), rs.getString(6)), clientId, branchId);
+                "OFFLINE".equals(rs.getString(5)), rs.getString(6), rs.getBoolean(7)), clientId, branchId);
         return r.isEmpty() ? null : r.get(0);
     }
 }

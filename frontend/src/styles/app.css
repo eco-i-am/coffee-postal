@@ -291,3 +291,8 @@ h3{margin:0}
 .clock .key:active:not(:disabled){transform:scale(.97)}
 .clock .key:disabled{opacity:.5}
 .clock .whoin .r{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line)}
+
+/* Time clock photos */
+.clock .preview{width:100%;max-height:180px;object-fit:cover;border-radius:12px;background:#222;transform:scaleX(-1)}
+.thumb{width:44px;height:44px;object-fit:cover;border-radius:8px;cursor:pointer;border:1px solid var(--line)}
+.shots{display:flex;gap:6px;align-items:center}

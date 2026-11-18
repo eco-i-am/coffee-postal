@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../../shared/api.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import { timeOf } from "../../shared/format.js";
+import { captureJpeg, startCamera, stopCamera } from "../../shared/camera.js";
 import { loadPunches, loadRoster, makePunch, matchPin, nextKind, savePunches, saveRoster, uploadPunches, whoIsIn } from "../../shared/punches.js";
 
 const SHOW_MS = 4500;       // a result stays up this long, then the screen is ready for the next person
@@ -26,8 +27,11 @@ export default function ClockPage() {
   const wrong = useRef({ count: 0, until: 0 });
   const uploading = useRef(false);
   const timer = useRef(null);
+  const videoRef = useRef(null);
+  const [camera, setCamera] = useState("starting");   // starting | on | off
 
-  const commit = useCallback((q) => { queueRef.current = q; setQueue(q); savePunches(q); }, []);
+  // returns false if this browser would not keep it
+  const commit = useCallback((q) => { queueRef.current = q; setQueue(q); return savePunches(q); }, []);
 
   const refreshRoster = useCallback(async () => {
     try {
@@ -47,7 +51,7 @@ export default function ClockPage() {
       const snap = queueRef.current;
       const r = await uploadPunches(snap, (p) => api("/api/clock/punch", {
         method: "POST", timeoutMs: 15000,
-        body: { employeeId: p.employeeId, check: p.check, clientId: p.id, deviceTime: p.deviceTime },
+        body: { employeeId: p.employeeId, check: p.check, clientId: p.id, deviceTime: p.deviceTime, photo: p.photo || null },
       }));
       const sent = new Set(r.uploaded.map((p) => p.id));
       const updated = new Map(r.queue.map((p) => [p.id, p]));
@@ -65,10 +69,20 @@ export default function ClockPage() {
     const off = () => setOnline(false);
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
+    let stream = null;
+    let alive = true;
+    if (videoRef.current) {
+      startCamera(videoRef.current).then((s) => {
+        if (!alive) { stopCamera(s); return; }
+        stream = s;
+        setCamera(s ? "on" : "off");
+      });
+    }
     const every = setInterval(() => { flush(); }, 20000);
     const rosterEvery = setInterval(refreshRoster, 300000);
     return () => {
       window.removeEventListener("online", on); window.removeEventListener("offline", off);
+      alive = false; stopCamera(stream);
       clearInterval(every); clearInterval(rosterEvery); clearTimeout(timer.current);
     };
   }, [refreshRoster, flush]);
@@ -84,20 +98,21 @@ export default function ClockPage() {
     setPin("");
     const clientId = crypto.randomUUID();
     const deviceTime = new Date();
+    const photo = captureJpeg(videoRef.current);   // taken now, while the person is in front of the tablet
     try {
-      const res = await api("/api/clock/punch", { method: "POST", timeoutMs: 8000, body: { pin: code, clientId, deviceTime: deviceTime.toISOString() } });
-      show({ name: res.name, kind: res.kind, at: res.at, offline: false, flag: res.flag });
+      const res = await api("/api/clock/punch", { method: "POST", timeoutMs: 12000, body: { pin: code, clientId, deviceTime: deviceTime.toISOString(), photo } });
+      show({ name: res.name, kind: res.kind, at: res.at, offline: false, flag: res.flag, photo: res.photo });
       refreshRoster();
     } catch (e) {
       if (e.status) { show({ error: e.message }); }
       else {
         setOnline(false);
-        await punchOffline(code, clientId, deviceTime);
+        await punchOffline(code, clientId, deviceTime, photo);
       }
     } finally { setBusy(false); }
   }
 
-  async function punchOffline(code, clientId, deviceTime) {
+  async function punchOffline(code, clientId, deviceTime, photo) {
     if (!roster) { show({ error: "No internet, and this tablet has no saved staff list yet. Connect once to load it." }); return; }
     if (Date.now() < wrong.current.until) { show({ error: "Too many wrong PINs. Wait a minute." }); return; }
     const emp = await matchPin(roster, code);
@@ -109,11 +124,15 @@ export default function ClockPage() {
     }
     wrong.current.count = 0;
     const kind = nextKind(emp, queueRef.current);
-    const p = makePunch({ employee: emp, check: emp.check, kind, now: deviceTime, id: clientId });
-    const next = [...queueRef.current, p];
-    commit(next);
-    if (!savePunches(next)) { show({ error: "This tablet could not save the punch. Write the time down and tell your manager." }); return; }
-    show({ name: emp.name, kind, at: deviceTime.toISOString(), offline: true });
+    const p = makePunch({ employee: emp, check: emp.check, kind, now: deviceTime, id: clientId, photo });
+    const base = queueRef.current;
+    let kept = photo;
+    // a photo makes the punch bigger; if the tablet is nearly full, keep the punch and drop the photo
+    if (!commit([...base, p])) {
+      kept = null;
+      if (!commit([...base, { ...p, photo: null }])) { show({ error: "This tablet could not save the punch. Write the time down and tell your manager." }); return; }
+    }
+    show({ name: emp.name, kind, at: deviceTime.toISOString(), offline: true, photo: !!kept });
   }
 
   const press = (k) => {
@@ -147,6 +166,7 @@ export default function ClockPage() {
   return (
     <section className="clockpage">
       <header className="pghead"><div><h1>Time In / Out</h1><p>Type your 6-digit PIN. The screen is ready for the next person after each punch.</p></div></header>
+      {camera === "off" && <p className="notice" role="status">The camera is off, so punches are saved without a photo. Allow the camera for this site in the browser settings.</p>}
       {!online && <p className="notice offline" role="status">No internet. Punches are saved on this tablet and sent when it is back.</p>}
       {pending > 0 && <p className="notice" role="status">{pending} {pending === 1 ? "punch is" : "punches are"} saved on this tablet, waiting to upload.</p>}
       {rejected.map((p) => (
@@ -158,6 +178,7 @@ export default function ClockPage() {
 
       <div className="clock">
         <div className="pad">
+          <video ref={videoRef} className="preview" muted playsInline aria-label="Camera preview" hidden={camera !== "on"} />
           <div className={`result${result ? (result.error ? " bad" : result.kind === "IN" ? " in" : " out") : ""}`} role="status" aria-live="polite">
             {!result && <span>Enter PIN</span>}
             {result?.error && <span>{result.error}</span>}
@@ -166,6 +187,7 @@ export default function ClockPage() {
                 <b>{result.name}</b><br />
                 Time {result.kind === "IN" ? "in" : "out"} {timeOf(result.at)}
                 {result.offline && <small><br />Saved on this tablet. It counts at this time once it uploads.</small>}
+                {result.photo === false && <small><br />No photo was kept for this punch.</small>}
                 {result.flag === "CLOCK_SKEW" && <small><br />This tablet&apos;s clock is off. The server&apos;s time was used. Tell your manager.</small>}
               </span>
             )}
@@ -181,6 +203,7 @@ export default function ClockPage() {
               </button>
             ))}
           </div>
+          <p className="hint">A photo is taken with every time in and time out. Only your manager and head office can see it. It is deleted after {roster?.photoDays || 90} days.</p>
         </div>
         <div className="sec whoin">
           <h2>Clocked in now ({inNow.length})</h2>

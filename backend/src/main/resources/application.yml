@@ -24,5 +24,6 @@ management:
   endpoint.health.probes.enabled: true
 app:
   timeclock.pin-secret: ${TIMECLOCK_PIN_SECRET:}   # required: random, 16+ characters; keeps clock PINs unreadable from a database copy
+  timeclock.photo-retention-days: ${TIMECLOCK_PHOTO_DAYS:90}   # time in photos are deleted after this many days
   timezone: Asia/Manila
   currency: PHP

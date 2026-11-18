@@ -24,10 +24,10 @@ public class AttendanceService {
 
     /** status: OK, STILL_IN, FORGOT_OUT (a time in with no time out), NO_TIME_IN (a time out with no time in). */
     public record Session(long employeeId, String employee, String branch, LocalDate date, Instant inAt, Instant outAt,
-                          Long inLogId, Long outLogId, Long minutes, String status, List<String> notes) {}
+                          Long inLogId, Long outLogId, Long minutes, String status, List<String> notes, boolean inPhoto, boolean outPhoto) {}
     public record Report(String from, String to, List<Session> sessions, long totalMinutes) {}
 
-    private record Log(long id, long employeeId, String employee, String branch, String kind, Instant at, String flag, boolean corrected) {}
+    private record Log(long id, long employeeId, String employee, String branch, String kind, Instant at, String flag, boolean corrected, boolean photo) {}
 
     private final JdbcTemplate jdbc;
     private final ManagerApproval approval;
@@ -44,12 +44,13 @@ public class AttendanceService {
         Instant start = from.atStartOfDay(MANILA).toInstant();
         Instant end = to.plusDays(1).atStartOfDay(MANILA).toInstant();
         List<Log> logs = jdbc.query("""
-            SELECT l.id, l.employee_id, e.full_name, b.name, l.kind, l.punched_at, l.flag, l.corrected_by IS NOT NULL AND l.flag IS DISTINCT FROM 'MANUAL'
+            SELECT l.id, l.employee_id, e.full_name, b.name, l.kind, l.punched_at, l.flag, l.corrected_by IS NOT NULL AND l.flag IS DISTINCT FROM 'MANUAL',
+                   EXISTS (SELECT 1 FROM attendance_photos p WHERE p.log_id = l.id)
             FROM attendance_logs l JOIN employees e ON e.id = l.employee_id JOIN branches b ON b.id = l.branch_id
             WHERE l.punched_at >= ? AND l.punched_at < ? AND (?::bigint IS NULL OR l.branch_id = ?) AND (?::bigint IS NULL OR l.employee_id = ?)
             ORDER BY l.employee_id, l.punched_at, l.id
             """, (rs, i) -> new Log(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getString(4), rs.getString(5),
-                rs.getTimestamp(6).toInstant(), rs.getString(7), rs.getBoolean(8)),
+                rs.getTimestamp(6).toInstant(), rs.getString(7), rs.getBoolean(8), rs.getBoolean(9)),
             java.sql.Timestamp.from(start), java.sql.Timestamp.from(end), branchId, branchId, employeeId, employeeId);
 
         Map<Long, List<Log>> byPerson = new LinkedHashMap<>();
@@ -99,7 +100,7 @@ public class AttendanceService {
         }
         return new Session(any.employeeId(), any.employee(), any.branch(), any.at().atZone(MANILA).toLocalDate(),
             in == null ? null : in.at(), out == null ? null : out.at(), in == null ? null : in.id(), out == null ? null : out.id(),
-            minutes, status, notes);
+            minutes, status, notes, in != null && in.photo(), out != null && out.photo());
     }
 
     /** Changes the time of one punch. Needs a manager's PIN and a reason; the earlier time goes in the audit log. */

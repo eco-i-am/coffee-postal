@@ -36,6 +36,7 @@ class TimeClockTests {
 
 	@Autowired MockMvc mvc;
 	@Autowired JdbcTemplate jdbc;
+	@Autowired ph.coffeepostal.pos.hr.PhotoService photoService;
 	private static final Random RANDOM = new Random();
 
 	private MockHttpSession login(String user) throws Exception {
@@ -213,6 +214,54 @@ class TimeClockTests {
 		mvc.perform(get("/api/admin/attendance?employeeId=" + id).session(admin)).andExpect(status().isOk()).andExpect(jsonPath("$.sessions").isArray());
 		mvc.perform(get("/api/admin/employees").session(admin)).andExpect(status().isOk());
 		jdbc.update("DELETE FROM pin_attempts");
+		jdbc.update("DELETE FROM clock_attempts");
+	}
+
+	/** the smallest thing that starts like a JPEG (FF D8 FF E0 ...) */
+	private static final String JPEG = java.util.Base64.getEncoder().encodeToString(new byte[] { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 16, 'J', 'F', 'I', 'F', 0 });
+
+	@Test
+	void photoSavedWithEveryPunchIsSeenOnlyByManagersAndDeletedAfterTheRetentionPeriod() throws Exception {
+		var manager = login("manager");
+		var tablet = login("cashier");
+		String pin = pin();
+		long id = addEmployee(manager, "Eli Photo", pin);
+
+		// time in with a photo
+		String in = punch(tablet, "{\"pin\":\"" + pin + "\",\"photo\":\"" + JPEG + "\"}", 200);
+		assertThat((Boolean) JsonPath.read(in, "$.photo")).isTrue();
+		// time out with a photo
+		jdbc.update("UPDATE attendance_logs SET punched_at = punched_at - interval '8 hours' WHERE employee_id = ?", id);
+		String out = punch(tablet, "{\"pin\":\"" + pin + "\",\"photo\":\"data:image/jpeg;base64," + JPEG + "\"}", 200);
+		assertThat((String) JsonPath.read(out, "$.kind")).isEqualTo("OUT");
+		assertThat((Boolean) JsonPath.read(out, "$.photo")).isTrue();
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM attendance_photos p JOIN attendance_logs l ON l.id = p.log_id WHERE l.employee_id = ?", Integer.class, id)).isEqualTo(2);
+
+		// the report says which punches have a photo; managers can open them, cashiers and other branches cannot
+		String rep = mvc.perform(get("/api/branch/attendance?employeeId=" + id).session(manager)).andReturn().getResponse().getContentAsString();
+		assertThat((Boolean) JsonPath.read(rep, "$.sessions[0].inPhoto")).isTrue();
+		assertThat((Boolean) JsonPath.read(rep, "$.sessions[0].outPhoto")).isTrue();
+		long inLog = ((Number) JsonPath.read(rep, "$.sessions[0].inLogId")).longValue();
+		mvc.perform(get("/api/branch/attendance/photos/" + inLog).session(manager)).andExpect(status().isOk())
+			.andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content().contentType(MediaType.IMAGE_JPEG));
+		mvc.perform(get("/api/branch/attendance/photos/" + inLog).session(tablet)).andExpect(status().isForbidden());
+		mvc.perform(get("/api/branch/attendance/photos/999999").session(manager)).andExpect(status().isNotFound());
+		mvc.perform(get("/api/admin/attendance/photos/" + inLog).session(login("admin"))).andExpect(status().isOk());
+
+		// a photo that is not a JPEG is dropped, but the punch still counts
+		String pin2 = pin();
+		long id2 = addEmployee(manager, "Fay Nophoto", pin2);
+		String bad = punch(tablet, "{\"pin\":\"" + pin2 + "\",\"photo\":\"bm90IGEgcGljdHVyZQ==\"}", 200);
+		assertThat((Boolean) JsonPath.read(bad, "$.photo")).isFalse();
+		String none = punch(tablet, "{\"pin\":\"" + pin() + "\"}", 403);   // unknown PIN: no punch, no photo
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM attendance_photos p JOIN attendance_logs l ON l.id = p.log_id WHERE l.employee_id = ?", Integer.class, id2)).isZero();
+
+		// the nightly clean-up removes photos older than the retention period and keeps newer ones
+		jdbc.update("UPDATE attendance_photos SET taken_at = now() - interval '200 days' WHERE log_id = ?", inLog);
+		assertThat(photoService.purge()).isGreaterThanOrEqualTo(1);
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM attendance_photos WHERE log_id = ?", Integer.class, inLog)).isZero();
+		mvc.perform(get("/api/branch/attendance/photos/" + inLog).session(manager)).andExpect(status().isNotFound());
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM attendance_logs WHERE id = ?", Integer.class, inLog)).isEqualTo(1);   // the punch stays
 		jdbc.update("DELETE FROM clock_attempts");
 	}
 }
