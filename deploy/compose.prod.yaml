@@ -22,6 +22,7 @@ services:
       APP_BOOTSTRAP_ADMIN_PASSWORD: ${ADMIN_PASSWORD}
       COOKIE_SECURE: "true"
       SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
+      TIMECLOCK_PIN_SECRET: ${TIMECLOCK_PIN_SECRET}
     depends_on:
       db: { condition: service_healthy }
     expose: ["8080"]
