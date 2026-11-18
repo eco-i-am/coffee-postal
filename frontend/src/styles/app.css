@@ -31,7 +31,7 @@ select{background:#fff;border:2px solid var(--midnight);border-radius:8px;min-he
 .chip[aria-pressed=true]{background:var(--sunglow);border-style:solid}
 
 /* ---------- LOGIN: a postcard ---------- */
-#login{min-height:100%;background:var(--strawberry);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));position:relative;overflow:hidden}
+#login{min-height:100vh;min-height:100dvh;background:var(--strawberry);display:flex;align-items:center;justify-content:center;padding:max(16px,env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) max(16px,env(safe-area-inset-bottom,0px)) max(16px,env(safe-area-inset-left,0px));position:relative;overflow:hidden}
 #login::before{content:"";position:absolute;inset:0;background:var(--air);height:18px;bottom:auto}
 #login::after{content:"";position:absolute;inset:0;top:auto;background:var(--air);height:18px}
 .postcard{position:relative;display:grid;grid-template-columns:1fr 1fr;width:min(940px,100%);background:var(--paper);border-radius:6px;box-shadow:10px 10px 0 var(--midnight);margin:30px 0}
@@ -43,7 +43,7 @@ select{background:#fff;border:2px solid var(--midnight);border-radius:8px;min-he
 .pc-l .pm{position:absolute;right:-30px;bottom:-30px;opacity:.9}
 .pc-l ul{margin:0;padding:0;list-style:none;display:grid;gap:6px;font-size:.95rem}
 .pc-l li::before{content:"";display:inline-block;width:10px;height:10px;background:var(--midnight);border-radius:50%;margin-right:10px}
-.pc-r{padding:30px 32px 32px;position:relative;border-left:3px dashed var(--line)}
+.pc-r{padding:30px 32px 32px;position:relative;border-left:3px dashed var(--line);display:flex;flex-direction:column;justify-content:center}
 .pc-r .stampbox{position:absolute;top:18px;right:18px;width:74px;height:86px}
 .pc-r h2{font-size:1.5rem;margin-bottom:2px;padding-right:90px}
 .pc-r .sub{color:var(--reseda);margin:0 0 18px;padding-right:90px;font-size:.95rem}
