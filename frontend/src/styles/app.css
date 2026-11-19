@@ -410,3 +410,15 @@ main.kiosk{display:flex;flex-direction:column;height:100vh;overflow:hidden;paddi
   .chargebtn{min-height:52px}
 }
 @media(max-width:760px){.poshead .tabs{justify-content:flex-start}.cartlines{max-height:none}}
+
+/* Sidebar: never scrolls on a desktop screen. The menu rows share the height that is left, and shrink to fit. */
+.sidelinks{display:flex;gap:2px 12px;flex-wrap:wrap;font-size:.8rem}
+@media(min-width:761px){
+  .side{overflow:hidden;gap:10px;padding-top:12px;padding-bottom:12px}
+  .brand svg{width:32px;height:35px}
+  .brand b{font-size:1.1rem}
+  .nav{flex:1;min-height:0;gap:1px}
+  .nav a,.nav .soon{flex:1 1 0;min-height:26px;max-height:42px;font-size:clamp(.78rem,1.9vh,.95rem)}
+  .demo{margin-top:0;padding-top:8px;gap:4px}
+  .who{font-size:.78rem;line-height:1.25}
+}

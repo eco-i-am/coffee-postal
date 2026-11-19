@@ -98,9 +98,11 @@ export default function Shell() {
             <br />
             <small>{me.role}{me.branchName ? ` · ${me.branchName}` : ""}</small>
           </div>
-          <button className="out" type="button" onClick={() => setTouring(true)}>Quick tour</button>
-          <button className="out" type="button" onClick={() => setChanging(true)}>Change password</button>
-          <button className="out" type="button" onClick={signOut}>Sign out</button>
+          <div className="sidelinks">
+            <button className="out" type="button" onClick={() => setTouring(true)}>Quick tour</button>
+            <button className="out" type="button" onClick={() => setChanging(true)}>Change password</button>
+            <button className="out" type="button" onClick={signOut}>Sign out</button>
+          </div>
         </div>
       </aside>
       <main>
