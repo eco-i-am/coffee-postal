@@ -156,11 +156,12 @@ public class OrderService {
             """, Long.class, who.userId(), soldTs, soldTs);
         jdbc.update("""
             INSERT INTO orders(id, branch_id, order_no, cashier_id, order_type, discount_type, subtotal, discount, total, vatable, vat, shift_id, created_at,
-                               discount_name, discount_id_no, discount_approved_by, approval_flag)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                               discount_name, discount_id_no, discount_approved_by, approval_flag, customer_name)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """, r.id(), who.branchId(), orderNo, who.userId(), r.orderType(), rule.code(),
             t.subtotal(), t.discount(), t.total(), t.vatable(), t.vat(), open.isEmpty() ? null : open.get(0), soldTs,
-            "NONE".equals(rule.code()) ? null : rule.name(), idNo, approvedBy, flag);
+            "NONE".equals(rule.code()) ? null : rule.name(), idNo, approvedBy, flag,
+            r.customerName() == null || r.customerName().isBlank() ? null : r.customerName().trim());
         for (Priced p : lines) {
             jdbc.update("INSERT INTO order_lines(order_id, product_id, name, variant, addons, unit_price, qty) VALUES (?, ?, ?, ?, ?, ?, ?)",
                 r.id(), p.productId(), p.name(), p.variant(), p.addons(), p.unit(), p.qty());

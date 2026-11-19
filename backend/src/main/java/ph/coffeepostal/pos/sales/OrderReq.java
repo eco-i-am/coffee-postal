@@ -18,5 +18,6 @@ public record OrderReq(
         @Size(max = 80) String reference,
         java.time.Instant soldAt,         // when the sale really happened
         @Size(max = 40) String discountIdNo,   // Senior/PWD ID number, when the discount asks for it
-        @Size(max = 12) String managerPin) {   // a manager PIN, for a discount over its limit; never queued offline          // when the sale really happened; only sent by an order that waited offline
+        @Size(max = 12) String managerPin,     // a manager PIN, for a discount over its limit; never queued offline
+        @Size(max = 60) String customerName) {  // optional name or label to call the order by ("Ana", "Table 4")
 }

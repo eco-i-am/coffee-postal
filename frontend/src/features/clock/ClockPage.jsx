@@ -199,7 +199,7 @@ export default function ClockPage() {
   const inNow = whoIsIn(roster, queue);
 
   return (
-    <section className={`clockpage${kiosk ? " kioskpage" : ""}`}>
+    <section className={`clockpage fitpage${kiosk ? " kioskpage" : ""}`}>
       <header className="pghead">
         <div><h1>{kiosk ? "Coffee Postal: Time In / Out" : "Time In / Out"}</h1><p>Type your 6-digit PIN. The screen is ready for the next person after each punch.</p></div>
         <div className="toolbar">
@@ -219,7 +219,7 @@ export default function ClockPage() {
       ))}
 
       <div className="clock">
-        <div className="pad">
+        <div className="sec camcol">
           <video ref={videoRef} className="preview" muted playsInline aria-label="Camera preview" hidden={camera !== "on"} />
           <div className={`result${result ? (result.error ? " bad" : result.kind === "IN" ? " in" : " out") : ""}`} role="status" aria-live="polite">
             {!result && <span>Enter PIN</span>}
@@ -236,6 +236,9 @@ export default function ClockPage() {
               </span>
             )}
           </div>
+          <p className="hint">A photo is taken with every time in and time out, and checked against your saved face if a manager has added one. Only your manager and head office can see it. Photos are deleted after {roster?.photoDays || 90} days.</p>
+        </div>
+        <div className="sec padcol">
           <div className="dots" aria-label={`${pin.length} of 6 digits entered`}>
             {[0, 1, 2, 3, 4, 5].map((i) => <i key={i} className={i < pin.length ? "on" : ""} />)}
           </div>
@@ -247,13 +250,14 @@ export default function ClockPage() {
               </button>
             ))}
           </div>
-          <p className="hint">A photo is taken with every time in and time out. Only your manager and head office can see it. It is deleted after {roster?.photoDays || 90} days.</p>
         </div>
         <div className="sec whoin">
           <h2>Clocked in now ({inNow.length})</h2>
-          {inNow.length === 0 && <p className="hint">Nobody yet.</p>}
-          {inNow.map((e) => <div key={e.id} className="r"><b>{e.name}</b><small>{e.position || ""}</small></div>)}
-          {roster?.employees?.length === 0 && <p className="hint">No staff have a PIN yet. A manager adds them under Employees.</p>}
+          <div className="list">
+            {inNow.length === 0 && <p className="hint">Nobody yet.</p>}
+            {inNow.map((e) => <div key={e.id} className="r"><b>{e.name}</b><small>{e.position || ""}</small></div>)}
+            {roster?.employees?.length === 0 && <p className="hint">No staff have a PIN yet. A manager adds them under Employees.</p>}
+          </div>
         </div>
       </div>
       {exiting && (

@@ -65,7 +65,7 @@ function OrderDetail({ id, onClose, onChanged }) {
           <>
             <h2>Order #{d.order.orderNo} <span className={`tag ${d.order.status === "PAID" ? "g" : "r"}`}>{STATUS_NAMES[d.order.status]}</span></h2>
             <p className="hint">
-              {timeOf(d.order.createdAt)} &middot; {TYPE_NAMES[d.order.orderType]} &middot; Cashier {d.order.cashier}
+              {timeOf(d.order.createdAt)} &middot; {TYPE_NAMES[d.order.orderType]} &middot; Cashier {d.order.cashier}{d.order.customerName && <> &middot; For <b>{d.order.customerName}</b></>}
             </p>
             <div className="receipt">
               {d.lines.map((l, i) => (
@@ -160,12 +160,13 @@ export default function OrdersPage() {
       <div className="sec tw">
         {loading && !rows ? <p role="status">Loading...</p> : (
           <table>
-            <thead><tr><th>No.</th><th>Time</th><th>Type</th><th>Paid by</th><th>Cashier</th><th className="n">Total</th><th>Status</th></tr></thead>
+            <thead><tr><th>No.</th><th>For</th><th>Time</th><th>Type</th><th>Paid by</th><th>Cashier</th><th className="n">Total</th><th>Status</th></tr></thead>
             <tbody>
               {(rows || []).map((o) => (
                 <tr key={o.id} className="clickrow" tabIndex={0} onClick={() => setOpen(o.id)}
                     onKeyDown={(e) => e.key === "Enter" && setOpen(o.id)}>
                   <td><b>#{o.orderNo}</b></td>
+                  <td>{o.customerName || ""}</td>
                   <td>{timeOf(o.createdAt)}</td>
                   <td>{TYPE_NAMES[o.orderType]}</td>
                   <td>{(o.method || "").split(", ").map((m) => METHOD_NAMES[m] || m).join(", ")}</td>
@@ -174,7 +175,7 @@ export default function OrdersPage() {
                   <td><span className={`tag ${o.status === "PAID" ? "g" : "r"}`}>{STATUS_NAMES[o.status]}</span></td>
                 </tr>
               ))}
-              {rows && rows.length === 0 && <tr><td colSpan="7" className="emptyrow">No orders match.</td></tr>}
+              {rows && rows.length === 0 && <tr><td colSpan="8" className="emptyrow">No orders match.</td></tr>}
             </tbody>
           </table>
         )}

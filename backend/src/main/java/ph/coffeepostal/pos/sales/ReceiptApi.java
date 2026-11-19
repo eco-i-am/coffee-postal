@@ -21,7 +21,7 @@ import ph.coffeepostal.pos.shared.AuditService;
 class ReceiptApi {
     record Line(String name, String variant, String addons, long unitPrice, int qty) {}
     record Receipt(String branch, String address, String phone, String tin, boolean vatRegistered,
-                   long orderNo, Instant at, String orderType, String cashier, String status,
+                   long orderNo, Instant at, String orderType, String cashier, String customerName, String status,
                    List<Line> lines, long subtotal, String discountName, String discountIdNo, long discount, long total,
                    long vatable, long vat, String method, long tendered, long change, String reference, int reprintCount) {}
 
@@ -40,7 +40,7 @@ class ReceiptApi {
         if (n == 0) throw new ApiException(HttpStatus.NOT_FOUND, "That order was not found.");
         var o = jdbc.queryForMap("""
             SELECT o.order_no, o.created_at, o.order_type, o.status, o.subtotal, o.discount_name, o.discount_id_no, o.discount, o.total,
-                   o.vatable, o.vat, o.reprint_count, u.full_name AS cashier,
+                   o.vatable, o.vat, o.reprint_count, u.full_name AS cashier, o.customer_name,
                    b.name AS branch, b.address, b.phone, b.tin, b.vat_registered
             FROM orders o JOIN users u ON u.id = o.cashier_id JOIN branches b ON b.id = o.branch_id WHERE o.id = ?
             """, id);
@@ -52,7 +52,7 @@ class ReceiptApi {
         audit.record(who.getName(), me.branchId(), "RECEIPT_REPRINT", "order", id.toString(), null, "{\"copy\":" + count + "}", null);
         return new Receipt((String) o.get("branch"), (String) o.get("address"), (String) o.get("phone"), (String) o.get("tin"),
             (Boolean) o.get("vat_registered"), ((Number) o.get("order_no")).longValue(), ((java.sql.Timestamp) o.get("created_at")).toInstant(),
-            (String) o.get("order_type"), (String) o.get("cashier"), (String) o.get("status"), lines,
+            (String) o.get("order_type"), (String) o.get("cashier"), (String) o.get("customer_name"), (String) o.get("status"), lines,
             ((Number) o.get("subtotal")).longValue(), (String) o.get("discount_name"), (String) o.get("discount_id_no"),
             ((Number) o.get("discount")).longValue(), ((Number) o.get("total")).longValue(),
             ((Number) o.get("vatable")).longValue(), ((Number) o.get("vat")).longValue(),

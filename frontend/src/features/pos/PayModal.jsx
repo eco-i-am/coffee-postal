@@ -8,7 +8,7 @@ import { cartGross } from "./cart.js";
 
 const METHODS = [["CASH", "Cash"], ["GCASH", "GCash"], ["MAYA", "Maya"], ["CARD", "Card"]];
 
-export default function PayModal({ cart, otype, disc, rule, vatRegistered, idNo, needsPin, orderId, total, onBack, onPaid }) {
+export default function PayModal({ cart, otype, who, disc, rule, vatRegistered, idNo, needsPin, orderId, total, onBack, onPaid }) {
   const { me } = useAuth();
   const sync = useSync();
   const [method, setMethod] = useState("CASH");
@@ -30,6 +30,7 @@ export default function PayModal({ cart, otype, disc, rule, vatRegistered, idNo,
     const body = {
       id: orderId,
       orderType: otype,
+      customerName: who || null,
       discountType: disc,
       discountIdNo: idNo || null,
       paymentMethod: method,
@@ -59,6 +60,7 @@ export default function PayModal({ cart, otype, disc, rule, vatRegistered, idNo,
   return (
     <>
       <h2>Charge {peso(total)}</h2>
+      {who && <p className="hint">For {who}</p>}
       <div className="opts">
         {METHODS.map(([k, label]) => (
           <button key={k} className="chip" aria-pressed={method === k} onClick={() => { setMethod(k); setTender(total); setErr(""); }}>{label}</button>

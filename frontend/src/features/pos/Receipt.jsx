@@ -2,14 +2,14 @@ import { peso } from "../../shared/money.js";
 
 const TYPE_NAMES = { DINE_IN: "Dine-in", TAKEOUT: "Takeout", DELIVERY: "Delivery" };
 
-export default function Receipt({ res, method, tendered, cart, otype, discName, idNo, vatRegistered = true, onDone }) {
+export default function Receipt({ res, method, tendered, cart, otype, discName, idNo, vatRegistered = true, who, onDone }) {
   const time = new Date().toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
   return (
     <>
       <h2>{res.offline ? `Paid. Saved as ${res.ref}` : `Order #${res.orderNo} paid`}</h2>
       {res.offline && <p className="notice offline" role="status">No internet. This order is saved on this device and gets its order number when it uploads.</p>}
       <div className="receipt printable">
-        <div className="c"><b>COFFEE POSTAL</b><br />{time} &middot; {TYPE_NAMES[otype]}<hr /></div>
+        <div className="c"><b>COFFEE POSTAL</b><br />{time} &middot; {TYPE_NAMES[otype]}{who && <><br />For: <b>{who}</b></>}<hr /></div>
         {cart.map((l) => (
           <div key={l.key}>
             <div className="r"><span>{l.qty} x {l.name}</span><span>{peso(l.unit * l.qty)}</span></div>

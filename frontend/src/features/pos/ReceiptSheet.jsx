@@ -19,6 +19,7 @@ export default function ReceiptSheet({ r, onClose }) {
         </div>
         <div className="r"><span>Order #{r.orderNo}</span><span>{TYPE_NAMES[r.orderType]}</span></div>
         <div className="r"><span>{dateTimeOf(r.at)}</span><span>{r.cashier}</span></div>
+        {r.customerName && <div className="r"><span>For</span><b>{r.customerName}</b></div>}
         {r.status !== "PAID" && <div className="c"><b>{r.status === "REFUNDED" ? "REFUNDED" : r.status}</b></div>}
         <hr />
         {r.lines.map((l, i) => (

@@ -29,7 +29,7 @@ class BranchSalesApi {
     record TopItem(String name, long qty, long amount) {}
     record Hour(int hour, long sales) {}
     record OrderRow(String id, long orderNo, Instant createdAt, String orderType, String status,
-                    long total, String method, String cashier) {}
+                    long total, String method, String cashier, String customerName) {}
     record Dashboard(String date, int orders, long sales, long avgTicket, long discounts, long vat,
                      List<Payment> payments, List<TopItem> top, List<Hour> hourly, List<OrderRow> recent) {}
     record Line(String name, String variant, String addons, long unitPrice, int qty) {}
@@ -54,14 +54,14 @@ class BranchSalesApi {
     private static final String ROW = """
         SELECT o.id, o.order_no, o.created_at, o.order_type, o.status, o.total,
                (SELECT string_agg(DISTINCT p.method, ', ') FROM order_payments p WHERE p.order_id = o.id) AS method,
-               u.full_name AS cashier
+               u.full_name AS cashier, o.customer_name
         FROM orders o JOIN users u ON u.id = o.cashier_id
         """;
 
     private static OrderRow row(java.sql.ResultSet rs) throws java.sql.SQLException {
         return new OrderRow(rs.getString("id"), rs.getLong("order_no"), rs.getTimestamp("created_at").toInstant(),
             rs.getString("order_type"), rs.getString("status"), rs.getLong("total"), rs.getString("method"),
-            rs.getString("cashier"));
+            rs.getString("cashier"), rs.getString("customer_name"));
     }
 
     @GetMapping("/dashboard")

@@ -6,6 +6,7 @@ import { dateTimeOf } from "../../shared/format.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import { useSync } from "../../app/SyncContext.jsx";
 import ReadingSheet from "./ReadingSheet.jsx";
+import DenomCounter from "../../shared/DenomCounter.jsx";
 
 const loadShift = () => api("/api/branch/shift");
 const loadHistory = () => api("/api/branch/shifts");
@@ -26,9 +27,10 @@ function OpenShift({ onDone }) {
   return (
     <form className="sec stack" onSubmit={submit} style={{ maxWidth: 460 }}>
       <h2>Start your shift</h2>
-      <p className="hint">Count the cash in the drawer and type it in. This is your opening float.</p>
+      <p className="hint">Count the cash in the drawer and type it in, or count the bills and coins and the total fills in. This is your opening float.</p>
       <div className="addr"><label htmlFor="oc">Cash in drawer (&#8369;)</label>
         <input id="oc" inputMode="decimal" value={cash} onChange={(e) => setCash(e.target.value)} placeholder="1000.00" autoFocus required /></div>
+      <DenomCounter onTotal={setCash} />
       {err && <p className="err" role="alert">{err}</p>}
       <button className="btn warm" type="submit">Open shift</button>
     </form>
@@ -64,9 +66,10 @@ function CloseShift({ shift, onClose, onDone }) {
         {!result ? (
           <>
             <h2>Close your shift</h2>
-            <p className="hint">Count all the cash in the drawer and type it in. You will see if it matches.</p>
+            <p className="hint">Count all the cash in the drawer and type it in, or count the bills and coins and the total fills in. You will see if it matches.</p>
             <div className="addr"><label htmlFor="cc">Cash counted (&#8369;)</label>
               <input id="cc" inputMode="decimal" value={counted} onChange={(e) => setCounted(e.target.value)} autoFocus required /></div>
+            <DenomCounter onTotal={setCounted} />
             {err && <p className="err" role="alert">{err}</p>}
             <div className="opts">
               <button type="button" className="btn ghost" onClick={onClose}>Back</button>
@@ -105,6 +108,7 @@ export default function CashPage() {
   const [reason, setReason] = useState("");
   const [err, setErr] = useState("");
   const [closing, setClosing] = useState(false);
+  const [tally, setTally] = useState(0);   // bumps after a save so the bill and coin counter starts empty again
   const [reading, setReading] = useState(null);
   const sync = useSync();
   const waiting = sync.pending + sync.rejected.length;
@@ -121,7 +125,7 @@ export default function CashPage() {
     setErr("");
     try {
       await api("/api/branch/shift/cash", { method: "POST", body: { kind, amount, reason } });
-      setAmount(""); setReason("");
+      setAmount(""); setReason(""); setTally((n) => n + 1);
       reload();
     } catch (e2) { setErr(e2.message); }
   }
@@ -151,6 +155,7 @@ export default function CashPage() {
               </div>
               <div className="addr"><label htmlFor="ca">Amount (&#8369;)</label>
                 <input id="ca" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} required /></div>
+              <DenomCounter key={tally} onTotal={setAmount} />
               <div className="addr"><label htmlFor="cr">Reason</label>
                 <input id="cr" value={reason} onChange={(e) => setReason(e.target.value)} placeholder={kind === "OUT" ? "Ice run, supplies..." : "Change from the safe..."} required /></div>
               {err && <p className="err" role="alert">{err}</p>}
