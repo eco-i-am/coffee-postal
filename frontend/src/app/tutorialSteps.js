@@ -41,13 +41,14 @@ export function stepsFor(me, can) {
       title: "Time in and time out",
       page: "Time In / Out",
       body: [
-        "Punch in when you start and out when you finish, using your 6-digit PIN. A photo is taken with each punch.",
+        "Punch in when you start and out when you finish, using your 6-digit PIN. A photo is taken with each punch, and if a manager saved your face, it is checked against it.",
         "No internet? The punch is saved on the tablet and sent when the connection returns. Forgot to time out? Only a manager can correct a punch.",
       ],
       buttons: [
         B("Number keys", "Type your 6-digit PIN."),
         B("Time in / Time out", "Records the punch with your photo."),
         B("Clear", "Wipes the PIN if you mistyped."),
+        B("Clock-only mode", "Managers only. Turns the tablet into a clock with no menu. Leaving it takes a manager PIN."),
       ],
       to: "/branch/clock",
     });
@@ -198,8 +199,10 @@ export function stepsFor(me, can) {
       body: ["Staff has everyone who works here and their time clock PIN. Attendance shows who was in and for how long."],
       buttons: [
         B("+ Add employee", "Adds a person and gives them a 6-digit clock PIN."),
+        B("Face", "Saves the employee's face, with their written consent, so the clock can flag punches that do not match. It never blocks a punch."),
         B("Edit / New PIN / Left", "Change their details, set a new PIN, or mark them as no longer working here."),
         B("Fix in / Fix out / Add in / Add out", "Corrects a missed punch. Needs a reason and a manager PIN."),
+        B("Face check column", "Match is fine. Check photo means the face did not match well, so look at the photo."),
       ],
       to: "/branch/employees",
     });
@@ -335,6 +338,7 @@ export function stepsFor(me, can) {
           B("Staff / Attendance", "Switch between the people list and the time records."),
           B("Branch filter", "Show one branch, or all."),
           B("+ Add employee", "Adds a person. Pick a branch to give them a time clock PIN."),
+          B("Face", "Saves a face for the clock, with the employee's consent."),
         ],
         to: "/admin/employees",
       });

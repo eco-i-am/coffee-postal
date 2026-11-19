@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import ph.coffeepostal.pos.sales.ManagerApproval;
 import ph.coffeepostal.pos.sales.OrderService;
 import ph.coffeepostal.pos.shared.ApiException;
 import ph.coffeepostal.pos.shared.AuditService;
@@ -36,6 +38,8 @@ final class HrApis {
     record EmployeeEditReq(@NotBlank @Size(max = 120) String fullName, @Size(max = 80) String position, @NotBlank String status) {}
     record PinReq(@NotBlank String pin) {}
     record AdminEmployeeReq(Long branchId, @NotBlank @Size(max = 120) String fullName, @Size(max = 80) String position, String pin) {}
+    record FaceReq(@NotNull double[] descriptor, boolean consent) {}
+    record ExitReq(@NotBlank String managerPin) {}
     record CorrectReq(@NotNull Instant punchedAt, @NotBlank @Size(max = 200) String reason, @NotBlank String managerPin) {}
     record ManualReq(@NotNull Long employeeId, @NotBlank String kind, @NotNull Instant punchedAt, @NotBlank @Size(max = 200) String reason, @NotBlank String managerPin) {}
 
@@ -59,7 +63,17 @@ final class HrApis {
         private final ClockService clock;
         private final OrderService orders;
 
-        ClockApi(ClockService clock, OrderService orders) { this.clock = clock; this.orders = orders; }
+        private final ManagerApproval approval;
+
+        ClockApi(ClockService clock, OrderService orders, ManagerApproval approval) { this.clock = clock; this.orders = orders; this.approval = approval; }
+
+        /** Leaving clock-only mode on the tablet takes a manager PIN, so staff cannot walk away with the rest of the app. */
+        @PostMapping("/exit")
+        @PreAuthorize("hasAuthority('PERM_time_clock_view')")
+        Map<String, Object> exit(@Valid @RequestBody ExitReq r, Principal who) {
+            var approver = approval.approve(orders.whoIs(who.getName()), r.managerPin(), "branch_employees");
+            return Map.of("ok", true, "by", approver.name());
+        }
 
         @GetMapping("/roster")
         @PreAuthorize("hasAuthority('PERM_time_clock_view')")
@@ -114,6 +128,28 @@ final class HrApis {
             mine(id, me.branchId());
             employees.setPin(id, me.branchId(), r.pin());
             audit.record(who.getName(), me.branchId(), "EMPLOYEE_PIN_SET", "employee", String.valueOf(id), null, null, null);   // never the PIN itself
+            return Map.of("id", id);
+        }
+
+        /** Saves a face for the clock. A manager records that the employee agreed. */
+        @PostMapping("/{id}/face")
+        @PreAuthorize("hasAuthority('PERM_branch_employees_edit')")
+        Map<String, Object> enrollFace(@PathVariable long id, @Valid @RequestBody FaceReq r, Principal who) {
+            var me = orders.whoIs(who.getName());
+            mine(id, me.branchId());
+            if (!r.consent()) throw new ApiException(HttpStatus.BAD_REQUEST, "Tick that the employee agreed to this first.");
+            employees.enrollFace(id, r.descriptor(), me.userId());
+            audit.record(who.getName(), me.branchId(), "EMPLOYEE_FACE_ENROLL", "employee", String.valueOf(id), null, null, null);   // never the face data
+            return Map.of("id", id);
+        }
+
+        @DeleteMapping("/{id}/face")
+        @PreAuthorize("hasAuthority('PERM_branch_employees_edit')")
+        Map<String, Object> removeFace(@PathVariable long id, Principal who) {
+            var me = orders.whoIs(who.getName());
+            mine(id, me.branchId());
+            employees.removeFace(id);
+            audit.record(who.getName(), me.branchId(), "EMPLOYEE_FACE_REMOVE", "employee", String.valueOf(id), null, null, null);
             return Map.of("id", id);
         }
 
@@ -174,8 +210,10 @@ final class HrApis {
 
         private final PhotoService photos;
 
-        AdminHrApi(EmployeeService employees, AttendanceService attendance, AuditService audit, PhotoService photos) {
-            this.employees = employees; this.attendance = attendance; this.audit = audit; this.photos = photos;
+        private final OrderService orders;
+
+        AdminHrApi(EmployeeService employees, AttendanceService attendance, AuditService audit, PhotoService photos, OrderService orders) {
+            this.orders = orders; this.employees = employees; this.attendance = attendance; this.audit = audit; this.photos = photos;
         }
 
         @GetMapping("/attendance/photos/{logId}")
@@ -211,6 +249,27 @@ final class HrApis {
             if (e.branchId() == null) throw new ApiException(HttpStatus.BAD_REQUEST, "HQ staff do not use the branch time clock.");
             employees.setPin(id, e.branchId(), r.pin());
             audit.record(who.getName(), e.branchId(), "EMPLOYEE_PIN_SET", "employee", String.valueOf(id), null, null, null);
+            return Map.of("id", id);
+        }
+
+        @PostMapping("/employees/{id}/face")
+        @PreAuthorize("hasAuthority('PERM_admin_employees_edit')")
+        Map<String, Object> enrollFace(@PathVariable long id, @Valid @RequestBody FaceReq r, Principal who) {
+            var e = employees.get(id);
+            if (e == null || e.branchId() == null) throw new ApiException(HttpStatus.NOT_FOUND, "That employee was not found, or does not use the branch time clock.");
+            if (!r.consent()) throw new ApiException(HttpStatus.BAD_REQUEST, "Tick that the employee agreed to this first.");
+            employees.enrollFace(id, r.descriptor(), orders.whoIs(who.getName()).userId());
+            audit.record(who.getName(), e.branchId(), "EMPLOYEE_FACE_ENROLL", "employee", String.valueOf(id), null, null, null);
+            return Map.of("id", id);
+        }
+
+        @DeleteMapping("/employees/{id}/face")
+        @PreAuthorize("hasAuthority('PERM_admin_employees_edit')")
+        Map<String, Object> removeFace(@PathVariable long id, Principal who) {
+            var e = employees.get(id);
+            if (e == null) throw new ApiException(HttpStatus.NOT_FOUND, "That employee was not found.");
+            employees.removeFace(id);
+            audit.record(who.getName(), e.branchId(), "EMPLOYEE_FACE_REMOVE", "employee", String.valueOf(id), null, null, null);
             return Map.of("id", id);
         }
 

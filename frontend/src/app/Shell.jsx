@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
+import { inKiosk } from "../shared/kiosk.js";
 import ChangePassword from "./ChangePassword.jsx";
 import Tutorial from "./Tutorial.jsx";
 import { markTourSeen, tourSeen } from "./tutorialSteps.js";
@@ -47,9 +48,21 @@ function navFor(me, can) {
 export default function Shell() {
   const { me, can, signOut } = useAuth();
   const [changing, setChanging] = useState(false);
-  const [touring, setTouring] = useState(() => !tourSeen(me));
+  const where = useLocation();
+  const kiosk = inKiosk(me, can);
+  const [touring, setTouring] = useState(() => !kiosk && !tourSeen(me));
   const sync = useSync();
+  const [, bump] = useState(0);
+  useEffect(() => {   // clock-only mode switched on or off from the clock page
+    const f = () => bump((n) => n + 1);
+    window.addEventListener("cp-kiosk", f);
+    return () => window.removeEventListener("cp-kiosk", f);
+  }, []);
   function closeTour() { markTourSeen(me); setTouring(false); }
+  // clock-only mode: nothing but the time clock, full width, no menu
+  if (kiosk && where.pathname !== "/branch/clock") return <Navigate to="/branch/clock" replace />;
+  if (kiosk) return <main className="kiosk"><Outlet /></main>;
+
   return (
     <div className="app">
       <aside className="side">

@@ -34,8 +34,8 @@ public class ClockService {
     static final long DOUBLE_TAP_SECONDS = 20;
 
     /** Send either pin (online), or employeeId + check (a punch kept on the tablet while offline). */
-    public record PunchReq(String pin, UUID clientId, Instant deviceTime, Long employeeId, String check, String photo) {}
-    public record PunchRes(long employeeId, String name, String kind, Instant at, boolean offline, String flag, boolean photo) {}
+    public record PunchReq(String pin, UUID clientId, Instant deviceTime, Long employeeId, String check, String photo, FaceMatch.Face face) {}
+    public record PunchRes(long employeeId, String name, String kind, Instant at, boolean offline, String flag, boolean photo, String faceStatus) {}
     public record RosterEntry(long id, String name, String position, String salt, String check, boolean in) {}
     public record Roster(List<RosterEntry> employees, Instant serverTime, int photoDays) {}
 
@@ -115,6 +115,7 @@ public class ClockService {
 
         final Instant punchedAt = at;
         final String punchFlag = flag;
+        final FaceMatch.Result face = FaceMatch.check(enrolledFace(who.id()), r.face());   // flags only; never stops the punch
         final byte[] photo = PhotoService.decode(r.photo());   // every punch, in or out, keeps its photo; a bad photo never stops the punch
         try {
             return tx.execute(status -> {
@@ -130,13 +131,13 @@ public class ClockService {
                     if (last.get(0).kind().equals("IN") && gap.toHours() < FORGOT_OUT_HOURS) kind = "OUT";
                 }
                 long logId = jdbc.queryForObject("""
-                    INSERT INTO attendance_logs(employee_id, branch_id, kind, punched_at, device_time, source, client_id, flag, recorded_by)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
+                    INSERT INTO attendance_logs(employee_id, branch_id, kind, punched_at, device_time, source, client_id, flag, recorded_by, face_status, face_score)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id
                     """, Long.class, who.id(), branchId, kind, java.sql.Timestamp.from(punchedAt), java.sql.Timestamp.from(device),
-                    offline ? "OFFLINE" : "ONLINE", r.clientId(), punchFlag, recordedBy);
+                    offline ? "OFFLINE" : "ONLINE", r.clientId(), punchFlag, recordedBy, face.status(), face.score());
                 boolean kept = photo != null;
                 if (kept) photos.store(logId, photo);
-                return new PunchRes(who.id(), who.name(), kind, punchedAt, offline, punchFlag, kept);
+                return new PunchRes(who.id(), who.name(), kind, punchedAt, offline, punchFlag, kept, face.status());
             });
         } catch (DuplicateKeyException e) {
             PunchRes seen = r.clientId() == null ? null : existing(r.clientId(), branchId);
@@ -145,13 +146,19 @@ public class ClockService {
         }
     }
 
+    /** The enrolled face of an employee, or null if none is on file. */
+    private double[] enrolledFace(long employeeId) {
+        List<String> r = jdbc.query("SELECT face_template::text FROM employees WHERE id = ?", (rs, i) -> rs.getString(1), employeeId);
+        return r.isEmpty() ? null : FaceMatch.parse(r.get(0));
+    }
+
     private PunchRes existing(UUID clientId, long branchId) {
         List<PunchRes> r = jdbc.query("""
             SELECT l.employee_id, e.full_name, l.kind, l.punched_at, l.source, l.flag,
-                   EXISTS (SELECT 1 FROM attendance_photos p WHERE p.log_id = l.id)
+                   EXISTS (SELECT 1 FROM attendance_photos p WHERE p.log_id = l.id), l.face_status
             FROM attendance_logs l JOIN employees e ON e.id = l.employee_id WHERE l.client_id = ? AND l.branch_id = ?
             """, (rs, i) -> new PunchRes(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getTimestamp(4).toInstant(),
-                "OFFLINE".equals(rs.getString(5)), rs.getString(6), rs.getBoolean(7)), clientId, branchId);
+                "OFFLINE".equals(rs.getString(5)), rs.getString(6), rs.getBoolean(7), rs.getString(8)), clientId, branchId);
         return r.isEmpty() ? null : r.get(0);
     }
 }

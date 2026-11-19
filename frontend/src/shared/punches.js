@@ -51,8 +51,9 @@ export function whoIsIn(roster, queue) {
 }
 
 // photo: base64 JPEG taken at the punch, or null. It travels with the punch and is dropped from the tablet once sent.
-export function makePunch({ employee, check, kind, now = new Date(), id = crypto.randomUUID(), photo = null }) {
-  return { id, employeeId: employee.id, name: employee.name, check, kind, deviceTime: now.toISOString(), status: "pending", error: null, photo };
+// face: what the face check saw ({ state, descriptor }), or null. The server compares it when the punch uploads.
+export function makePunch({ employee, check, kind, now = new Date(), id = crypto.randomUUID(), photo = null, face = null }) {
+  return { id, employeeId: employee.id, name: employee.name, check, kind, deviceTime: now.toISOString(), status: "pending", error: null, photo, face };
 }
 
 /**

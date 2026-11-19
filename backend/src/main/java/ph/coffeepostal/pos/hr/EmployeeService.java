@@ -12,7 +12,7 @@ import ph.coffeepostal.pos.shared.ApiException;
 /** Employees of a branch (and HQ staff, who have no branch). A branch employee needs a 6-digit PIN to punch the time clock. */
 @Service
 public class EmployeeService {
-    public record Employee(long id, Long branchId, String branch, String fullName, String position, String status, boolean hasPin) {}
+    public record Employee(long id, Long branchId, String branch, String fullName, String position, String status, boolean hasPin, boolean faceEnrolled) {}
 
     private static final String PIN_TAKEN = "Someone in this branch already uses that PIN. Pick another.";
 
@@ -24,18 +24,18 @@ public class EmployeeService {
     /** branchId null = everyone (HQ view). */
     public List<Employee> list(Long branchId) {
         return jdbc.query("""
-            SELECT e.id, e.branch_id, b.name, e.full_name, e.position, e.status, e.pin_lookup IS NOT NULL
+            SELECT e.id, e.branch_id, b.name, e.full_name, e.position, e.status, e.pin_lookup IS NOT NULL, e.face_template IS NOT NULL
             FROM employees e LEFT JOIN branches b ON b.id = e.branch_id
             WHERE (?::bigint IS NULL OR e.branch_id = ?) ORDER BY e.status, e.full_name
-            """, (rs, i) -> new Employee(rs.getLong(1), (Long) rs.getObject(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getBoolean(7)),
+            """, (rs, i) -> new Employee(rs.getLong(1), (Long) rs.getObject(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getBoolean(7), rs.getBoolean(8)),
             branchId, branchId);
     }
 
     public Employee get(long id) {
         List<Employee> r = jdbc.query("""
-            SELECT e.id, e.branch_id, b.name, e.full_name, e.position, e.status, e.pin_lookup IS NOT NULL
+            SELECT e.id, e.branch_id, b.name, e.full_name, e.position, e.status, e.pin_lookup IS NOT NULL, e.face_template IS NOT NULL
             FROM employees e LEFT JOIN branches b ON b.id = e.branch_id WHERE e.id = ?
-            """, (rs, i) -> new Employee(rs.getLong(1), (Long) rs.getObject(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getBoolean(7)), id);
+            """, (rs, i) -> new Employee(rs.getLong(1), (Long) rs.getObject(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getString(6), rs.getBoolean(7), rs.getBoolean(8)), id);
         return r.isEmpty() ? null : r.get(0);
     }
 
@@ -58,8 +58,12 @@ public class EmployeeService {
     public void update(long id, String fullName, String position, String status) {
         if (!"ACTIVE".equals(status) && !"INACTIVE".equals(status)) throw new ApiException(HttpStatus.BAD_REQUEST, "Pick active or inactive.");
         try {
-            int n = jdbc.update("UPDATE employees SET full_name = ?, position = ?, status = ?, updated_at = now() WHERE id = ?",
-                fullName.trim(), blank(position), status, id);
+            // someone who has left no longer has a face on file
+            int n = jdbc.update("""
+                UPDATE employees SET full_name = ?, position = ?, status = ?, updated_at = now(),
+                  face_template = CASE WHEN ? = 'INACTIVE' THEN NULL ELSE face_template END,
+                  face_enrolled_at = CASE WHEN ? = 'INACTIVE' THEN NULL ELSE face_enrolled_at END
+                WHERE id = ?""", fullName.trim(), blank(position), status, status, status, id);
             if (n == 0) throw new ApiException(HttpStatus.NOT_FOUND, "That employee no longer exists.");
         } catch (DuplicateKeyException e) {
             // switching someone back on whose old PIN has since been given to another person
@@ -78,6 +82,20 @@ public class EmployeeService {
         } catch (DuplicateKeyException e) {
             throw new ApiException(HttpStatus.CONFLICT, PIN_TAKEN, Map.of("pin", "Already used."));
         }
+    }
+
+    /** Saves the face the employee agreed to give. consentBy = the manager who recorded their consent. */
+    @Transactional
+    public void enrollFace(long id, double[] descriptor, long consentBy) {
+        FaceMatch.requireValid(descriptor);
+        int n = jdbc.update("UPDATE employees SET face_template = ?::real[], face_enrolled_at = now(), face_consent_by = ? WHERE id = ? AND status = 'ACTIVE'",
+            FaceMatch.literal(descriptor), consentBy, id);
+        if (n == 0) throw new ApiException(HttpStatus.NOT_FOUND, "That employee was not found, or has left.");
+    }
+
+    @Transactional
+    public void removeFace(long id) {
+        jdbc.update("UPDATE employees SET face_template = NULL, face_enrolled_at = NULL, face_consent_by = NULL WHERE id = ?", id);
     }
 
     private static String blank(String s) { return s == null || s.isBlank() ? null : s.trim(); }

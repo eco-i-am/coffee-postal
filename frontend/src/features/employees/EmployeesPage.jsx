@@ -6,6 +6,14 @@ import { fromManilaInput, hoursText, manilaInput, presetRange } from "../../shar
 import { dateOf, timeOf, todayManila } from "../../shared/format.js";
 import { ExportButton, Kpi, RangeBar } from "../reports/widgets.jsx";
 import SharedModal from "../../shared/Modal.jsx";
+import FaceEnroll from "./FaceEnroll.jsx";
+
+// what the face check said about a punch (managers only)
+const FACE = {
+  MATCH: ["g", "Match"], REVIEW: ["r", "Check photo"], NO_FACE: ["y", "No face seen"],
+  NOT_ENROLLED: ["", "No face on file"], NOT_CHECKED: ["", "Not checked"],
+};
+const faceTag = (s) => (s && FACE[s] ? <span className={`tag ${FACE[s][0]}`}>{FACE[s][1]}</span> : null);
 
 function Modal({ title, onClose, children }) { return <SharedModal title={title} onClose={onClose}>{children}</SharedModal>; }
 
@@ -62,6 +70,7 @@ function StaffTab({ hq, perm, branchId, branches, can, addOpen, setAddOpen }) {
   const [fields, setFields] = useState({});
   const [editing, setEditing] = useState(null);   // employee being edited
   const [pinFor, setPinFor] = useState(null);     // employee getting a new PIN
+  const [faceFor, setFaceFor] = useState(null);   // employee whose face is being saved
   const [modal, setModal] = useState({ fullName: "", position: "", pin: "", err: "" });
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
@@ -112,21 +121,23 @@ function StaffTab({ hq, perm, branchId, branches, can, addOpen, setAddOpen }) {
         {loading && !data ? <p role="status">Loading...</p> : (
           <div className="tw">
             <table className="dense">
-              <thead><tr><th>Name</th>{hq && <th>Branch</th>}<th>Position</th><th>Clock PIN</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Name</th>{hq && <th>Branch</th>}<th>Position</th><th>Clock PIN</th><th>Face</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {rows.map((e) => (
                   <tr key={e.id}>
                     <td><b>{e.fullName}</b></td>{hq && <td>{e.branch || "HQ"}</td>}<td>{e.position}</td>
                     <td>{e.branchId == null ? "n/a" : e.hasPin ? "Set" : <span className="tag r">None</span>}</td>
+                    <td>{e.branchId == null ? "n/a" : e.faceEnrolled ? <span className="tag g">On file</span> : <span className="tag">None</span>}</td>
                     <td><span className={`tag ${e.status === "ACTIVE" ? "g" : "r"}`}>{e.status === "ACTIVE" ? "Active" : "Left"}</span></td>
                     <td className="rowbtns">
                       {can(`${perm}_edit`) && <button className="btn ghost sm" type="button" onClick={() => { setEditing(e); setModal({ fullName: e.fullName, position: e.position || "", pin: "", err: "" }); }}>Edit</button>}
+                      {can(`${perm}_edit`) && e.branchId != null && e.status === "ACTIVE" && <button className="btn ghost sm" type="button" onClick={() => { setMsg(""); setFaceFor(e); }}>Face</button>}
                       {can(`${perm}_edit`) && e.branchId != null && <button className="btn ghost sm" type="button" onClick={() => { setPinFor(e); setModal({ fullName: "", position: "", pin: "", err: "" }); }}>New PIN</button>}
                       {can(`${perm}_edit`) && <button className="btn ghost sm" type="button" onClick={() => save(e, { status: e.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" })}>{e.status === "ACTIVE" ? "Left" : "Back"}</button>}
                     </td>
                   </tr>
                 ))}
-                {rows.length === 0 && <tr><td colSpan={hq ? 6 : 5} className="emptyrow">No employees yet.</td></tr>}
+                {rows.length === 0 && <tr><td colSpan={hq ? 7 : 6} className="emptyrow">No employees yet.</td></tr>}
               </tbody>
             </table>
           </div>
@@ -159,6 +170,7 @@ function StaffTab({ hq, perm, branchId, branches, can, addOpen, setAddOpen }) {
           </form>
         </Modal>
       )}
+      {faceFor && <FaceEnroll employee={faceFor} base={base} onClose={() => setFaceFor(null)} onDone={(m) => { setFaceFor(null); setMsg(m); reload(); }} />}
       {editing && (
         <Modal title={`Edit ${editing.fullName}`} onClose={() => setEditing(null)}>
           <form onSubmit={saveEdit} className="stack">
@@ -234,6 +246,7 @@ function AttendanceTab({ hq, branchId, canFix }) {
     return s.notes.includes("Added by a manager") ? null : <small>No photo</small>;
   };
 
+  const toCheck = sessions.filter((s) => s.inFace === "REVIEW" || s.outFace === "REVIEW").length;
   const missing = sessions.filter((s) => s.status === "FORGOT_OUT" || s.status === "NO_TIME_IN").length;
 
   return (
@@ -243,13 +256,14 @@ function AttendanceTab({ hq, branchId, canFix }) {
       {error && <p className="notice" role="alert">{error}</p>}
       <div className="kpis slim">
         <Kpi label="Total hours" value={hoursText(data?.totalMinutes ?? 0) || "0m"} note={`${sessions.length} shifts`} />
+        <Kpi label="Photos to check" value={toCheck} bad={toCheck > 0} note={toCheck > 0 ? "face did not match" : "none flagged"} />
         <Kpi label="Missing a punch" value={missing} bad={missing > 0} note={missing > 0 ? "needs a manager's fix" : "all complete"} />
       </div>
       <div className="sec fill">
         {loading && !data ? <p role="status">Loading...</p> : (
           <div className="tw">
           <table className="dense">
-            <thead><tr><th>Date</th><th>Employee</th>{hq && <th>Branch</th>}<th>Time in</th><th>Time out</th><th className="n">Hours</th><th>Status</th><th>Photos</th><th>Notes</th>{canFix && <th></th>}</tr></thead>
+            <thead><tr><th>Date</th><th>Employee</th>{hq && <th>Branch</th>}<th>Time in</th><th>Time out</th><th className="n">Hours</th><th>Status</th><th>Photos</th><th>Face check</th><th>Notes</th>{canFix && <th></th>}</tr></thead>
             <tbody>
               {sessions.map((s, i) => {
                 const [tone, label] = STATUS[s.status] || ["y", s.status];
@@ -260,6 +274,7 @@ function AttendanceTab({ hq, branchId, canFix }) {
                     <td className="n">{hoursText(s.minutes)}</td>
                     <td><span className={`tag ${tone}`}>{label}</span></td>
                     <td><div className="shots">{shot(s, "in")}{shot(s, "out")}</div></td>
+                    <td><div className="chips">{faceTag(s.inFace)}{s.outLogId && s.outFace !== s.inFace ? faceTag(s.outFace) : null}</div></td>
                     <td><small>{s.notes.join(", ")}</small></td>
                     {canFix && (
                       <td className="rowbtns">
@@ -272,7 +287,7 @@ function AttendanceTab({ hq, branchId, canFix }) {
                   </tr>
                 );
               })}
-              {sessions.length === 0 && <tr><td colSpan={hq ? 10 : 9} className="emptyrow">Nobody punched in this range.</td></tr>}
+              {sessions.length === 0 && <tr><td colSpan={hq ? 11 : 10} className="emptyrow">Nobody punched in this range.</td></tr>}
             </tbody>
           </table>
           </div>

@@ -1,4 +1,5 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
+import { inKiosk } from "../shared/kiosk.js";
 import { useAuth } from "./AuthContext.jsx";
 import Shell from "./Shell.jsx";
 import LoginPage from "../features/auth/LoginPage.jsx";
@@ -37,7 +38,7 @@ function Protected({ scope }) {
 function Home() {
   const { me, can } = useAuth();
   // a tablet account that can only clock people in and out goes straight to the clock
-  if (me.scope !== "ADMIN" && can("time_clock_view") && !can("pos_view") && !can("orders_view")) return <Navigate to="/branch/clock" replace />;
+  if (inKiosk(me, can)) return <Navigate to="/branch/clock" replace />;
   return <Navigate to={me.scope === "ADMIN" ? "/admin" : "/branch"} replace />;
 }
 

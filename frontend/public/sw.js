@@ -32,8 +32,9 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // built files have a hash in their name, so a saved copy never goes stale
-  if (url.pathname.startsWith("/assets/")) {
+  // built files have a hash in their name, so a saved copy never goes stale; the face models never change either,
+  // and keeping them lets the face check run with no internet
+  if (url.pathname.startsWith("/assets/") || url.pathname.startsWith("/models/")) {
     event.respondWith((async () => {
       const cached = await caches.match(req);
       if (cached) return cached;

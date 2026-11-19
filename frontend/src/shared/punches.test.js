@@ -65,3 +65,12 @@ describe("punches", () => {
     expect(r.queue).toHaveLength(1);
   });
 });
+
+describe("a punch kept offline carries the face check", () => {
+  it("keeps what the face check saw, so the server can compare it on upload", () => {
+    const face = { state: "ok", descriptor: [0.1, 0.2] };
+    const p = makePunch({ employee: { id: 1, name: "Ana" }, check: "c", kind: "IN", id: "p9", face });
+    expect(p.face).toEqual(face);
+    expect(makePunch({ employee: { id: 1, name: "Ana" }, check: "c", kind: "IN" }).face).toBeNull();
+  });
+});

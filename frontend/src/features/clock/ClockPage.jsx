@@ -3,6 +3,8 @@ import { api } from "../../shared/api.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import { timeOf } from "../../shared/format.js";
 import { captureJpeg, startCamera, stopCamera } from "../../shared/camera.js";
+import { loadFace, readFace } from "../../shared/face.js";
+import { clockOnlyAccount, goFullscreen, inKiosk, keepAwake, leaveFullscreen, setKiosk } from "../../shared/kiosk.js";
 import { loadPunches, loadRoster, makePunch, matchPin, nextKind, savePunches, saveRoster, uploadPunches, whoIsIn } from "../../shared/punches.js";
 
 const SHOW_MS = 4500;       // a result stays up this long, then the screen is ready for the next person
@@ -15,7 +17,12 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"]
  * With no internet the tablet recognises the PIN from its saved staff list and keeps the punch to send later.
  */
 export default function ClockPage() {
-  const { me } = useAuth();
+  const { me, can, signOut } = useAuth();
+  const kiosk = inKiosk(me, can);
+  const dedicated = clockOnlyAccount(me, can);   // a Time Clock account: always clock-only
+  const [exiting, setExiting] = useState(false);
+  const [mgrPin, setMgrPin] = useState("");
+  const [exitErr, setExitErr] = useState("");
   const user = me.username;
   const [roster, setRoster] = useState(() => loadRoster(user));
   const [queue, setQueue] = useState(loadPunches);
@@ -51,7 +58,7 @@ export default function ClockPage() {
       const snap = queueRef.current;
       const r = await uploadPunches(snap, (p) => api("/api/clock/punch", {
         method: "POST", timeoutMs: 15000,
-        body: { employeeId: p.employeeId, check: p.check, clientId: p.id, deviceTime: p.deviceTime, photo: p.photo || null },
+        body: { employeeId: p.employeeId, check: p.check, clientId: p.id, deviceTime: p.deviceTime, photo: p.photo || null, face: p.face || null },
       }));
       const sent = new Set(r.uploaded.map((p) => p.id));
       const updated = new Map(r.queue.map((p) => [p.id, p]));
@@ -65,6 +72,7 @@ export default function ClockPage() {
   useEffect(() => {
     refreshRoster();
     flush();
+    loadFace();   // warm up the face check so the first punch is quick
     const on = () => { setOnline(true); refreshRoster(); flush(); };
     const off = () => setOnline(false);
     window.addEventListener("online", on);
@@ -99,20 +107,21 @@ export default function ClockPage() {
     const clientId = crypto.randomUUID();
     const deviceTime = new Date();
     const photo = captureJpeg(videoRef.current);   // taken now, while the person is in front of the tablet
+    const face = await readFace(videoRef.current);   // flags only: a punch is never refused over a face
     try {
-      const res = await api("/api/clock/punch", { method: "POST", timeoutMs: 12000, body: { pin: code, clientId, deviceTime: deviceTime.toISOString(), photo } });
-      show({ name: res.name, kind: res.kind, at: res.at, offline: false, flag: res.flag, photo: res.photo });
+      const res = await api("/api/clock/punch", { method: "POST", timeoutMs: 12000, body: { pin: code, clientId, deviceTime: deviceTime.toISOString(), photo, face } });
+      show({ name: res.name, kind: res.kind, at: res.at, offline: false, flag: res.flag, photo: res.photo, faceStatus: res.faceStatus });
       refreshRoster();
     } catch (e) {
       if (e.status) { show({ error: e.message }); }
       else {
         setOnline(false);
-        await punchOffline(code, clientId, deviceTime, photo);
+        await punchOffline(code, clientId, deviceTime, photo, face);
       }
     } finally { setBusy(false); }
   }
 
-  async function punchOffline(code, clientId, deviceTime, photo) {
+  async function punchOffline(code, clientId, deviceTime, photo, face) {
     if (!roster) { show({ error: "No internet, and this tablet has no saved staff list yet. Connect once to load it." }); return; }
     if (Date.now() < wrong.current.until) { show({ error: "Too many wrong PINs. Wait a minute." }); return; }
     const emp = await matchPin(roster, code);
@@ -124,13 +133,13 @@ export default function ClockPage() {
     }
     wrong.current.count = 0;
     const kind = nextKind(emp, queueRef.current);
-    const p = makePunch({ employee: emp, check: emp.check, kind, now: deviceTime, id: clientId, photo });
+    const p = makePunch({ employee: emp, check: emp.check, kind, now: deviceTime, id: clientId, photo, face });
     const base = queueRef.current;
     let kept = photo;
     // a photo makes the punch bigger; if the tablet is nearly full, keep the punch and drop the photo
     if (!commit([...base, p])) {
       kept = null;
-      if (!commit([...base, { ...p, photo: null }])) { show({ error: "This tablet could not save the punch. Write the time down and tell your manager." }); return; }
+      if (!commit([...base, { ...p, photo: null, face: null }])) { show({ error: "This tablet could not save the punch. Write the time down and tell your manager." }); return; }
     }
     show({ name: emp.name, kind, at: deviceTime.toISOString(), offline: true, photo: !!kept });
   }
@@ -159,13 +168,46 @@ export default function ClockPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  function startKiosk() {
+    setKiosk(user, true);   // the shell hides the menu; leaving takes a manager PIN
+    goFullscreen();
+  }
+
+  async function leave(e) {
+    e.preventDefault();
+    setExitErr("");
+    try {
+      await api("/api/clock/exit", { method: "POST", timeoutMs: 10000, body: { managerPin: mgrPin } });
+      setExiting(false);
+      leaveFullscreen();
+      if (dedicated) await signOut();
+      else setKiosk(user, false);
+    } catch (err) { setExitErr(err.status === 0 ? "Leaving clock-only mode needs the internet. Try again when it is back." : err.message); }
+  }
+
+  // while the clock is the whole screen, keep the tablet awake
+  useEffect(() => {
+    if (!kiosk) return undefined;
+    let release = () => {};
+    let alive = true;
+    keepAwake().then((r) => { if (alive) release = r; else r(); });
+    return () => { alive = false; release(); };
+  }, [kiosk]);
+
   const pending = queue.filter((p) => p.status === "pending").length;
   const rejected = queue.filter((p) => p.status === "rejected");
   const inNow = whoIsIn(roster, queue);
 
   return (
-    <section className="clockpage">
-      <header className="pghead"><div><h1>Time In / Out</h1><p>Type your 6-digit PIN. The screen is ready for the next person after each punch.</p></div></header>
+    <section className={`clockpage${kiosk ? " kioskpage" : ""}`}>
+      <header className="pghead">
+        <div><h1>{kiosk ? "Coffee Postal: Time In / Out" : "Time In / Out"}</h1><p>Type your 6-digit PIN. The screen is ready for the next person after each punch.</p></div>
+        <div className="toolbar">
+          {kiosk
+            ? <button type="button" className="btn ghost sm" onClick={() => { setExitErr(""); setMgrPin(""); setExiting(true); }}>{dedicated ? "Manager: sign out" : "Manager: exit clock mode"}</button>
+            : can("branch_employees_edit") && <button type="button" className="btn ghost sm" onClick={startKiosk}>Clock-only mode</button>}
+        </div>
+      </header>
       {camera === "off" && <p className="notice" role="status">The camera is off, so punches are saved without a photo. Allow the camera for this site in the browser settings.</p>}
       {!online && <p className="notice offline" role="status">No internet. Punches are saved on this tablet and sent when it is back.</p>}
       {pending > 0 && <p className="notice" role="status">{pending} {pending === 1 ? "punch is" : "punches are"} saved on this tablet, waiting to upload.</p>}
@@ -188,6 +230,8 @@ export default function ClockPage() {
                 Time {result.kind === "IN" ? "in" : "out"} {timeOf(result.at)}
                 {result.offline && <small><br />Saved on this tablet. It counts at this time once it uploads.</small>}
                 {result.photo === false && <small><br />No photo was kept for this punch.</small>}
+                {result.faceStatus === "REVIEW" && <small><br />Your face did not match well. A manager will check this punch.</small>}
+                {result.faceStatus === "NO_FACE" && <small><br />We could not see your face clearly. Look at the camera next time. A manager may check this punch.</small>}
                 {result.flag === "CLOCK_SKEW" && <small><br />This tablet&apos;s clock is off. The server&apos;s time was used. Tell your manager.</small>}
               </span>
             )}
@@ -212,6 +256,18 @@ export default function ClockPage() {
           {roster?.employees?.length === 0 && <p className="hint">No staff have a PIN yet. A manager adds them under Employees.</p>}
         </div>
       </div>
+      {exiting && (
+        <div className="scrim" onClick={(e) => e.target === e.currentTarget && setExiting(false)}>
+          <form className="modal" role="dialog" aria-modal="true" aria-label="Manager PIN" onSubmit={leave}>
+            <h2>{dedicated ? "Sign this tablet out?" : "Leave clock-only mode?"}</h2>
+            <p className="hint">A manager types their PIN. Staff cannot do this.</p>
+            <div className="addr"><label htmlFor="mgrpin">Manager PIN</label>
+              <input id="mgrpin" type="password" inputMode="numeric" autoComplete="off" maxLength={12} value={mgrPin} onChange={(e) => setMgrPin(e.target.value)} autoFocus required /></div>
+            {exitErr && <p className="err" role="alert">{exitErr}</p>}
+            <div className="opts"><button type="button" className="btn ghost" onClick={() => setExiting(false)}>Cancel</button><button className="btn warm" style={{ flex: 1 }} type="submit" disabled={!mgrPin}>{dedicated ? "Sign out" : "Leave"}</button></div>
+          </form>
+        </div>
+      )}
     </section>
   );
 }
