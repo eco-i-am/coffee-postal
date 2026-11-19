@@ -27,8 +27,14 @@ export default function Tutorial({ me, can, onClose, onChangePassword }) {
     <div className="scrim">
       <div className="modal tour" role="dialog" aria-modal="true" aria-labelledby="tour-title">
         <p className="tour-count" aria-live="polite">Step {i + 1} of {steps.length}</p>
+        {step.page && <span className="tour-page">{step.page}</span>}
         <h2 id="tour-title">{step.title}</h2>
         {step.body.map((t, n) => <p key={n} className="tour-p">{t}</p>)}
+        {step.buttons && step.buttons.length > 0 && (
+          <ul className="tourlist" aria-label="Buttons on this page">
+            {step.buttons.map((b) => <li key={b.label}><span className="keycap">{b.label}</span><span>{b.does}</span></li>)}
+          </ul>
+        )}
         {(step.action || step.to) && (
           <p className="tour-links">
             {step.action && <button type="button" className="crumb" onClick={runAction}>{step.action.label}</button>}

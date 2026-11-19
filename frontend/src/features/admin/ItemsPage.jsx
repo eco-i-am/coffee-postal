@@ -21,6 +21,9 @@ export default function ItemsPage() {
   const [form, setForm] = useState(EMPTY);
   const [fields, setFields] = useState({});
   const [msg, setMsg] = useState("");
+  const [search, setSearch] = useState("");
+  const [showAdd, setShowAdd] = useState(false);
+  const [showCats, setShowCats] = useState(false);
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState(null); // { id, name, unit, cost, reorderLevel }
 
@@ -33,6 +36,7 @@ export default function ItemsPage() {
       await api("/api/admin/items", { method: "POST", body: { ...form, reorderLevel: Number(form.reorderLevel) || 0, categoryId: catId(form.categoryId) } });
       setMsg(`${form.name.trim()} added. Branches can order it now.`);
       setForm(EMPTY);
+      setShowAdd(false);
       reload();
     } catch (err) {
       setFields(err.fields || {}); setMsg(err.message);
@@ -75,69 +79,39 @@ export default function ItemsPage() {
     catch (err) { setMsg(err.message); }
   }
 
+  const q = search.trim().toLowerCase();
+  const shown = (items || []).filter((i) =>
+    (!filter || (filter === "none" ? i.categoryId == null : String(i.categoryId) === filter)) &&
+    (!q || i.name.toLowerCase().includes(q)));
+
   return (
-    <section>
+    <section className="fitpage">
       <header className="pghead"><div>
         <h1>Items</h1>
-        <p>The item list. Prices here are what a branch pays per unit. Choose which items branches can order from HQ.</p>
-      </div></header>
-      {msg && <p className="notice" role="status">{msg}</p>}
-
-      <div className="two">
-        <div className="sec">
-          <h2>Add an item</h2>
-          <form onSubmit={add} className="stack" noValidate>
-            <div className="addr">
-              <label htmlFor="iname">Name</label>
-              <input id="iname" value={form.name} onChange={set("name")} placeholder="Espresso beans (1 kg bag)" required />
-              {fields.name && <p className="err" role="alert">{fields.name}</p>}
-            </div>
-            <div className="opts">
-              <div className="addr" style={{ flex: 1, minWidth: 110 }}>
-                <label htmlFor="iunit">Unit</label>
-                <input id="iunit" list="unitlist" value={form.unit} onChange={set("unit")} placeholder="bag" required />
-              </div>
-              <div className="addr" style={{ flex: 1, minWidth: 110 }}>
-                <label htmlFor="icost">Cost per unit (&#8369;)</label>
-                <input id="icost" value={form.cost} onChange={set("cost")} inputMode="decimal" placeholder="850.00" required />
-                {fields.cost && <p className="err" role="alert">{fields.cost}</p>}
-              </div>
-            </div>
-            <div className="addr">
-              <label htmlFor="icat">Category</label>
-              <select className="line" id="icat" value={form.categoryId} onChange={set("categoryId")}>
-                <option value="">No category</option>
-                {(cats.data || []).filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
-            </div>
-            <div className="addr">
-              <label htmlFor="ireorder">Warn branches when stock is at or below</label>
-              <input id="ireorder" value={form.reorderLevel} onChange={set("reorderLevel")} inputMode="numeric" />
-            </div>
-            <button className="btn warm" type="submit" disabled={busy}>Add item</button>
-          </form>
-        </div>
-
-        <div className="sec">
-          <h2>Categories</h2>
-          <form onSubmit={addCat} className="opts"><input aria-label="New category" value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Packaging" style={{ flex: 1 }} /><button className="btn ghost sm" type="submit">Add</button></form>
-          {(cats.data || []).map((c) => <div key={c.id} className="r"><b>{c.name}</b> <small>{c.items} items{c.active ? "" : ", hidden"}</small></div>)}
-          {cats.data && cats.data.length === 0 && <p className="hint">No categories yet.</p>}
-        </div>
-
-        <div className="sec tw">
-          <h2>All items</h2>
-          <select className="line" aria-label="Show category" value={filter} onChange={(e) => setFilter(e.target.value)}>
+        <p>What a branch pays per unit, and which items branches can order from HQ.</p>
+      </div>
+        <div className="toolbar">
+          <input className="searchbox" type="search" aria-label="Search items" placeholder="Search items" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <select aria-label="Show category" value={filter} onChange={(e) => setFilter(e.target.value)}>
             <option value="">All categories</option>
             <option value="none">No category</option>
             {(cats.data || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          {error && <p className="err" role="alert">{error}</p>}
-          {loading && !items ? <p role="status">Loading...</p> : (
-            <table>
-              <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th className="n">Cost</th><th className="n">Low at</th><th>Branches can order</th><th>Status</th><th></th></tr></thead>
+          <button className="btn ghost sm" type="button" onClick={() => setShowCats(true)}>Categories</button>
+          <button className="btn warm sm" type="button" onClick={() => { setMsg(""); setFields({}); setShowAdd(true); }}>+ Add item</button>
+        </div>
+      </header>
+      {msg && <p className="notice" role="status">{msg}</p>}
+
+      <div className="sec fill">
+        <p className="hint count">{shown.length} of {(items || []).length} items</p>
+        {error && <p className="err" role="alert">{error}</p>}
+        {loading && !items ? <p role="status">Loading...</p> : (
+          <div className="tw">
+            <table className="dense">
+              <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th className="n">Cost</th><th className="n">Low at</th><th>Orderable</th><th>Status</th><th></th></tr></thead>
               <tbody>
-                {(items || []).filter((i) => !filter || (filter === "none" ? i.categoryId == null : String(i.categoryId) === filter)).map((i) => (
+                {shown.map((i) => (
                   <tr key={i.id}>
                     <td><b>{i.name}</b></td><td>{i.category || ""}</td><td>{i.unit}</td><td className="n">{peso(i.cost)}</td><td className="n">{i.reorderLevel}</td>
                     <td>{can("po_items_edit")
@@ -150,12 +124,66 @@ export default function ItemsPage() {
                     </td>
                   </tr>
                 ))}
-                {items && items.length === 0 && <tr><td colSpan="8" className="emptyrow">No items yet. Add the first one.</td></tr>}
+                {items && shown.length === 0 && <tr><td colSpan="8" className="emptyrow">{items.length === 0 ? "No items yet. Add the first one." : "No items match."}</td></tr>}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+
+      {showAdd && (
+        <div className="scrim" onClick={(e) => e.target === e.currentTarget && setShowAdd(false)}>
+          <form onSubmit={add} className="modal" role="dialog" aria-modal="true" aria-label="Add an item" noValidate>
+            <h2>Add an item</h2>
+            <div className="addr">
+              <label htmlFor="iname">Name</label>
+              <input id="iname" value={form.name} onChange={set("name")} placeholder="Espresso beans (1 kg bag)" required autoFocus />
+              {fields.name && <p className="err" role="alert">{fields.name}</p>}
+            </div>
+            <div className="grid2">
+              <div className="addr">
+                <label htmlFor="iunit">Unit</label>
+                <input id="iunit" list="unitlist" value={form.unit} onChange={set("unit")} placeholder="bag" required />
+              </div>
+              <div className="addr">
+                <label htmlFor="icost">Cost per unit (&#8369;)</label>
+                <input id="icost" value={form.cost} onChange={set("cost")} inputMode="decimal" placeholder="850.00" required />
+                {fields.cost && <p className="err" role="alert">{fields.cost}</p>}
+              </div>
+              <div className="addr">
+                <label htmlFor="icat">Category</label>
+                <select className="line" id="icat" value={form.categoryId} onChange={set("categoryId")}>
+                  <option value="">No category</option>
+                  {(cats.data || []).filter((c) => c.active).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+              <div className="addr">
+                <label htmlFor="ireorder">Warn when stock is at or below</label>
+                <input id="ireorder" value={form.reorderLevel} onChange={set("reorderLevel")} inputMode="numeric" />
+              </div>
+            </div>
+            {msg && <p className="err" role="alert">{msg}</p>}
+            <div className="opts">
+              <button type="button" className="btn ghost" onClick={() => setShowAdd(false)}>Cancel</button>
+              <button className="btn warm" type="submit" disabled={busy} style={{ flex: 1 }}>Add item</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showCats && (
+        <div className="scrim" onClick={(e) => e.target === e.currentTarget && setShowCats(false)}>
+          <div className="modal" role="dialog" aria-modal="true" aria-label="Categories">
+            <h2>Categories</h2>
+            <form onSubmit={addCat} className="opts"><input aria-label="New category" value={newCat} onChange={(e) => setNewCat(e.target.value)} placeholder="Packaging" style={{ flex: 1 }} /><button className="btn ghost sm" type="submit">Add</button></form>
+            <div className="catlist">
+              {(cats.data || []).map((c) => <div key={c.id} className="r"><b>{c.name}</b> <small>{c.items} items{c.active ? "" : ", hidden"}</small></div>)}
+              {cats.data && cats.data.length === 0 && <p className="hint">No categories yet.</p>}
+            </div>
+            <button type="button" className="btn ghost" onClick={() => setShowCats(false)}>Close</button>
+          </div>
+        </div>
+      )}
 
       {edit && (
         <div className="scrim" onClick={(e) => e.target === e.currentTarget && setEdit(null)}>

@@ -1,22 +1,18 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import { fromManilaInput, hoursText, manilaInput, presetRange } from "../../shared/dates.js";
 import { dateOf, timeOf, todayManila } from "../../shared/format.js";
 import { ExportButton, Kpi, RangeBar } from "../reports/widgets.jsx";
+import SharedModal from "../../shared/Modal.jsx";
+
+function Modal({ title, onClose, children }) { return <SharedModal title={title} onClose={onClose}>{children}</SharedModal>; }
+
 
 const STATUS = {
   OK: ["g", "Complete"], STILL_IN: ["y", "Still in"], FORGOT_OUT: ["r", "No time out"], NO_TIME_IN: ["r", "No time in"],
 };
-
-function Modal({ title, onClose, children }) {
-  return (
-    <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}><h2>{title}</h2>{children}</div>
-    </div>
-  );
-}
 
 /** Employees, and who was in. Branch managers manage their own branch; HQ sees every branch (attendance read only). */
 export default function EmployeesPage({ side }) {
@@ -25,39 +21,39 @@ export default function EmployeesPage({ side }) {
   const perm = hq ? "admin_employees" : "branch_employees";
   const [tab, setTab] = useState("staff");
   const [branchId, setBranchId] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
   const loadBranches = useCallback(() => (hq ? api("/api/admin/branches") : Promise.resolve([])), [hq]);
   const branches = useLoad(loadBranches).data || [];
 
   return (
-    <section>
+    <section className="fitpage">
       <header className="pghead">
         <div>
           <h1>Employees</h1>
           <p>Who works here, their time clock PIN, and the hours they were in.</p>
         </div>
-      </header>
-      <div className="filters">
-        <div className="tabs" role="group" aria-label="Section">
-          <button className="chip" aria-pressed={tab === "staff"} onClick={() => setTab("staff")}>Staff</button>
-          <button className="chip" aria-pressed={tab === "attendance"} onClick={() => setTab("attendance")}>Attendance</button>
-        </div>
-        {hq && (
-          <label className="datepick">Branch
-            <select className="line" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+        <div className="toolbar">
+          <div className="tabs" role="group" aria-label="Section">
+            <button className="chip" aria-pressed={tab === "staff"} onClick={() => setTab("staff")}>Staff</button>
+            <button className="chip" aria-pressed={tab === "attendance"} onClick={() => setTab("attendance")}>Attendance</button>
+          </div>
+          {hq && (
+            <select aria-label="Branch" value={branchId} onChange={(e) => setBranchId(e.target.value)}>
               <option value="">All branches</option>
               {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
-          </label>
-        )}
-      </div>
+          )}
+          {tab === "staff" && can(`${perm}_add`) && <button className="btn warm sm" type="button" onClick={() => setAddOpen(true)}>+ Add employee</button>}
+        </div>
+      </header>
       {tab === "staff"
-        ? <StaffTab hq={hq} perm={perm} branchId={branchId} branches={branches} can={can} />
+        ? <StaffTab hq={hq} perm={perm} branchId={branchId} branches={branches} can={can} addOpen={addOpen} setAddOpen={setAddOpen} />
         : <AttendanceTab hq={hq} branchId={branchId} canFix={!hq && can("branch_employees_edit")} />}
     </section>
   );
 }
 
-function StaffTab({ hq, perm, branchId, branches, can }) {
+function StaffTab({ hq, perm, branchId, branches, can, addOpen, setAddOpen }) {
   const base = hq ? "/api/admin/employees" : "/api/branch/employees";
   const load = useCallback(() => api(hq && branchId ? `${base}?branchId=${branchId}` : base), [base, hq, branchId]);
   const { data, error, loading, reload } = useLoad(load);
@@ -70,6 +66,7 @@ function StaffTab({ hq, perm, branchId, branches, can }) {
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
   const rows = data || [];
+  useEffect(() => { if (addOpen) { setMsg(""); setFields({}); } }, [addOpen]);
 
   async function add(e) {
     e.preventDefault();
@@ -78,6 +75,7 @@ function StaffTab({ hq, perm, branchId, branches, can }) {
       const body = hq ? { ...form, branchId: form.branchId ? Number(form.branchId) : null } : form;
       await api(base, { method: "POST", body });
       setMsg(`${form.fullName.trim()} added.`);
+      setAddOpen(false);
       setForm({ fullName: "", position: "", pin: "", branchId: form.branchId });
       reload();
     } catch (err) { setFields(err.fields || {}); setMsg(err.message); }
@@ -109,37 +107,11 @@ function StaffTab({ hq, perm, branchId, branches, can }) {
   return (
     <>
       {msg && <p className="notice" role="status">{msg}</p>}
-      <div className="two">
-        {can(`${perm}_add`) && (
-          <div className="sec">
-            <h2>Add an employee</h2>
-            <form onSubmit={add} className="stack" noValidate>
-              <div className="addr"><label htmlFor="efn">Full name</label>
-                <input id="efn" value={form.fullName} onChange={set("fullName")} required />
-                {fields.fullName && <p className="err" role="alert">{fields.fullName}</p>}</div>
-              <div className="addr"><label htmlFor="epos">Position</label>
-                <input id="epos" value={form.position} onChange={set("position")} placeholder="Barista" /></div>
-              {hq && (
-                <div className="addr"><label htmlFor="ebr">Branch</label>
-                  <select className="line" id="ebr" value={form.branchId} onChange={set("branchId")}>
-                    <option value="">HQ staff (no time clock)</option>
-                    {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-                  </select></div>
-              )}
-              {(!hq || form.branchId) && (
-                <div className="addr"><label htmlFor="epin">Time clock PIN (6 digits)</label>
-                  <input id="epin" value={form.pin} onChange={set("pin")} inputMode="numeric" maxLength={6} autoComplete="off" placeholder="6 digits, not used by anyone else here" />
-                  {fields.pin && <p className="err" role="alert">{fields.pin}</p>}</div>
-              )}
-              <button className="btn warm" type="submit">Add employee</button>
-            </form>
-          </div>
-        )}
-        <div className="sec tw">
-          <h2>Staff</h2>
-          {error && <p className="err" role="alert">{error}</p>}
-          {loading && !data ? <p role="status">Loading...</p> : (
-            <table>
+      <div className="sec fill">
+        {error && <p className="err" role="alert">{error}</p>}
+        {loading && !data ? <p role="status">Loading...</p> : (
+          <div className="tw">
+            <table className="dense">
               <thead><tr><th>Name</th>{hq && <th>Branch</th>}<th>Position</th><th>Clock PIN</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {rows.map((e) => (
@@ -157,9 +129,36 @@ function StaffTab({ hq, perm, branchId, branches, can }) {
                 {rows.length === 0 && <tr><td colSpan={hq ? 6 : 5} className="emptyrow">No employees yet.</td></tr>}
               </tbody>
             </table>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+      {addOpen && can(`${perm}_add`) && (
+        <Modal title="Add an employee" onClose={() => setAddOpen(false)}>
+          <form onSubmit={add} className="stack" noValidate>
+            <div className="addr"><label htmlFor="efn">Full name</label>
+              <input id="efn" value={form.fullName} onChange={set("fullName")} required autoFocus />
+              {fields.fullName && <p className="err" role="alert">{fields.fullName}</p>}</div>
+            <div className="grid2">
+              <div className="addr"><label htmlFor="epos">Position</label>
+                <input id="epos" value={form.position} onChange={set("position")} placeholder="Barista" /></div>
+              {hq && (
+                <div className="addr"><label htmlFor="ebr">Branch</label>
+                  <select className="line" id="ebr" value={form.branchId} onChange={set("branchId")}>
+                    <option value="">HQ staff (no time clock)</option>
+                    {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select></div>
+              )}
+              {(!hq || form.branchId) && (
+                <div className="addr"><label htmlFor="epin">Time clock PIN (6 digits)</label>
+                  <input id="epin" value={form.pin} onChange={set("pin")} inputMode="numeric" maxLength={6} autoComplete="off" placeholder="Not used by anyone else here" />
+                  {fields.pin && <p className="err" role="alert">{fields.pin}</p>}</div>
+              )}
+            </div>
+            {msg && <p className="err" role="alert">{msg}</p>}
+            <div className="opts"><button type="button" className="btn ghost" onClick={() => setAddOpen(false)}>Cancel</button><button className="btn warm" style={{ flex: 1 }} type="submit">Add employee</button></div>
+          </form>
+        </Modal>
+      )}
       {editing && (
         <Modal title={`Edit ${editing.fullName}`} onClose={() => setEditing(null)}>
           <form onSubmit={saveEdit} className="stack">
@@ -239,20 +238,17 @@ function AttendanceTab({ hq, branchId, canFix }) {
 
   return (
     <>
-      <RangeBar range={range} setRange={setRange} />
+      <div className="ctl"><RangeBar range={range} setRange={setRange} /><ExportButton name="attendance" rows={exportRows} range={range} /></div>
       {msg && <p className="notice" role="status">{msg}</p>}
       {error && <p className="notice" role="alert">{error}</p>}
-      <div className="kpis">
+      <div className="kpis slim">
         <Kpi label="Total hours" value={hoursText(data?.totalMinutes ?? 0) || "0m"} note={`${sessions.length} shifts`} />
         <Kpi label="Missing a punch" value={missing} bad={missing > 0} note={missing > 0 ? "needs a manager's fix" : "all complete"} />
       </div>
-      <div className="sec tw">
-        <div className="opts">
-          <h2 style={{ flex: 1 }}>Attendance</h2>
-          <ExportButton name="attendance" rows={exportRows} range={range} />
-        </div>
+      <div className="sec fill">
         {loading && !data ? <p role="status">Loading...</p> : (
-          <table>
+          <div className="tw">
+          <table className="dense">
             <thead><tr><th>Date</th><th>Employee</th>{hq && <th>Branch</th>}<th>Time in</th><th>Time out</th><th className="n">Hours</th><th>Status</th><th>Photos</th><th>Notes</th>{canFix && <th></th>}</tr></thead>
             <tbody>
               {sessions.map((s, i) => {
@@ -279,6 +275,7 @@ function AttendanceTab({ hq, branchId, canFix }) {
               {sessions.length === 0 && <tr><td colSpan={hq ? 10 : 9} className="emptyrow">Nobody punched in this range.</td></tr>}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       {look && (

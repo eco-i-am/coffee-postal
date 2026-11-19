@@ -61,7 +61,7 @@ export default function Shell() {
           </svg>
           <div>
             <b>Coffee<br />Postal</b>
-            <small>POS system</small>
+            <small>Operating System</small>
           </div>
         </div>
         <nav className="nav" aria-label="Main">

@@ -13,7 +13,7 @@ describe("first sign-in tour", () => {
   });
 
   it("shows a cashier the till steps and nothing from HQ", () => {
-    const got = ids({ scope: "BRANCH", role: "Cashier", username: "c", branchName: "Cebu City" }, canOf("pos_view", "time_clock_view", "orders_view"));
+    const got = ids({ scope: "BRANCH", role: "Cashier", username: "c", branchName: "Cebu City" }, canOf("pos_view", "cash_inout_view", "time_clock_view", "orders_view"));
     expect(got).toEqual(expect.arrayContaining(["clock", "shift", "pos", "offline", "orders"]));
     expect(got.some((id) => id.startsWith("hq-"))).toBe(false);
     expect(got).not.toContain("branch-po");
@@ -38,5 +38,21 @@ describe("first sign-in tour", () => {
   it("every step that links somewhere has a path", () => {
     const all = stepsFor({ scope: "ADMIN", role: "Super Admin", username: "a" }, () => true);
     for (const s of all) if ("to" in s) expect(s.to).toMatch(/^\//);
+  });
+});
+
+describe('page-by-page tour', () => {
+  it('names the page and its buttons on the key pages', () => {
+    const all = stepsFor({ scope: 'ADMIN', role: 'Super Admin', username: 'a' }, () => true);
+    const by = Object.fromEntries(all.map((x) => [x.id, x]));
+    for (const id of ['hq-branches', 'hq-products', 'hq-discounts', 'hq-items', 'hq-employees', 'hq-expenses']) {
+      expect(by[id].page).toBeTruthy();
+      expect(by[id].buttons.length).toBeGreaterThan(0);
+      for (const b of by[id].buttons) { expect(b.label).toBeTruthy(); expect(b.does).toBeTruthy(); }
+    }
+  });
+  it('every step has a unique id', () => {
+    const all = stepsFor({ scope: 'ADMIN', role: 'Super Admin', username: 'a' }, () => true);
+    expect(new Set(all.map((x) => x.id)).size).toBe(all.length);
   });
 });

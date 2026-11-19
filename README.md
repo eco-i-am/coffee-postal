@@ -1,4 +1,4 @@
-# Coffee Postal POS
+# Coffee Postal Operating System
 
 Branch + HQ management and point-of-sale for Coffee Postal PH.
 Two apps in one repo: a Java API (`backend/`) and a React UI (`frontend/`, plain JavaScript).
