@@ -34,7 +34,7 @@ public class ClockService {
     static final long DOUBLE_TAP_SECONDS = 20;
 
     /** Send either pin (online), or employeeId + check (a punch kept on the tablet while offline). */
-    public record PunchReq(String pin, UUID clientId, Instant deviceTime, Long employeeId, String check, String photo, FaceMatch.Face face, boolean byFace) {}
+    public record PunchReq(String pin, UUID clientId, Instant deviceTime, Long employeeId, String check, String photo, FaceMatch.Face face, Boolean byFace) {}
     public record PunchRes(long employeeId, String name, String kind, Instant at, boolean offline, String flag, boolean photo, String faceStatus) {}
     public record RosterEntry(long id, String name, String position, String salt, String check, boolean in, boolean face) {}
     public record Roster(List<RosterEntry> employees, Instant serverTime, int photoDays) {}
@@ -72,7 +72,7 @@ public class ClockService {
         }
 
         Emp who;
-        if (r.byFace() && r.employeeId() != null) {
+        if (Boolean.TRUE.equals(r.byFace()) && r.employeeId() != null) {
             // Tapped a name and looked at the camera: the face stands in for the PIN, and must be a close match to the saved one.
             checkLockout(branchId);
             List<Emp> found = jdbc.query("SELECT id, full_name FROM employees WHERE id = ? AND branch_id = ? AND status = 'ACTIVE'",
