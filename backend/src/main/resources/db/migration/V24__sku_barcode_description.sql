@@ -1,8 +1,7 @@
 -- SKU, barcode and a short description on menu products and inventory items. All optional.
+-- products already has sku (unique) and description from V3, so only barcode is new there.
 -- A SKU or barcode must identify one product (or item), so each is unique where it is filled in (case does not matter).
-ALTER TABLE products ADD COLUMN sku         VARCHAR(40);
 ALTER TABLE products ADD COLUMN barcode     VARCHAR(40);
-ALTER TABLE products ADD COLUMN description VARCHAR(500);
 ALTER TABLE items    ADD COLUMN sku         VARCHAR(40);
 ALTER TABLE items    ADD COLUMN barcode     VARCHAR(40);
 ALTER TABLE items    ADD COLUMN description VARCHAR(500);
