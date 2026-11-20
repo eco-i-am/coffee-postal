@@ -8,10 +8,13 @@ import OptionsModal from "./OptionsModal.jsx";
 import Modal from "../../shared/Modal.jsx";
 import ImageField, { Thumb } from "../../shared/ImageField.jsx";
 import { useImages } from "../../shared/images.js";
+import ImportModal from "../../shared/ImportModal.jsx";
+import HistoryModal from "../../shared/HistoryModal.jsx";
+import LabelModal from "../../shared/LabelModal.jsx";
 
 const loadProducts = () => api("/api/admin/products");
 const loadAddons = () => api("/api/admin/addons").catch(() => []);
-const EMPTY = { name: "", categoryId: "", price: "", cost: "", art: "hot", hasSizes: false, published: true };
+const EMPTY = { name: "", categoryId: "", price: "", cost: "", art: "hot", hasSizes: false, published: true, sku: "", barcode: "", description: "" };
 const pesoText = (c) => (c / 100).toFixed(2);
 
 export default function ProductsPage() {
@@ -33,6 +36,9 @@ export default function ProductsPage() {
   const [setupTab, setSetupTab] = useState(null);   // null = closed, else "headers" | "categories" | "addons"
   const imgs = useImages();
   const [search, setSearch] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [historyFor, setHistoryFor] = useState(null);
+  const [labelFor, setLabelFor] = useState(null);
   const [catFilter, setCatFilter] = useState("");
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
@@ -65,7 +71,18 @@ export default function ProductsPage() {
     setMsg("");
     setFormOpen(true);
     setForm({ name: p.name, categoryId: String(p.categoryId), price: pesoText(p.price), cost: pesoText(p.cost),
-      art: p.art, hasSizes: p.hasSizes, published: p.published });
+      art: p.art, hasSizes: p.hasSizes, published: p.published, sku: p.sku || "", barcode: p.barcode || "", description: p.description || "" });
+  }
+
+  async function duplicate(p) {
+    setMsg("");
+    try {
+      const r = await api(`/api/admin/products/${p.id}/duplicate`, { method: "POST" });
+      setMsg(`${r.name} created as a draft. Edit it, then publish it.`);
+      reload();
+    } catch (err) {
+      setMsg(err.message);
+    }
   }
 
   async function addHeader(e) {
@@ -157,7 +174,7 @@ export default function ProductsPage() {
 
   const q = search.trim().toLowerCase();
   const shown = products.filter((p) =>
-    (!catFilter || String(p.categoryId) === catFilter) && (!q || p.name.toLowerCase().includes(q)));
+    (!catFilter || String(p.categoryId) === catFilter) && (!q || [p.name, p.sku, p.barcode].some((v) => v && v.toLowerCase().includes(q))));
   const closeForm = () => { setFormOpen(false); setEditId(null); setForm(EMPTY); setFields({}); };
   const canSetup = can("product_headers_view") || can("product_categories_edit") || can("product_addons_view");
 
@@ -169,11 +186,12 @@ export default function ProductsPage() {
           <p>What every branch sells. Switch a product off and it leaves the POS.</p>
         </div>
         <div className="toolbar">
-          <input className="searchbox" type="search" aria-label="Search products" placeholder="Search products" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="searchbox" type="search" aria-label="Search products" placeholder="Search name, SKU or barcode" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select aria-label="Show category" value={catFilter} onChange={(e) => setCatFilter(e.target.value)}>
             <option value="">All categories</option>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+          {can("products_add") && <button className="btn ghost sm" type="button" onClick={() => setImporting(true)}>Import</button>}
           {canSetup && <button className="btn ghost sm" type="button" onClick={() => setSetupTab(can("product_headers_view") ? "headers" : can("product_categories_edit") ? "categories" : "addons")}>Menu setup</button>}
           <button className="btn warm sm" type="button" onClick={() => { setEditId(null); setForm(EMPTY); setFields({}); setMsg(""); setFormOpen(true); }}>+ Add product</button>
         </div>
@@ -189,13 +207,14 @@ export default function ProductsPage() {
           <div className="tw">
             <table className="dense">
               <thead>
-                <tr><th></th><th>Product</th><th>Category</th><th className="n">Price</th><th>Status</th><th></th></tr>
+                <tr><th></th><th>Product</th><th>SKU</th><th>Category</th><th className="n">Price</th><th>Status</th><th></th></tr>
               </thead>
               <tbody>
                 {shown.map((p) => (
                   <tr key={p.id}>
                     <td className="thc"><Thumb url={imgs.url("product", p.id)} alt="" /></td>
                     <td><b>{p.name}</b></td>
+                    <td>{p.sku || ""}</td>
                     <td>{p.category}</td>
                     <td className="n">{peso(p.price)}</td>
                     <td><span className={`tag ${p.active && p.published ? "g" : "r"}`}>{!p.published ? "Draft" : p.active ? "On menu" : "Off menu"}</span></td>
@@ -203,12 +222,15 @@ export default function ProductsPage() {
                       {can("products_edit") && <button className="btn ghost sm" type="button" onClick={() => startEdit(p)}>Edit</button>}
                       {can("products_edit") && <button className="btn ghost sm" type="button" onClick={() => setOptionsFor(p)}>Branches</button>}
                       {can("products_edit") && <button className="btn ghost sm" type="button" onClick={() => setRecipeFor(p)}>Recipe</button>}
+                      {can("products_add") && <button className="btn ghost sm" type="button" onClick={() => duplicate(p)}>Duplicate</button>}
+                      <button className="btn ghost sm" type="button" onClick={() => setHistoryFor(p)}>History</button>
+                      {(p.sku || p.barcode) && <button className="btn ghost sm" type="button" onClick={() => setLabelFor(p)}>Label</button>}
                       <button className="btn ghost sm" type="button" onClick={() => toggle(p)}>{p.active ? "Switch off" : "Switch on"}</button>
                     </td>
                   </tr>
                 ))}
                 {data && shown.length === 0 && (
-                  <tr><td colSpan="6" className="emptyrow">{products.length === 0 ? "No products yet. Add the first one." : "No products match."}</td></tr>
+                  <tr><td colSpan="7" className="emptyrow">{products.length === 0 ? "No products yet. Add the first one." : "No products match."}</td></tr>
                 )}
               </tbody>
             </table>
@@ -250,6 +272,22 @@ export default function ProductsPage() {
               {fields.cost && <p className="err" role="alert">{fields.cost}</p>}
             </div>
           </div>
+          <div className="grid2">
+            <div className="addr">
+              <label htmlFor="psku">SKU (optional)</label>
+              <input id="psku" value={form.sku} onChange={set("sku")} maxLength={40} placeholder="HZL-01" />
+              {fields.sku && <p className="err" role="alert">{fields.sku}</p>}
+            </div>
+            <div className="addr">
+              <label htmlFor="pbar">Barcode (optional)</label>
+              <input id="pbar" value={form.barcode} onChange={set("barcode")} maxLength={40} placeholder="Scan or type" />
+              {fields.barcode && <p className="err" role="alert">{fields.barcode}</p>}
+            </div>
+          </div>
+          <div className="addr">
+            <label htmlFor="pdesc">Description (optional)</label>
+            <textarea id="pdesc" className="line" rows={2} maxLength={500} value={form.description} onChange={set("description")} />
+          </div>
           <label className="check">
             <input type="checkbox" checked={form.hasSizes} onChange={set("hasSizes")} /> Offers Regular and Large (+&#8369;20)
           </label>
@@ -265,6 +303,10 @@ export default function ProductsPage() {
           </div>
         </Modal>
       )}
+
+      {importing && <ImportModal kind="products" onClose={() => setImporting(false)} onDone={(r) => { setMsg(`${r.added} products imported. Open one to set sizes and a picture.`); reload(); }} />}
+      {historyFor && <HistoryModal kind="product" id={historyFor.id} name={historyFor.name} onClose={() => setHistoryFor(null)} />}
+      {labelFor && <LabelModal name={labelFor.name} sku={labelFor.sku} barcode={labelFor.barcode} onClose={() => setLabelFor(null)} />}
 
       {setupTab && (
         <Modal title="Menu setup" wide onClose={() => setSetupTab(null)}>

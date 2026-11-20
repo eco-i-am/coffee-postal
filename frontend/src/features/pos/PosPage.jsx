@@ -12,11 +12,13 @@ import { addToCart, cartGross, changeQty, newOrderId } from "./cart.js";
 import ItemModal from "./ItemModal.jsx";
 import PayModal from "./PayModal.jsx";
 import Receipt from "./Receipt.jsx";
+import Modal from "../../shared/Modal.jsx";
+import ClockPage from "../clock/ClockPage.jsx";
 
 export const TYPES = [["DINE_IN", "Dine-in"], ["TAKEOUT", "Takeout"], ["DELIVERY", "Delivery"]];
 
 export default function PosPage() {
-  const { me } = useAuth();
+  const { me, can } = useAuth();
   const [menuSavedAt, setMenuSavedAt] = useState(null);
   // the menu is saved on every successful load, and used when there is no internet
   const loadMenu = useCallback(async () => {
@@ -43,6 +45,7 @@ export default function PosPage() {
   const [idNo, setIdNo] = useState("");
   const [who, setWho] = useState("");   // optional name or label for the order ("Ana", "Table 4")
   const [orderId, setOrderId] = useState(null);
+  const [clocking, setClocking] = useState(false);   // the time clock over the POS, for staff sharing this device
   const [modal, setModal] = useState(null); // { kind: "item", item } | { kind: "pay" } | { kind: "receipt", data }
 
   const rule = (menu?.discounts || []).find((d) => d.code === disc) || null;
@@ -83,6 +86,7 @@ export default function PosPage() {
           <h1>Point of Sale</h1>
           <p>Tap an item to start an order.{vatRegistered ? " Prices include 12% VAT." : ""}</p>
         </div>
+        {can("time_clock_add") && <button type="button" className="btn ghost sm clockbtn" onClick={() => setClocking(true)}>Time In / Out</button>}
         <div className="tabs" role="group" aria-label="Categories">
           {["All", ...(menu?.categories || [])].map((c) => (
             <button key={c} className="chip" aria-pressed={c === cat} onClick={() => setCat(c)}>{c}</button>
@@ -156,6 +160,13 @@ export default function PosPage() {
           </div>
         </div>
       </div>
+
+      {clocking && (
+        <Modal title="Time In / Out" wide onClose={() => setClocking(false)}>
+          <ClockPage embedded onDone={() => setClocking(false)} />
+          <div className="opts"><button type="button" className="btn ghost" onClick={() => setClocking(false)}>Back to the POS</button></div>
+        </Modal>
+      )}
 
       {modal && (
         <div className="scrim" onClick={(e) => e.target === e.currentTarget && setModal(null)}>

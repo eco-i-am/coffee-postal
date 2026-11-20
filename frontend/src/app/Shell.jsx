@@ -28,7 +28,7 @@ function navFor(me, can) {
     ].filter(Boolean);
   }
   return [
-    { to: "/branch", label: "Dashboard", end: true },
+    can("dashboard_view") && { to: "/branch", label: "Dashboard", end: true },
     can("pos_view") && { to: "/pos", label: "Point of Sale" },
     can("orders_view") && { to: "/branch/orders", label: "Order List" },
     can("branch_inventory_view") && { to: "/branch/inventory", label: "Item Inventory" },
@@ -48,6 +48,12 @@ function navFor(me, can) {
 export default function Shell() {
   const { me, can, signOut } = useAuth();
   const [changing, setChanging] = useState(false);
+  // a counter account (cashier) gets the menu as a slim bar across the top, so the till has the whole screen; anyone can switch
+  const counter = me.scope !== "ADMIN" && can("pos_view") && !can("branch_reports_view");
+  const menuKey = `cp.menu.v1:${me.username}`;
+  const [menuAt, setMenuAt] = useState(() => { try { return localStorage.getItem(menuKey); } catch { return null; } });
+  const top = (menuAt || (counter ? "top" : "side")) === "top";
+  const moveMenu = () => { const next = top ? "side" : "top"; setMenuAt(next); try { localStorage.setItem(menuKey, next); } catch { /* ignore */ } };
   const where = useLocation();
   const kiosk = inKiosk(me, can);
   const [touring, setTouring] = useState(() => !kiosk && !tourSeen(me));
@@ -64,7 +70,7 @@ export default function Shell() {
   if (kiosk) return <main className="kiosk"><Outlet /></main>;
 
   return (
-    <div className="app">
+    <div className={`app${top ? " top" : ""}`}>
       <aside className="side">
         <div className="brand">
           <svg width="42" height="46" viewBox="0 0 40 44" aria-hidden="true">
@@ -99,6 +105,7 @@ export default function Shell() {
             <small>{me.role}{me.branchName ? ` · ${me.branchName}` : ""}</small>
           </div>
           <div className="sidelinks">
+            <button className="out" type="button" onClick={moveMenu}>{top ? "Menu on the side" : "Menu on top"}</button>
             <button className="out" type="button" onClick={() => setTouring(true)}>Quick tour</button>
             <button className="out" type="button" onClick={() => setChanging(true)}>Change password</button>
             <button className="out" type="button" onClick={signOut}>Sign out</button>

@@ -33,9 +33,11 @@ class ProductAdminApi {
     record ProductsPage(List<CatalogService.ProductRow> products, List<CatalogService.Category> categories, List<String> arts,
                         List<CatalogService.CategoryRow> allCategories, List<CatalogService.Header> headers) {}
     record ProductReq(@NotBlank @Size(max = 120) String name, @NotNull Long categoryId, @NotBlank String price,
-                      String cost, boolean hasSizes, @NotBlank String art) {}
+                      String cost, boolean hasSizes, @NotBlank String art,
+                      @Size(max = 40) String sku, @Size(max = 40) String barcode, @Size(max = 500) String description) {}
     record ProductEditReq(@NotBlank @Size(max = 120) String name, @NotNull Long categoryId, @NotBlank String price,
-                          String cost, boolean hasSizes, @NotBlank String art, boolean published) {}
+                          String cost, boolean hasSizes, @NotBlank String art, boolean published,
+                          @Size(max = 40) String sku, @Size(max = 40) String barcode, @Size(max = 500) String description) {}
     record CategoryReq(@NotBlank @Size(max = 80) String name) {}
     record CategoryEditReq(@NotBlank @Size(max = 80) String name, Long headerId, int sortOrder, boolean active) {}
     record HeaderReq(@NotBlank @Size(max = 80) String name) {}
@@ -62,7 +64,9 @@ class ProductAdminApi {
         long cost = r.cost() == null || r.cost().isBlank() ? 0 : PesoInput.parse(r.cost(), true, "cost", "Enter a cost like 40 or 40.50.");
         if (!ARTS.contains(r.art())) throw new ApiException(HttpStatus.BAD_REQUEST, "Pick a picture from the list.", Map.of("art", "Pick one."));
         if (catalog.productNameExists(name)) throw new ApiException(HttpStatus.CONFLICT, "A product with that name already exists.", Map.of("name", "Already used."));
+        checkCodes(r.sku(), r.barcode(), -1);
         long id = catalog.createProduct(r.categoryId(), name, price, cost, r.hasSizes(), r.art(), colorFor(r.art()));
+        catalog.setProductExtras(id, r.sku(), r.barcode(), r.description());
         audit.record(who.getName(), null, "PRODUCT_CREATE", "product", String.valueOf(id), null,
             "{\"name\":\"" + name.replace("\"", "'") + "\",\"price\":" + price + "}", null);
         return Map.of("id", id);
@@ -79,13 +83,37 @@ class ProductAdminApi {
         long cost = r.cost() == null || r.cost().isBlank() ? 0 : PesoInput.parse(r.cost(), true, "cost", "Enter a cost like 40 or 40.50.");
         if (!ARTS.contains(r.art())) throw new ApiException(HttpStatus.BAD_REQUEST, "Pick a picture from the list.", Map.of("art", "Pick one."));
         if (catalog.productNameTaken(name, id)) throw new ApiException(HttpStatus.CONFLICT, "A product with that name already exists.", Map.of("name", "Already used."));
+        checkCodes(r.sku(), r.barcode(), id);
         catalog.updateProduct(id, r.categoryId(), name, price, cost, r.hasSizes(), r.art(), colorFor(r.art()), r.published());
+        catalog.setProductExtras(id, r.sku(), r.barcode(), r.description());
         boolean priceChanged = before.price() != price || before.cost() != cost;
         audit.record(who.getName(), null, priceChanged ? "PRODUCT_PRICE_CHANGE" : "PRODUCT_UPDATE", "product", String.valueOf(id),
             "{\"price\":" + before.price() + ",\"cost\":" + before.cost() + ",\"published\":" + before.published() + "}",
             "{\"price\":" + price + ",\"cost\":" + cost + ",\"published\":" + r.published() + "}", null);
         return Map.of("id", id);
     }
+
+    /** A SKU or barcode already on another product is refused, so a scan or a search finds one product. */
+    private void checkCodes(String sku, String barcode, long exceptId) {
+        if (catalog.productSkuTaken(sku, exceptId)) throw new ApiException(HttpStatus.CONFLICT, "That SKU is already on another product.", Map.of("sku", "Already used."));
+        if (catalog.productBarcodeTaken(barcode, exceptId)) throw new ApiException(HttpStatus.CONFLICT, "That barcode is already on another product.", Map.of("barcode", "Already used."));
+    }
+
+    /** A draft copy of a product, to start a new one from. */
+    @PostMapping("/products/{id}/duplicate")
+    @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasAuthority('PERM_products_add')")
+    Map<String, Object> duplicate(@PathVariable long id, Principal who) {
+        Map<String, Object> copy = catalog.duplicateProduct(id);
+        if (copy == null) throw new ApiException(HttpStatus.NOT_FOUND, "That product no longer exists.");
+        audit.record(who.getName(), null, "PRODUCT_DUPLICATE", "product", String.valueOf(copy.get("id")), null,
+            "{\"from\":" + id + "}", null);
+        return copy;
+    }
+
+    @GetMapping("/products/{id}/history")
+    @PreAuthorize("hasAuthority('PERM_products_view')")
+    List<CatalogService.PriceChange> history(@PathVariable long id) { return catalog.priceHistory(id); }
 
     @PostMapping("/products/{id}/toggle")
     @PreAuthorize("hasAuthority('PERM_products_edit')")

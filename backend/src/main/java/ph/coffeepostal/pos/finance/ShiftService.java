@@ -21,7 +21,7 @@ public class ShiftService {
                           long cashIn, long cashOut, long expected, List<Movement> movements) {}
     public record Closed(long id, int zNo, Instant openedAt, Instant closedAt, long expected, long counted, long variance) {}
     public record HistoryRow(long id, String cashier, Instant openedAt, Instant closedAt, long openingCash,
-                             Long expected, Long counted, Long variance, Integer zNo) {}
+                             Long expected, Long counted, Long variance, Integer zNo, boolean photo) {}
 
     private final JdbcTemplate jdbc;
 
@@ -51,6 +51,18 @@ public class ShiftService {
             """, (rs, i) -> new Movement(rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getString(4), rs.getTimestamp(5).toInstant(), rs.getString(6)), shiftId);
         return new Summary(shiftId, ((java.sql.Timestamp) s.get("opened_at")).toInstant(), opening, ((Number) o.get("n")).intValue(),
             ((Number) o.get("sales")).longValue(), cashSales, in, out, opening + cashSales + in - out, moves);
+    }
+
+    /** Keeps the picture taken when the shift was opened. */
+    public void savePhoto(long shiftId, byte[] jpeg) {
+        jdbc.update("INSERT INTO shift_photos(shift_id, jpeg) VALUES (?, ?) ON CONFLICT (shift_id) DO NOTHING", shiftId, jpeg);
+    }
+
+    /** The opening picture, only if the shift belongs to the branch. Null if there is none. */
+    public byte[] photo(long shiftId, long branchId) {
+        List<byte[]> r = jdbc.query("SELECT p.jpeg FROM shift_photos p JOIN shifts s ON s.id = p.shift_id WHERE p.shift_id = ? AND s.branch_id = ?",
+            (rs, i) -> rs.getBytes(1), shiftId, branchId);
+        return r.isEmpty() ? null : r.get(0);
     }
 
     public Summary open(long branchId, long userId, long openingCash) {
@@ -98,7 +110,8 @@ public class ShiftService {
 
     public List<HistoryRow> history(long branchId) {
         return jdbc.query("""
-            SELECT s.id, u.full_name, s.opened_at, s.closed_at, s.opening_cash, s.expected_cash, s.counted_cash, s.z_no
+            SELECT s.id, u.full_name, s.opened_at, s.closed_at, s.opening_cash, s.expected_cash, s.counted_cash, s.z_no,
+                   EXISTS (SELECT 1 FROM shift_photos p WHERE p.shift_id = s.id)
             FROM shifts s JOIN users u ON u.id = s.cashier_id WHERE s.branch_id = ?
             ORDER BY s.opened_at DESC LIMIT 40
             """, (rs, i) -> {
@@ -107,7 +120,7 @@ public class ShiftService {
                 long cnt = rs.getLong(7); boolean hasCnt = !rs.wasNull();
                 return new HistoryRow(rs.getLong(1), rs.getString(2), rs.getTimestamp(3).toInstant(),
                     closed == null ? null : closed.toInstant(), rs.getLong(5),
-                    hasExp ? exp : null, hasCnt ? cnt : null, hasExp && hasCnt ? cnt - exp : null, (Integer) rs.getObject(8));
+                    hasExp ? exp : null, hasCnt ? cnt : null, hasExp && hasCnt ? cnt - exp : null, (Integer) rs.getObject(8), rs.getBoolean(9));
             }, branchId);
     }
 }

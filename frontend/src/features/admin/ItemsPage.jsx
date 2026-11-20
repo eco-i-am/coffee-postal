@@ -5,11 +5,14 @@ import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { peso } from "../../shared/money.js";
 import { useAuth } from "../../app/AuthContext.jsx";
+import ImportModal from "../../shared/ImportModal.jsx";
+import HistoryModal from "../../shared/HistoryModal.jsx";
+import LabelModal from "../../shared/LabelModal.jsx";
 
 const loadItems = () => api("/api/admin/items");
 const loadCats = () => api("/api/admin/item-categories");
 const loadUnits = () => api("/api/admin/units");
-const EMPTY = { name: "", unit: "", cost: "", reorderLevel: "0", categoryId: "" };
+const EMPTY = { name: "", unit: "", cost: "", reorderLevel: "0", categoryId: "", sku: "", barcode: "", description: "" };
 const catId = (v) => (v === "" || v == null ? null : Number(v));
 
 export default function ItemsPage() {
@@ -24,6 +27,9 @@ export default function ItemsPage() {
   const [fields, setFields] = useState({});
   const [msg, setMsg] = useState("");
   const [search, setSearch] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [historyFor, setHistoryFor] = useState(null);
+  const [labelFor, setLabelFor] = useState(null);
   const [showAdd, setShowAdd] = useState(false);
   const [showCats, setShowCats] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -50,7 +56,7 @@ export default function ItemsPage() {
     e.preventDefault();
     setMsg("");
     try {
-      await api(`/api/admin/items/${edit.id}`, { method: "POST", body: { unit: edit.unit, cost: edit.cost, reorderLevel: Number(edit.reorderLevel) || 0, categoryId: catId(edit.categoryId) } });
+      await api(`/api/admin/items/${edit.id}`, { method: "POST", body: { unit: edit.unit, cost: edit.cost, reorderLevel: Number(edit.reorderLevel) || 0, categoryId: catId(edit.categoryId), sku: edit.sku, barcode: edit.barcode, description: edit.description } });
       await api(`/api/admin/items/${edit.id}/conversions`, { method: "PUT", body: convs.filter((c) => c.unit.trim() && String(c.factor).trim()) });
       setMsg(`${edit.name} updated.`);
       setEdit(null);
@@ -66,8 +72,17 @@ export default function ItemsPage() {
   }
 
   async function openEdit(i) {
-    setEdit({ ...i, cost: (i.cost / 100).toFixed(2), reorderLevel: String(i.reorderLevel), categoryId: i.categoryId ?? "" });
+    setEdit({ ...i, cost: (i.cost / 100).toFixed(2), reorderLevel: String(i.reorderLevel), categoryId: i.categoryId ?? "", sku: i.sku || "", barcode: i.barcode || "", description: i.description || "" });
     try { setConvs(await api(`/api/admin/items/${i.id}/conversions`)); } catch { setConvs([]); }
+  }
+
+  async function duplicate(i) {
+    setMsg("");
+    try {
+      const r = await api(`/api/admin/items/${i.id}/duplicate`, { method: "POST" });
+      setMsg(`${r.name} created. Rename it and set its cost.`);
+      reload();
+    } catch (e) { setMsg(e.message); }
   }
 
   async function setOrderable(i) {
@@ -85,7 +100,7 @@ export default function ItemsPage() {
   const q = search.trim().toLowerCase();
   const shown = (items || []).filter((i) =>
     (!filter || (filter === "none" ? i.categoryId == null : String(i.categoryId) === filter)) &&
-    (!q || i.name.toLowerCase().includes(q)));
+    (!q || [i.name, i.sku, i.barcode].some((v) => v && v.toLowerCase().includes(q))));
 
   return (
     <section className="fitpage">
@@ -94,12 +109,13 @@ export default function ItemsPage() {
         <p>What a branch pays per unit, and which items branches can order from HQ.</p>
       </div>
         <div className="toolbar">
-          <input className="searchbox" type="search" aria-label="Search items" placeholder="Search items" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className="searchbox" type="search" aria-label="Search items" placeholder="Search name, SKU or barcode" value={search} onChange={(e) => setSearch(e.target.value)} />
           <select aria-label="Show category" value={filter} onChange={(e) => setFilter(e.target.value)}>
             <option value="">All categories</option>
             <option value="none">No category</option>
             {(cats.data || []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+          {can("items_master_add") && <button className="btn ghost sm" type="button" onClick={() => setImporting(true)}>Import</button>}
           <button className="btn ghost sm" type="button" onClick={() => setShowCats(true)}>Categories</button>
           <button className="btn warm sm" type="button" onClick={() => { setMsg(""); setFields({}); setShowAdd(true); }}>+ Add item</button>
         </div>
@@ -112,23 +128,26 @@ export default function ItemsPage() {
         {loading && !items ? <p role="status">Loading...</p> : (
           <div className="tw">
             <table className="dense">
-              <thead><tr><th></th><th>Item</th><th>Category</th><th>Unit</th><th className="n">Cost</th><th className="n">Low at</th><th>Orderable</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th></th><th>Item</th><th>SKU</th><th>Category</th><th>Unit</th><th className="n">Cost</th><th className="n">Low at</th><th>Orderable</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {shown.map((i) => (
                   <tr key={i.id}>
                     <td className="thc"><Thumb url={imgs.url("item", i.id)} alt="" /></td>
-                    <td><b>{i.name}</b></td><td>{i.category || ""}</td><td>{i.unit}</td><td className="n">{peso(i.cost)}</td><td className="n">{i.reorderLevel}</td>
+                    <td><b>{i.name}</b></td><td>{i.sku || ""}</td><td>{i.category || ""}</td><td>{i.unit}</td><td className="n">{peso(i.cost)}</td><td className="n">{i.reorderLevel}</td>
                     <td>{can("po_items_edit")
                       ? <button className="btn ghost sm" type="button" aria-pressed={i.orderable} onClick={() => setOrderable(i)}>{i.orderable ? "Yes" : "No"}</button>
                       : (i.orderable ? "Yes" : "No")}</td>
                     <td><span className={`tag ${i.active ? "g" : "r"}`}>{i.active ? "Active" : "Hidden"}</span></td>
                     <td className="rowbtns">
                       <button className="btn ghost sm" type="button" onClick={() => openEdit(i)}>Edit</button>
+                      {can("items_master_add") && <button className="btn ghost sm" type="button" onClick={() => duplicate(i)}>Duplicate</button>}
+                      <button className="btn ghost sm" type="button" onClick={() => setHistoryFor(i)}>History</button>
+                      {(i.sku || i.barcode) && <button className="btn ghost sm" type="button" onClick={() => setLabelFor(i)}>Label</button>}
                       <button className="btn ghost sm" type="button" onClick={() => toggle(i)}>{i.active ? "Hide" : "Show"}</button>
                     </td>
                   </tr>
                 ))}
-                {items && shown.length === 0 && <tr><td colSpan="9" className="emptyrow">{items.length === 0 ? "No items yet. Add the first one." : "No items match."}</td></tr>}
+                {items && shown.length === 0 && <tr><td colSpan="10" className="emptyrow">{items.length === 0 ? "No items yet. Add the first one." : "No items match."}</td></tr>}
               </tbody>
             </table>
           </div>
@@ -166,6 +185,11 @@ export default function ItemsPage() {
                 <input id="ireorder" value={form.reorderLevel} onChange={set("reorderLevel")} inputMode="numeric" />
               </div>
             </div>
+            <div className="grid2">
+              <div className="addr"><label htmlFor="isku">SKU (optional)</label><input id="isku" value={form.sku} onChange={set("sku")} maxLength={40} />{fields.sku && <p className="err" role="alert">{fields.sku}</p>}</div>
+              <div className="addr"><label htmlFor="ibar">Barcode (optional)</label><input id="ibar" value={form.barcode} onChange={set("barcode")} maxLength={40} />{fields.barcode && <p className="err" role="alert">{fields.barcode}</p>}</div>
+            </div>
+            <div className="addr"><label htmlFor="idesc">Description (optional)</label><textarea id="idesc" className="line" rows={2} maxLength={500} value={form.description} onChange={set("description")} /></div>
             {msg && <p className="err" role="alert">{msg}</p>}
             <div className="opts">
               <button type="button" className="btn ghost" onClick={() => setShowAdd(false)}>Cancel</button>
@@ -203,6 +227,22 @@ export default function ItemsPage() {
             <div className="addr"><label htmlFor="eunit">Unit</label><input id="eunit" list="unitlist" value={edit.unit} onChange={(e) => setEdit({ ...edit, unit: e.target.value })} required /></div>
             <div className="addr"><label htmlFor="ecost">Cost per unit (&#8369;)</label><input id="ecost" value={edit.cost} inputMode="decimal" onChange={(e) => setEdit({ ...edit, cost: e.target.value })} required /></div>
             <div className="addr"><label htmlFor="ere">Warn when stock is at or below</label><input id="ere" value={edit.reorderLevel} inputMode="numeric" onChange={(e) => setEdit({ ...edit, reorderLevel: e.target.value })} /></div>
+          <div className="grid2">
+            <div className="addr">
+              <label htmlFor="esku">SKU (optional)</label>
+              <input id="esku" value={edit.sku} onChange={(ev) => setEdit({ ...edit, sku: ev.target.value })} maxLength={40} placeholder="HZL-01" />
+              {fields.sku && <p className="err" role="alert">{fields.sku}</p>}
+            </div>
+            <div className="addr">
+              <label htmlFor="ebar">Barcode (optional)</label>
+              <input id="ebar" value={edit.barcode} onChange={(ev) => setEdit({ ...edit, barcode: ev.target.value })} maxLength={40} placeholder="Scan or type" />
+              {fields.barcode && <p className="err" role="alert">{fields.barcode}</p>}
+            </div>
+          </div>
+          <div className="addr">
+            <label htmlFor="edesc">Description (optional)</label>
+            <textarea id="edesc" className="line" rows={2} maxLength={500} value={edit.description} onChange={(ev) => setEdit({ ...edit, description: ev.target.value })} />
+          </div>
             <fieldset className="conv"><legend>Other units (optional)</legend>
               <p className="hint">Say how many {edit.unit || "units"} one of another unit holds, like 1 box = 12. Then orders and transfers can be typed in boxes.</p>
               {convs.map((c, n) => (
@@ -224,6 +264,9 @@ export default function ItemsPage() {
           </form>
         </div>
       )}
+    {importing && <ImportModal kind="items" onClose={() => setImporting(false)} onDone={(r) => { setMsg(`${r.added} items imported.`); reload(); }} />}
+    {historyFor && <HistoryModal kind="item" id={historyFor.id} name={historyFor.name} unit={historyFor.unit} onClose={() => setHistoryFor(null)} />}
+    {labelFor && <LabelModal name={labelFor.name} sku={labelFor.sku} barcode={labelFor.barcode} onClose={() => setLabelFor(null)} />}
     <datalist id="unitlist">{units.map((u) => <option key={u} value={u} />)}</datalist>
     </section>
   );

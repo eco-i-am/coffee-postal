@@ -16,9 +16,9 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"]
  * The branch tablet's time clock. Staff type a 6-digit PIN; the server decides time in or time out.
  * With no internet the tablet recognises the PIN from its saved staff list and keeps the punch to send later.
  */
-export default function ClockPage() {
+export default function ClockPage({ embedded = false, onDone }) {   // embedded: shown over the POS; closes itself after a punch
   const { me, can, signOut } = useAuth();
-  const kiosk = inKiosk(me, can);
+  const kiosk = !embedded && inKiosk(me, can);
   const dedicated = clockOnlyAccount(me, can);   // a Time Clock account: always clock-only
   const [exiting, setExiting] = useState(false);
   const [mgrPin, setMgrPin] = useState("");
@@ -36,6 +36,8 @@ export default function ClockPage() {
   const timer = useRef(null);
   const videoRef = useRef(null);
   const [camera, setCamera] = useState("starting");   // starting | on | off
+  const [chosen, setChosen] = useState(null);   // "names" | "pin" once a person picks; until then the screen decides
+  const [picked, setPicked] = useState(null);   // the person whose face is being read
 
   // returns false if this browser would not keep it
   const commit = useCallback((q) => { queueRef.current = q; setQueue(q); return savePunches(q); }, []);
@@ -98,7 +100,7 @@ export default function ClockPage() {
   function show(r) {
     setResult(r);
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => setResult(null), SHOW_MS);
+    timer.current = setTimeout(() => { setResult(null); if (embedded && !r.error) onDone?.(); }, SHOW_MS);
   }
 
   async function submit(code) {
@@ -144,8 +146,43 @@ export default function ClockPage() {
     show({ name: emp.name, kind, at: deviceTime.toISOString(), offline: true, photo: !!kept });
   }
 
-  const press = (k) => {
+  // Tap a name, look at the camera: the face stands in for the PIN. No saved face, no camera or no internet means the PIN.
+  async function tapName(emp) {
     if (busy || result) return;
+    if (!emp.face || !online || camera !== "on") {
+      setChosen("pin");
+      show({ error: `${emp.name}: type your PIN.` });
+      return;
+    }
+    setBusy(true);
+    setPicked(emp);
+    try {
+      let seen = { state: "off" };
+      for (let n = 0; n < 6; n++) {   // a few quick tries while the person settles in front of the camera
+        seen = await readFace(videoRef.current);
+        if (seen.state === "ok" || seen.state === "off") break;
+        await new Promise((r) => setTimeout(r, 600));
+      }
+      if (seen.state !== "ok") {
+        show({ error: seen.state === "multi" ? "More than one face. Only the person clocking should be in front." : "We could not see your face. Look at the camera, or use your PIN." });
+        if (seen.state === "off") setChosen("pin");
+        return;
+      }
+      const clientId = crypto.randomUUID();
+      const photo = captureJpeg(videoRef.current);
+      try {
+        const res = await api("/api/clock/punch", { method: "POST", timeoutMs: 12000, body: { employeeId: emp.id, byFace: true, clientId, deviceTime: new Date().toISOString(), photo, face: seen } });
+        show({ name: res.name, kind: res.kind, at: res.at, offline: false, flag: res.flag, photo: res.photo, faceStatus: res.faceStatus });
+        refreshRoster();
+      } catch (e) {
+        if (e.status) show({ error: e.message });
+        else { setOnline(false); setChosen("pin"); show({ error: "No internet. Type your PIN: it is saved on this tablet and sent later." }); }
+      }
+    } finally { setPicked(null); setBusy(false); }
+  }
+
+  const press = (k) => {
+    if (busy || result || mode === "names") return;
     if (k === "clear") setPin("");
     else if (k === "back") setPin((p) => p.slice(0, -1));
     else if (pin.length < 6) {
@@ -194,20 +231,30 @@ export default function ClockPage() {
     return () => { alive = false; release(); };
   }, [kiosk]);
 
+  // over the POS, a clock nobody is using goes away by itself so the till is never left behind it
+  useEffect(() => {
+    if (!embedded || busy || result) return undefined;
+    const t = setTimeout(() => onDone?.(), 60000);
+    return () => clearTimeout(t);
+  }, [embedded, busy, result, pin, picked, chosen, onDone]);
+
   const pending = queue.filter((p) => p.status === "pending").length;
   const rejected = queue.filter((p) => p.status === "rejected");
   const inNow = whoIsIn(roster, queue);
+  const anyFace = !!roster?.employees?.some((e) => e.face);
+  const mode = camera === "off" ? "pin" : (chosen || (anyFace ? "names" : "pin"));
+  const isIn = new Set(inNow.map((e) => e.id));
 
   return (
-    <section className={`clockpage fitpage${kiosk ? " kioskpage" : ""}`}>
-      <header className="pghead">
-        <div><h1>{kiosk ? "Coffee Postal: Time In / Out" : "Time In / Out"}</h1><p>Type your 6-digit PIN. The screen is ready for the next person after each punch.</p></div>
+    <section className={embedded ? "clockpage embedded" : `clockpage fitpage${kiosk ? " kioskpage" : ""}`}>
+      {!embedded && <header className="pghead">
+        <div><h1>{kiosk ? "Coffee Postal: Time In / Out" : "Time In / Out"}</h1><p>{mode === "names" ? "Tap your name, then look at the camera." : "Type your 6-digit PIN."} The screen is ready for the next person after each punch.</p></div>
         <div className="toolbar">
           {kiosk
             ? <button type="button" className="btn ghost sm" onClick={() => { setExitErr(""); setMgrPin(""); setExiting(true); }}>{dedicated ? "Manager: sign out" : "Manager: exit clock mode"}</button>
             : can("branch_employees_edit") && <button type="button" className="btn ghost sm" onClick={startKiosk}>Clock-only mode</button>}
         </div>
-      </header>
+      </header>}
       {camera === "off" && <p className="notice" role="status">The camera is off, so punches are saved without a photo. Allow the camera for this site in the browser settings.</p>}
       {!online && <p className="notice offline" role="status">No internet. Punches are saved on this tablet and sent when it is back.</p>}
       {pending > 0 && <p className="notice" role="status">{pending} {pending === 1 ? "punch is" : "punches are"} saved on this tablet, waiting to upload.</p>}
@@ -222,7 +269,7 @@ export default function ClockPage() {
         <div className="sec camcol">
           <video ref={videoRef} className="preview" muted playsInline aria-label="Camera preview" hidden={camera !== "on"} />
           <div className={`result${result ? (result.error ? " bad" : result.kind === "IN" ? " in" : " out") : ""}`} role="status" aria-live="polite">
-            {!result && <span>Enter PIN</span>}
+            {!result && <span>{picked ? `${picked.name}: look at the camera...` : mode === "names" ? "Tap your name" : "Enter PIN"}</span>}
             {result?.error && <span>{result.error}</span>}
             {result && !result.error && (
               <span>
@@ -238,6 +285,22 @@ export default function ClockPage() {
           </div>
           <p className="hint">A photo is taken with every time in and time out, and checked against your saved face if a manager has added one. Only your manager and head office can see it. Photos are deleted after {roster?.photoDays || 90} days.</p>
         </div>
+        {mode === "names" && (
+          <div className="sec padcol namecol">
+            <div className="namegrid">
+              {(roster?.employees || []).map((e) => (
+                <button key={e.id} type="button" className={`nametile${isIn.has(e.id) ? " in" : ""}${picked?.id === e.id ? " busy" : ""}`}
+                  disabled={busy || !!result} onClick={() => tapName(e)} aria-label={`${e.name}, ${isIn.has(e.id) ? "clocked in, tap to time out" : "tap to time in"}`}>
+                  <span className="av" aria-hidden="true">{e.name.split(/s+/).slice(0, 2).map((w) => w[0]).join("").toUpperCase()}</span>
+                  <b>{e.name}</b>
+                  <small>{isIn.has(e.id) ? "In · tap to time out" : e.face ? "Tap to time in" : "PIN needed"}</small>
+                </button>
+              ))}
+            </div>
+            <button type="button" className="btn ghost sm" onClick={() => setChosen("pin")}>Use my PIN instead</button>
+          </div>
+        )}
+        {mode === "pin" && (
         <div className="sec padcol">
           <div className="dots" aria-label={`${pin.length} of 6 digits entered`}>
             {[0, 1, 2, 3, 4, 5].map((i) => <i key={i} className={i < pin.length ? "on" : ""} />)}
@@ -250,15 +313,17 @@ export default function ClockPage() {
               </button>
             ))}
           </div>
+          {anyFace && camera !== "off" && <button type="button" className="btn ghost sm" onClick={() => setChosen("names")}>Tap my name instead</button>}
         </div>
-        <div className="sec whoin">
+        )}
+        {!embedded && <div className="sec whoin">
           <h2>Clocked in now ({inNow.length})</h2>
           <div className="list">
             {inNow.length === 0 && <p className="hint">Nobody yet.</p>}
             {inNow.map((e) => <div key={e.id} className="r"><b>{e.name}</b><small>{e.position || ""}</small></div>)}
             {roster?.employees?.length === 0 && <p className="hint">No staff have a PIN yet. A manager adds them under Employees.</p>}
           </div>
-        </div>
+        </div>}
       </div>
       {exiting && (
         <div className="scrim" onClick={(e) => e.target === e.currentTarget && setExiting(false)}>

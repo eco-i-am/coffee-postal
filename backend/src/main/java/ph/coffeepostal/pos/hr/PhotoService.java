@@ -59,6 +59,7 @@ public class PhotoService {
     @Scheduled(cron = "0 30 3 * * *", zone = "Asia/Manila")
     public int purge() {
         int n = jdbc.update("DELETE FROM attendance_photos WHERE taken_at < now() - make_interval(days => ?)", retentionDays);
+        n += jdbc.update("DELETE FROM shift_photos WHERE taken_at < now() - make_interval(days => ?)", retentionDays);
         if (n > 0) log.info("Deleted {} attendance photos older than {} days", n, retentionDays);
         return n;
     }

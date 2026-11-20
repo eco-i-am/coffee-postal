@@ -26,7 +26,7 @@ import ph.coffeepostal.pos.shared.PesoInput;
 @RestController
 @RequestMapping("/api/branch")
 class ShiftApi {
-    record OpenReq(@NotBlank String openingCash) {}
+    record OpenReq(@NotBlank String openingCash, String photo) {}
     record CashReq(@NotBlank String kind, @NotBlank String amount, @NotBlank @Size(max = 200) String reason) {}
     record CloseReq(@NotBlank String countedCash) {}
     record Current(ShiftService.Summary shift) {}
@@ -49,7 +49,10 @@ class ShiftApi {
     ShiftService.Summary open(@Valid @RequestBody OpenReq r, Principal who) {
         var me = orders.whoIs(who.getName());
         long cash = pesos(r.openingCash(), true, "openingCash");
+        byte[] photo = ph.coffeepostal.pos.hr.PhotoService.decode(r.photo());
+        if (photo == null) throw new ApiException(HttpStatus.BAD_REQUEST, "Take a photo to open your shift. Allow the camera for this site if it asks.", Map.of("photo", "Photo needed."));
         var s = shifts.open(me.branchId(), me.userId(), cash);
+        shifts.savePhoto(s.id(), photo);
         audit.record(who.getName(), me.branchId(), "SHIFT_OPEN", "shift", String.valueOf(s.id()), null, "{\"openingCash\":" + cash + "}", null);
         return s;
     }
@@ -99,6 +102,16 @@ class ShiftApi {
             throw new ApiException(HttpStatus.NOT_FOUND, "That shift was not found.");
         }
         return r;
+    }
+
+    /** The picture taken when a shift was opened. Managers only. */
+    @GetMapping("/shifts/{id}/photo")
+    @PreAuthorize("hasAuthority('PERM_cashier_reports_view')")
+    org.springframework.http.ResponseEntity<byte[]> photo(@PathVariable long id, Principal who) {
+        byte[] jpeg = shifts.photo(id, orders.whoIs(who.getName()).branchId());
+        if (jpeg == null) throw new ApiException(HttpStatus.NOT_FOUND, "There is no photo for that shift.");
+        return org.springframework.http.ResponseEntity.ok().contentType(org.springframework.http.MediaType.IMAGE_JPEG)
+            .header("Cache-Control", "private, no-store").body(jpeg);
     }
 
     /** Past shifts for the branch, with over/short. Managers only. */

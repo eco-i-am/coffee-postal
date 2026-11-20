@@ -39,7 +39,10 @@ function Home() {
   const { me, can } = useAuth();
   // a tablet account that can only clock people in and out goes straight to the clock
   if (inKiosk(me, can)) return <Navigate to="/branch/clock" replace />;
-  return <Navigate to={me.scope === "ADMIN" ? "/admin" : "/branch"} replace />;
+  if (me.scope === "ADMIN") return <Navigate to="/admin" replace />;
+  // a cashier has no dashboard: the till is their home
+  if (!can("dashboard_view")) return <Navigate to={can("pos_view") ? "/pos" : can("time_clock_view") ? "/branch/clock" : can("cash_inout_view") ? "/branch/cash" : "/branch"} replace />;
+  return <Navigate to="/branch" replace />;
 }
 
 export default function App() {

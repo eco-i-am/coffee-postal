@@ -13,7 +13,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CatalogService {
     public record Category(long id, String name) {}
-    public record ProductRow(long id, String name, String category, long categoryId, long price, long cost, boolean hasSizes, boolean active, boolean published, String art) {}
+    public record ProductRow(long id, String name, String category, long categoryId, long price, long cost, boolean hasSizes, boolean active, boolean published, String art,
+                             String sku, String barcode, String description) {}
     public record CategoryRow(long id, String name, Long headerId, String header, int sortOrder, boolean active) {}
     public record Header(long id, String name, int sortOrder, boolean active) {}
     public record Opt(long id, String name, long price) {}
@@ -36,12 +37,14 @@ public class CatalogService {
 
     public List<ProductRow> adminProducts() {
         return jdbc.query("""
-            SELECT p.id, p.name, c.name AS category, p.category_id, p.price, p.cost, p.has_sizes, p.active, p.published, p.art
+            SELECT p.id, p.name, c.name AS category, p.category_id, p.price, p.cost, p.has_sizes, p.active, p.published, p.art,
+                   p.sku, p.barcode, p.description
             FROM products p JOIN product_categories c ON c.id = p.category_id
             ORDER BY c.sort_order, c.name, p.name
             """, (rs, i) -> new ProductRow(rs.getLong("id"), rs.getString("name"), rs.getString("category"),
                 rs.getLong("category_id"), rs.getLong("price"), rs.getLong("cost"), rs.getBoolean("has_sizes"),
-                rs.getBoolean("active"), rs.getBoolean("published"), rs.getString("art")));
+                rs.getBoolean("active"), rs.getBoolean("published"), rs.getString("art"),
+                rs.getString("sku"), rs.getString("barcode"), rs.getString("description")));
     }
 
     public List<CategoryRow> adminCategories() {
@@ -144,6 +147,64 @@ public class CatalogService {
             jdbc.update("INSERT INTO product_addons(product_id, addon_id) SELECT ?, id FROM addons WHERE active", id);
         }
         return id;
+    }
+
+    /** SKU, barcode and description (blank means none). Call inside the same request as the create or edit. */
+    @Transactional
+    public void setProductExtras(long id, String sku, String barcode, String description) {
+        jdbc.update("UPDATE products SET sku = ?, barcode = ?, description = ? WHERE id = ?", blank(sku), blank(barcode), blank(description), id);
+    }
+
+    public static String blank(String s) { return s == null || s.isBlank() ? null : s.trim(); }
+
+    public boolean productSkuTaken(String sku, long exceptId) {
+        if (blank(sku) == null) return false;
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM products WHERE lower(sku) = lower(?) AND id <> ?", Integer.class, sku.trim(), exceptId);
+        return n != null && n > 0;
+    }
+
+    public boolean productBarcodeTaken(String barcode, long exceptId) {
+        if (blank(barcode) == null) return false;
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM products WHERE lower(barcode) = lower(?) AND id <> ?", Integer.class, barcode.trim(), exceptId);
+        return n != null && n > 0;
+    }
+
+    /**
+     * A copy of a product as a draft (not on the menu until published): same category, price, cost, sizes, add-ons, recipe, description
+     * and photo. The SKU and barcode are not copied, because each must stay unique. Returns the new id and its name.
+     */
+    @Transactional
+    public Map<String, Object> duplicateProduct(long id) {
+        ProductRow p = product(id);
+        if (p == null) return null;
+        String name = p.name() + " (copy)";
+        for (int n = 2; productNameExists(name); n++) name = p.name() + " (copy " + n + ")";
+        long copy = jdbc.queryForObject("""
+            INSERT INTO products(category_id, name, price, cost, has_sizes, art, color, description, published)
+            SELECT category_id, ?, price, cost, has_sizes, art, color, description, FALSE FROM products WHERE id = ? RETURNING id
+            """, Long.class, name, id);
+        jdbc.update("INSERT INTO product_variants(product_id, name, price_delta, sort_order) SELECT ?, name, price_delta, sort_order FROM product_variants WHERE product_id = ?", copy, id);
+        jdbc.update("INSERT INTO product_addons(product_id, addon_id) SELECT ?, addon_id FROM product_addons WHERE product_id = ?", copy, id);
+        jdbc.update("INSERT INTO product_recipes(product_id, item_id, qty) SELECT ?, item_id, qty FROM product_recipes WHERE product_id = ?", copy, id);
+        jdbc.update("""
+            INSERT INTO item_images(owner_type, owner_id, content_type, data, updated_by)
+            SELECT 'PRODUCT', ?, content_type, data, updated_by FROM item_images WHERE owner_type = 'PRODUCT' AND owner_id = ?
+            """, copy, id);
+        return Map.of("id", copy, "name", name);
+    }
+
+    public record PriceChange(java.time.Instant at, String by, String action, Long oldPrice, Long newPrice, Long oldCost, Long newCost) {}
+
+    /** When a product was created and every time its price or cost changed, from the audit log. Newest first. */
+    public List<PriceChange> priceHistory(long id) {
+        return jdbc.query("""
+            SELECT a.at, coalesce(u.full_name, ''), a.action,
+                   (a.before_json->>'price')::bigint, (a.after_json->>'price')::bigint, (a.before_json->>'cost')::bigint, (a.after_json->>'cost')::bigint
+            FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
+            WHERE a.entity = 'product' AND a.entity_id = ? AND a.action IN ('PRODUCT_CREATE', 'PRODUCT_PRICE_CHANGE')
+            ORDER BY a.at DESC, a.id DESC LIMIT 100
+            """, (rs, i) -> new PriceChange(rs.getTimestamp(1).toInstant(), rs.getString(2), rs.getString(3),
+                (Long) rs.getObject(4), (Long) rs.getObject(5), (Long) rs.getObject(6), (Long) rs.getObject(7)), String.valueOf(id));
     }
 
     public boolean productNameExists(String name) {

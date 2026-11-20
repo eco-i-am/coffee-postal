@@ -438,3 +438,37 @@ td.thc{width:48px;padding:3px 6px}
 .imgbtns .hint{margin:0}
 .tile .art{position:relative;overflow:hidden}
 .tile .art .tilephoto{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+
+/* Time clock: tap your name, then the face check */
+.namecol { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
+.namegrid { flex: 1; min-height: 0; overflow: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; align-content: start; }
+.nametile { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 12px 8px; min-height: 96px; border: 2px solid var(--line, #ddd); border-radius: 14px; background: var(--card, #fff); font: inherit; color: inherit; cursor: pointer; text-align: center; }
+.nametile .av { width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; background: #FDCDC1; font-weight: 700; }
+.nametile small { opacity: .75; }
+.nametile.in { border-color: #2e9d6b; }
+.nametile.in .av { background: #b9ecd3; }
+.nametile.busy { border-color: #FFA076; }
+.nametile:disabled { opacity: .6; cursor: default; }
+
+/* Time clock shown over the POS */
+.modal.wide:has(.clockpage.embedded){width:min(820px,100%)}
+.clockpage.embedded .clock{grid-template-columns:minmax(200px,.8fr) 1fr;height:min(62vh,460px)}
+.clockpage.embedded .camcol .hint{display:none}
+@media(max-width:760px){.clockpage.embedded .clock{grid-template-columns:1fr;height:auto}.clockpage.embedded .namegrid{max-height:240px}}
+
+/* Menu as a slim bar across the top (default for cashiers) */
+.app.top{grid-template-columns:1fr}
+.app.top .side{position:static;height:auto;overflow:visible;flex-direction:row;align-items:center;flex-wrap:wrap;gap:6px 14px;padding:6px 14px;border-right:0;border-bottom:8px solid transparent;border-image:var(--air) 8}
+.app.top .brand small{display:none}
+.app.top .brand svg{width:26px;height:28px}
+.app.top .brand b{font-size:.95rem;line-height:1.05}
+.app.top .nav{flex:1;flex-direction:row;flex-wrap:wrap;gap:2px;min-height:0}
+.app.top .nav a,.app.top .nav .soon{flex:0 0 auto;min-height:32px;max-height:none;padding:4px 12px;font-size:.9rem}
+.app.top .demo{margin:0;padding:0;flex-direction:row;align-items:center;gap:12px;flex-wrap:wrap}
+.app.top .who{font-size:.78rem}
+.app.top .who br{display:none}
+.app.top .who small{margin-left:6px}
+@media(min-width:761px){
+  .app.top{grid-template-rows:auto 1fr}
+  .app.top main{height:auto;min-height:0}
+}

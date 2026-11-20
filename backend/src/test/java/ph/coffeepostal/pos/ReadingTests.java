@@ -45,7 +45,7 @@ class ReadingTests {
 	}
 
 	private void open(MockHttpSession s) throws Exception {
-		mvc.perform(post("/api/branch/shift/open").session(s).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"openingCash\":\"500\"}")).andExpect(status().isOk());
+		mvc.perform(post("/api/branch/shift/open").session(s).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"openingCash\":\"500\",\"photo\":\"/9j/4A==\"}")).andExpect(status().isOk());
 	}
 
 	private int close(MockHttpSession s, String counted) throws Exception {

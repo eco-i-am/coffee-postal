@@ -14,6 +14,9 @@ public final class FaceMatch {
     /** Distance at or under this counts as the same person. 0.6 is the usual limit for this model; 0.5 is a little stricter. */
     public static final double MATCH_MAX = 0.5;
 
+    /** Signing a punch in by face alone (no PIN) is stricter than flagging one: a closer match is required. */
+    public static final double LOGIN_MAX = 0.45;
+
     /** What the tablet saw: state is "ok" (one clear face, descriptor set), "none", "multi", or "off" (the check could not run). */
     public record Face(String state, double[] descriptor) {}
     public record Result(String status, Double score) {}

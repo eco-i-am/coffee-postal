@@ -34,9 +34,9 @@ public class ClockService {
     static final long DOUBLE_TAP_SECONDS = 20;
 
     /** Send either pin (online), or employeeId + check (a punch kept on the tablet while offline). */
-    public record PunchReq(String pin, UUID clientId, Instant deviceTime, Long employeeId, String check, String photo, FaceMatch.Face face) {}
+    public record PunchReq(String pin, UUID clientId, Instant deviceTime, Long employeeId, String check, String photo, FaceMatch.Face face, boolean byFace) {}
     public record PunchRes(long employeeId, String name, String kind, Instant at, boolean offline, String flag, boolean photo, String faceStatus) {}
-    public record RosterEntry(long id, String name, String position, String salt, String check, boolean in) {}
+    public record RosterEntry(long id, String name, String position, String salt, String check, boolean in, boolean face) {}
     public record Roster(List<RosterEntry> employees, Instant serverTime, int photoDays) {}
 
     private record Emp(long id, String name) {}
@@ -56,9 +56,10 @@ public class ClockService {
         List<RosterEntry> list = jdbc.query("""
             SELECT e.id, e.full_name, e.position, e.pin_salt, e.pin_check,
                    coalesce((SELECT l.kind = 'IN' AND l.punched_at > now() - make_interval(hours => ?)
-                             FROM attendance_logs l WHERE l.employee_id = e.id ORDER BY l.punched_at DESC, l.id DESC LIMIT 1), FALSE) AS is_in
-            FROM employees e WHERE e.branch_id = ? AND e.status = 'ACTIVE' AND e.pin_lookup IS NOT NULL ORDER BY e.full_name
-            """, (rs, i) -> new RosterEntry(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getBoolean(6)),
+                             FROM attendance_logs l WHERE l.employee_id = e.id ORDER BY l.punched_at DESC, l.id DESC LIMIT 1), FALSE) AS is_in,
+                   (e.face_template IS NOT NULL) AS has_face
+            FROM employees e WHERE e.branch_id = ? AND e.status = 'ACTIVE' AND (e.pin_lookup IS NOT NULL OR e.face_template IS NOT NULL) ORDER BY e.full_name
+            """, (rs, i) -> new RosterEntry(rs.getLong(1), rs.getString(2), rs.getString(3), rs.getString(4), rs.getString(5), rs.getBoolean(6), rs.getBoolean(7)),
             (int) FORGOT_OUT_HOURS, branchId);
         return new Roster(list, Instant.now(), photos.retentionDays());
     }
@@ -71,13 +72,22 @@ public class ClockService {
         }
 
         Emp who;
-        if (r.pin() != null) {
-            Integer failures = jdbc.queryForObject("""
-                SELECT count(*) FROM clock_attempts WHERE branch_id = ? AND NOT success AND at > now() - make_interval(mins => ?)
-                """, Integer.class, branchId, WINDOW_MINUTES);
-            if (failures != null && failures >= MAX_FAILURES) {
-                throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Too many wrong PINs. Wait " + WINDOW_MINUTES + " minutes, or ask a manager.");
+        if (r.byFace() && r.employeeId() != null) {
+            // Tapped a name and looked at the camera: the face stands in for the PIN, and must be a close match to the saved one.
+            checkLockout(branchId);
+            List<Emp> found = jdbc.query("SELECT id, full_name FROM employees WHERE id = ? AND branch_id = ? AND status = 'ACTIVE'",
+                (rs, i) -> new Emp(rs.getLong(1), rs.getString(2)), r.employeeId(), branchId);
+            if (found.isEmpty()) throw new ApiException(HttpStatus.NOT_FOUND, "That person is not on this branch's clock.");
+            double[] saved = enrolledFace(found.get(0).id());
+            if (saved == null) throw new ApiException(HttpStatus.FORBIDDEN, "No face is saved for you yet. Use your PIN.");
+            FaceMatch.Result seen = FaceMatch.check(saved, r.face());
+            if (!"MATCH".equals(seen.status()) || seen.score() > FaceMatch.LOGIN_MAX) {
+                jdbc.update("INSERT INTO clock_attempts(branch_id, success) VALUES (?, FALSE)", branchId);
+                throw new ApiException(HttpStatus.FORBIDDEN, "The camera did not recognise you. Try again in good light, or use your PIN.");
             }
+            who = found.get(0);
+        } else if (r.pin() != null) {
+            checkLockout(branchId);
             List<Emp> found = r.pin().matches("\\d{6}")
                 ? jdbc.query("SELECT id, full_name FROM employees WHERE branch_id = ? AND pin_lookup = ? AND status = 'ACTIVE'",
                     (rs, i) -> new Emp(rs.getLong(1), rs.getString(2)), branchId, pins.lookup(branchId, r.pin()))
@@ -143,6 +153,15 @@ public class ClockService {
             PunchRes seen = r.clientId() == null ? null : existing(r.clientId(), branchId);
             if (seen != null) return seen;
             throw e;
+        }
+    }
+
+    private void checkLockout(long branchId) {
+        Integer failures = jdbc.queryForObject("""
+            SELECT count(*) FROM clock_attempts WHERE branch_id = ? AND NOT success AND at > now() - make_interval(mins => ?)
+            """, Integer.class, branchId, WINDOW_MINUTES);
+        if (failures != null && failures >= MAX_FAILURES) {
+            throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "Too many wrong tries. Wait " + WINDOW_MINUTES + " minutes, or ask a manager.");
         }
     }
 

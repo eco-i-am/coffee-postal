@@ -11,7 +11,10 @@ import ph.coffeepostal.pos.shared.ApiException;
 /** HQ item master list and each branch's stock ledger. */
 @Service
 public class InventoryService {
-    public record ItemRow(long id, String name, String unit, long cost, long reorderLevel, boolean active, Long categoryId, String category, boolean orderable) {}
+    public record ItemRow(long id, String name, String unit, long cost, long reorderLevel, boolean active, Long categoryId, String category, boolean orderable,
+                          String sku, String barcode, String description) {}
+    public record HqMovement(long id, String branch, long qty, String kind, String reason, String ref, String by, Instant at) {}
+    public record CostChange(Instant at, String by, String action, Long oldCost, Long newCost) {}
     public record StockRow(long itemId, String name, String unit, long cost, long onHand, long reorderLevel, boolean low, String category, boolean orderable) {}
     public record Movement(long id, long qty, String kind, String reason, String ref, String by, Instant at) {}
 
@@ -24,10 +27,71 @@ public class InventoryService {
 
     public List<ItemRow> items() {
         return jdbc.query("""
-            SELECT i.id, i.name, i.unit, i.cost, i.reorder_level, i.active, i.category_id, c.name AS category, i.orderable
+            SELECT i.id, i.name, i.unit, i.cost, i.reorder_level, i.active, i.category_id, c.name AS category, i.orderable, i.sku, i.barcode, i.description
             FROM items i LEFT JOIN item_categories c ON c.id = i.category_id ORDER BY lower(i.name)
             """, (rs, i) -> new ItemRow(rs.getLong("id"), rs.getString("name"), rs.getString("unit"), rs.getLong("cost"),
-                rs.getLong("reorder_level"), rs.getBoolean("active"), (Long) rs.getObject("category_id"), rs.getString("category"), rs.getBoolean("orderable")));
+                rs.getLong("reorder_level"), rs.getBoolean("active"), (Long) rs.getObject("category_id"), rs.getString("category"), rs.getBoolean("orderable"),
+                rs.getString("sku"), rs.getString("barcode"), rs.getString("description")));
+    }
+
+    /** SKU, barcode and description (blank means none). */
+    @Transactional
+    public void setItemExtras(long id, String sku, String barcode, String description) {
+        jdbc.update("UPDATE items SET sku = ?, barcode = ?, description = ? WHERE id = ?", blank(sku), blank(barcode), blank(description), id);
+    }
+
+    private static String blank(String s) { return s == null || s.isBlank() ? null : s.trim(); }
+
+    public boolean itemSkuTaken(String sku, long exceptId) {
+        if (blank(sku) == null) return false;
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM items WHERE lower(sku) = lower(?) AND id <> ?", Integer.class, sku.trim(), exceptId);
+        return n != null && n > 0;
+    }
+
+    public boolean itemBarcodeTaken(String barcode, long exceptId) {
+        if (blank(barcode) == null) return false;
+        Integer n = jdbc.queryForObject("SELECT count(*) FROM items WHERE lower(barcode) = lower(?) AND id <> ?", Integer.class, barcode.trim(), exceptId);
+        return n != null && n > 0;
+    }
+
+    /** A copy of an item: same unit, cost, low-stock level, category, other units, description and photo. SKU and barcode are not copied. */
+    @Transactional
+    public java.util.Map<String, Object> duplicateItem(long id) {
+        List<String> found = jdbc.query("SELECT name FROM items WHERE id = ?", (rs, i) -> rs.getString(1), id);
+        if (found.isEmpty()) return null;
+        String name = found.get(0) + " (copy)";
+        for (int n = 2; itemNameExists(name, null); n++) name = found.get(0) + " (copy " + n + ")";
+        long copy = jdbc.queryForObject("""
+            INSERT INTO items(name, unit, cost, reorder_level, category_id, description)
+            SELECT ?, unit, cost, reorder_level, category_id, description FROM items WHERE id = ? RETURNING id
+            """, Long.class, name, id);
+        jdbc.update("INSERT INTO item_conversions(item_id, unit, factor) SELECT ?, unit, factor FROM item_conversions WHERE item_id = ?", copy, id);
+        jdbc.update("""
+            INSERT INTO item_images(owner_type, owner_id, content_type, data, updated_by)
+            SELECT 'ITEM', ?, content_type, data, updated_by FROM item_images WHERE owner_type = 'ITEM' AND owner_id = ?
+            """, copy, id);
+        return java.util.Map.of("id", copy, "name", name);
+    }
+
+    /** Stock changes for one item in every branch, newest first (HQ view). */
+    public List<HqMovement> allMovements(long itemId) {
+        return jdbc.query("""
+            SELECT m.id, b.name, m.qty, m.kind, m.reason, m.ref, coalesce(u.full_name, ''), m.created_at
+            FROM stock_movements m JOIN branches b ON b.id = m.branch_id LEFT JOIN users u ON u.id = m.user_id
+            WHERE m.item_id = ? ORDER BY m.created_at DESC, m.id DESC LIMIT 200
+            """, (rs, i) -> new HqMovement(rs.getLong(1), rs.getString(2), rs.getLong(3), rs.getString(4), rs.getString(5), rs.getString(6),
+                rs.getString(7), rs.getTimestamp(8).toInstant()), itemId);
+    }
+
+    /** When an item was created and every time its cost changed, from the audit log. Newest first. */
+    public List<CostChange> costHistory(long itemId) {
+        return jdbc.query("""
+            SELECT a.at, coalesce(u.full_name, ''), a.action, (a.before_json->>'cost')::bigint, (a.after_json->>'cost')::bigint
+            FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id
+            WHERE a.entity = 'item' AND a.entity_id = ? AND a.action IN ('ITEM_CREATE', 'ITEM_COST_CHANGE')
+            ORDER BY a.at DESC, a.id DESC LIMIT 100
+            """, (rs, i) -> new CostChange(rs.getTimestamp(1).toInstant(), rs.getString(2), rs.getString(3), (Long) rs.getObject(4), (Long) rs.getObject(5)),
+            String.valueOf(itemId));
     }
 
     public boolean itemNameExists(String name, Long exceptId) {

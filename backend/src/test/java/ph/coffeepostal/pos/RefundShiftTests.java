@@ -87,10 +87,13 @@ class RefundShiftTests {
 		mvc.perform(post("/api/branch/shift/cash").session(cashier).with(csrf())
 			.contentType(MediaType.APPLICATION_JSON).content("{\"kind\":\"IN\",\"amount\":\"100\",\"reason\":\"x\"}")).andExpect(status().isConflict());
 
+		// no photo, no shift
 		mvc.perform(post("/api/branch/shift/open").session(cashier).with(csrf())
-			.contentType(MediaType.APPLICATION_JSON).content("{\"openingCash\":\"1000\"}")).andExpect(status().isOk());
+			.contentType(MediaType.APPLICATION_JSON).content("{\"openingCash\":\"1000\"}")).andExpect(status().isBadRequest());
 		mvc.perform(post("/api/branch/shift/open").session(cashier).with(csrf())
-			.contentType(MediaType.APPLICATION_JSON).content("{\"openingCash\":\"1000\"}")).andExpect(status().isConflict());
+			.contentType(MediaType.APPLICATION_JSON).content("{\"openingCash\":\"1000\",\"photo\":\"/9j/4A==\"}")).andExpect(status().isOk());
+		mvc.perform(post("/api/branch/shift/open").session(cashier).with(csrf())
+			.contentType(MediaType.APPLICATION_JSON).content("{\"openingCash\":\"1000\",\"photo\":\"/9j/4A==\"}")).andExpect(status().isConflict());
 
 		sellAmericanoCash(cashier, 10000);       // Americano is 79.00, paid in cash
 		mvc.perform(post("/api/branch/shift/cash").session(cashier).with(csrf())
