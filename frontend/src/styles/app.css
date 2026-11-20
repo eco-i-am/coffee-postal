@@ -422,3 +422,19 @@ main.kiosk{display:flex;flex-direction:column;height:100vh;overflow:hidden;paddi
   .demo{margin-top:0;padding-top:8px;gap:4px}
   .who{font-size:.78rem;line-height:1.25}
 }
+
+/* password box with Show / Hide */
+.pwbox{position:relative;display:block}
+.pwbox input{width:100%;padding-right:62px}
+.pwtoggle{position:absolute;right:0;top:50%;transform:translateY(-50%);background:none;border:0;color:var(--reseda);font:700 .8rem var(--body);text-decoration:underline;padding:8px 6px;min-height:36px;cursor:pointer}
+.pwtoggle[aria-pressed=true]{color:var(--midnight)}
+
+/* photos of products and items */
+.thumb{display:block;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:#fff}
+.thumb.none{display:inline-block;background:repeating-linear-gradient(45deg,#f3eee5,#f3eee5 6px,#ece5d9 6px,#ece5d9 12px)}
+td.thc{width:48px;padding:3px 6px}
+.imgfield{display:flex;gap:12px;align-items:center}
+.imgfield .lbl{display:block;font-size:.72rem;text-transform:uppercase;letter-spacing:.1em;color:var(--reseda);margin-bottom:4px}
+.imgbtns .hint{margin:0}
+.tile .art{position:relative;overflow:hidden}
+.tile .art .tilephoto{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}

@@ -6,6 +6,8 @@ import { useAuth } from "../../app/AuthContext.jsx";
 import RecipeModal from "./RecipeModal.jsx";
 import OptionsModal from "./OptionsModal.jsx";
 import Modal from "../../shared/Modal.jsx";
+import ImageField, { Thumb } from "../../shared/ImageField.jsx";
+import { useImages } from "../../shared/images.js";
 
 const loadProducts = () => api("/api/admin/products");
 const loadAddons = () => api("/api/admin/addons").catch(() => []);
@@ -29,6 +31,7 @@ export default function ProductsPage() {
   const [headerName, setHeaderName] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [setupTab, setSetupTab] = useState(null);   // null = closed, else "headers" | "categories" | "addons"
+  const imgs = useImages();
   const [search, setSearch] = useState("");
   const [catFilter, setCatFilter] = useState("");
 
@@ -186,11 +189,12 @@ export default function ProductsPage() {
           <div className="tw">
             <table className="dense">
               <thead>
-                <tr><th>Product</th><th>Category</th><th className="n">Price</th><th>Status</th><th></th></tr>
+                <tr><th></th><th>Product</th><th>Category</th><th className="n">Price</th><th>Status</th><th></th></tr>
               </thead>
               <tbody>
                 {shown.map((p) => (
                   <tr key={p.id}>
+                    <td className="thc"><Thumb url={imgs.url("product", p.id)} alt="" /></td>
                     <td><b>{p.name}</b></td>
                     <td>{p.category}</td>
                     <td className="n">{peso(p.price)}</td>
@@ -204,7 +208,7 @@ export default function ProductsPage() {
                   </tr>
                 ))}
                 {data && shown.length === 0 && (
-                  <tr><td colSpan="5" className="emptyrow">{products.length === 0 ? "No products yet. Add the first one." : "No products match."}</td></tr>
+                  <tr><td colSpan="6" className="emptyrow">{products.length === 0 ? "No products yet. Add the first one." : "No products match."}</td></tr>
                 )}
               </tbody>
             </table>
@@ -219,6 +223,7 @@ export default function ProductsPage() {
             <input id="pname" value={form.name} onChange={set("name")} placeholder="Hazelnut Latte" required autoFocus />
             {fields.name && <p className="err" role="alert">{fields.name}</p>}
           </div>
+          <ImageField type="product" id={editId} url={editId ? imgs.url("product", editId) : null} onChanged={imgs.reload} />
           <div className="grid2">
             <div className="addr">
               <label htmlFor="pcat">Category</label>

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { api } from "../shared/api.js";
+import PasswordInput from "../shared/PasswordInput.jsx";
 
 /** Lets anyone signed in change their own password. */
 export default function ChangePassword({ onClose }) {
@@ -34,14 +35,14 @@ export default function ChangePassword({ onClose }) {
         ) : (
           <>
             <div className="addr"><label htmlFor="cp0">Current password</label>
-              <input id="cp0" type="password" autoComplete="current-password" value={form.current} onChange={set("current")} />
+              <PasswordInput id="cp0" autoComplete="current-password" value={form.current} onChange={set("current")} />
               {fields.current && <p className="err" role="alert">{fields.current}</p>}</div>
             <div className="addr"><label htmlFor="cp1">New password</label>
-              <input id="cp1" type="password" autoComplete="new-password" value={form.next} onChange={set("next")} />
+              <PasswordInput id="cp1" autoComplete="new-password" value={form.next} onChange={set("next")} />
               <p className="hint">At least 8 characters, with a letter and a number.</p>
               {fields.next && <p className="err" role="alert">{fields.next}</p>}</div>
             <div className="addr"><label htmlFor="cp2">New password again</label>
-              <input id="cp2" type="password" autoComplete="new-password" value={form.again} onChange={set("again")} />
+              <PasswordInput id="cp2" autoComplete="new-password" value={form.again} onChange={set("again")} />
               {fields.again && <p className="err" role="alert">{fields.again}</p>}</div>
             {err && !Object.keys(fields).length && <p className="err" role="alert">{err}</p>}
             <div className="opts">

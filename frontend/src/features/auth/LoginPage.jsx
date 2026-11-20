@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useAuth } from "../../app/AuthContext.jsx";
 import { ApiError } from "../../shared/api.js";
 import { LOGIN_ART } from "../../shared/loginArt.js";
+import PasswordInput from "../../shared/PasswordInput.jsx";
 
 export default function LoginPage() {
   const { signIn } = useAuth();
@@ -50,7 +51,7 @@ export default function LoginPage() {
           </div>
           <div className="addr">
             <label htmlFor="password">Password</label>
-            <input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+            <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
           </div>
           {error && <p className="err" role="alert">{error}</p>}
           <button className="btn" style={{ width: "100%" }} type="submit" disabled={busy}>

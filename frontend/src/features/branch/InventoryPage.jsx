@@ -3,6 +3,8 @@ import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { MOVE_NAMES, dateTimeOf, fmtQty } from "../../shared/format.js";
 import { useAuth } from "../../app/AuthContext.jsx";
+import { Thumb } from "../../shared/ImageField.jsx";
+import { useImages } from "../../shared/images.js";
 
 const loadStock = () => api("/api/branch/inventory");
 
@@ -92,6 +94,7 @@ function History({ item, onClose }) {
 export default function InventoryPage() {
   const { can } = useAuth();
   const { data: rows, error, loading, reload } = useLoad(loadStock);
+  const imgs = useImages();
   const [adjust, setAdjust] = useState(null);
   const [history, setHistory] = useState(null);
   const [msg, setMsg] = useState("");
@@ -113,10 +116,11 @@ export default function InventoryPage() {
       <div className="sec tw">
         {loading && !rows ? <p role="status">Loading...</p> : (
           <table>
-            <thead><tr><th>Item</th><th className="n">On hand</th><th>Unit</th><th>Status</th><th></th></tr></thead>
+            <thead><tr><th></th><th>Item</th><th className="n">On hand</th><th>Unit</th><th>Status</th><th></th></tr></thead>
             <tbody>
               {shown.map((r) => (
                 <tr key={r.itemId}>
+                  <td className="thc"><Thumb url={imgs.url("item", r.itemId)} alt="" /></td>
                   <td><b>{r.name}</b></td>
                   <td className={`n${r.onHand < 0 ? " short" : ""}`}><b>{fmtQty(r.onHand)}</b></td>
                   <td>{r.unit}</td>
@@ -127,7 +131,7 @@ export default function InventoryPage() {
                   </td>
                 </tr>
               ))}
-              {rows && shown.length === 0 && <tr><td colSpan="5" className="emptyrow">{onlyLow ? "Nothing is low. Nice." : "HQ has not added any items yet."}</td></tr>}
+              {rows && shown.length === 0 && <tr><td colSpan="6" className="emptyrow">{onlyLow ? "Nothing is low. Nice." : "HQ has not added any items yet."}</td></tr>}
             </tbody>
           </table>
         )}

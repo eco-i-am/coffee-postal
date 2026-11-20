@@ -7,6 +7,7 @@ import SyncPanel from "./SyncPanel.jsx";
 import { useLoad } from "../../shared/hooks.js";
 import { peso, totals } from "../../shared/money.js";
 import TileArt from "./tileArt.jsx";
+import { useImages } from "../../shared/images.js";
 import { addToCart, cartGross, changeQty, newOrderId } from "./cart.js";
 import ItemModal from "./ItemModal.jsx";
 import PayModal from "./PayModal.jsx";
@@ -34,6 +35,7 @@ export default function PosPage() {
   const loadShift = useCallback(() => api("/api/branch/shift").catch(() => null), []);
   const { data: shiftInfo } = useLoad(loadShift);
 
+  const imgs = useImages();
   const [cat, setCat] = useState("All");
   const [cart, setCart] = useState([]);
   const [otype, setOtype] = useState("DINE_IN");
@@ -97,7 +99,7 @@ export default function PosPage() {
         <div className="menu">
           {items.map((m) => (
             <button key={m.id} className="tile" style={{ "--c": m.color }} onClick={() => tap(m)}>
-              <span className="art"><TileArt kind={m.art} /></span>
+              <span className="art">{imgs.url("product", m.id) ? <img className="tilephoto" src={imgs.url("product", m.id)} alt="" loading="lazy" decoding="async" /> : <TileArt kind={m.art} />}</span>
               <b>{m.name}</b>
               <span className="pr"><small>&#8369;</small>{Math.floor(m.price / 100)}</span>
             </button>

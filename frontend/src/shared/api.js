@@ -17,10 +17,13 @@ export const setUnauthorizedHandler = (fn) => {
   onUnauthorized = fn;
 };
 
-export async function api(path, { method = "GET", body, form, timeoutMs } = {}) {
+export async function api(path, { method = "GET", body, form, blob, timeoutMs } = {}) {
   const headers = { Accept: "application/json" };
   let payload;
-  if (form) {
+  if (blob) {
+    headers["Content-Type"] = blob.type;   // a photo goes up as itself, not as JSON
+    payload = blob;
+  } else if (form) {
     payload = new URLSearchParams(form);
   } else if (body !== undefined) {
     headers["Content-Type"] = "application/json";

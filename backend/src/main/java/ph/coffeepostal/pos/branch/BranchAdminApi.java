@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -22,11 +23,13 @@ import ph.coffeepostal.pos.shared.AuditService;
 @RestController
 @RequestMapping("/api/admin/branches")
 class BranchAdminApi {
-    record BranchDto(long id, String code, String name, String address, String phone, boolean active) {
-        static BranchDto of(Branch b) { return new BranchDto(b.getId(), b.getCode(), b.getName(), b.getAddress(), b.getPhone(), b.isActive()); }
+    record BranchDto(long id, String code, String name, String address, String phone, String tin, boolean vatRegistered, boolean active) {
+        static BranchDto of(Branch b) { return new BranchDto(b.getId(), b.getCode(), b.getName(), b.getAddress(), b.getPhone(), b.getTin(), b.isVatRegistered(), b.isActive()); }
     }
     record BranchReq(@NotBlank @Size(max = 20) String code, @NotBlank @Size(max = 120) String name,
                      @Size(max = 300) String address, @Size(max = 40) String phone) {}
+    record BranchEditReq(@NotBlank @Size(max = 20) String code, @NotBlank @Size(max = 120) String name,
+                         @Size(max = 300) String address, @Size(max = 40) String phone, @Size(max = 30) String tin, boolean vatRegistered) {}
 
     private final BranchRepository branches;
     private final AuditService audit;
@@ -50,6 +53,31 @@ class BranchAdminApi {
             "{\"code\":\"" + b.getCode() + "\",\"name\":\"" + b.getName().replace("\"", "'") + "\"}", null);
         return BranchDto.of(b);
     }
+
+    /** Change a branch's details. A new code must not belong to another branch. */
+    @PutMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERM_branches_edit')")
+    BranchDto update(@PathVariable long id, @Valid @RequestBody BranchEditReq r, Principal who) {
+        Branch b = branches.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "That branch no longer exists."));
+        String code = r.code().trim().toUpperCase();
+        if (branches.existsByCodeIgnoreCaseAndIdNot(code, id)) {
+            throw new ApiException(HttpStatus.CONFLICT, "That branch code is already used.", Map.of("code", "Already used."));
+        }
+        String before = "{\"code\":\"" + b.getCode() + "\",\"name\":\"" + clean(b.getName()) + "\",\"vat\":" + b.isVatRegistered() + "}";
+        b.setCode(code);
+        b.setName(r.name().trim());
+        b.setAddress(blank(r.address()));
+        b.setPhone(blank(r.phone()));
+        b.setTin(blank(r.tin()));
+        b.setVatRegistered(r.vatRegistered());
+        branches.save(b);
+        audit.record(who.getName(), b.getId(), "BRANCH_UPDATE", "branch", String.valueOf(id), before,
+            "{\"code\":\"" + code + "\",\"name\":\"" + clean(b.getName()) + "\",\"vat\":" + b.isVatRegistered() + "}", null);
+        return BranchDto.of(b);
+    }
+
+    private static String blank(String s) { return s == null || s.isBlank() ? null : s.trim(); }
+    private static String clean(String s) { return s == null ? "" : s.replace("\"", "'"); }
 
     @PostMapping("/{id}/toggle")
     @PreAuthorize("hasAuthority('PERM_branches_edit')")

@@ -1,4 +1,6 @@
 import { useState } from "react";
+import ImageField, { Thumb } from "../../shared/ImageField.jsx";
+import { useImages } from "../../shared/images.js";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { peso } from "../../shared/money.js";
@@ -27,6 +29,7 @@ export default function ItemsPage() {
   const [busy, setBusy] = useState(false);
   const [edit, setEdit] = useState(null); // { id, name, unit, cost, reorderLevel }
 
+  const imgs = useImages();
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
 
   async function add(e) {
@@ -109,10 +112,11 @@ export default function ItemsPage() {
         {loading && !items ? <p role="status">Loading...</p> : (
           <div className="tw">
             <table className="dense">
-              <thead><tr><th>Item</th><th>Category</th><th>Unit</th><th className="n">Cost</th><th className="n">Low at</th><th>Orderable</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th></th><th>Item</th><th>Category</th><th>Unit</th><th className="n">Cost</th><th className="n">Low at</th><th>Orderable</th><th>Status</th><th></th></tr></thead>
               <tbody>
                 {shown.map((i) => (
                   <tr key={i.id}>
+                    <td className="thc"><Thumb url={imgs.url("item", i.id)} alt="" /></td>
                     <td><b>{i.name}</b></td><td>{i.category || ""}</td><td>{i.unit}</td><td className="n">{peso(i.cost)}</td><td className="n">{i.reorderLevel}</td>
                     <td>{can("po_items_edit")
                       ? <button className="btn ghost sm" type="button" aria-pressed={i.orderable} onClick={() => setOrderable(i)}>{i.orderable ? "Yes" : "No"}</button>
@@ -124,7 +128,7 @@ export default function ItemsPage() {
                     </td>
                   </tr>
                 ))}
-                {items && shown.length === 0 && <tr><td colSpan="8" className="emptyrow">{items.length === 0 ? "No items yet. Add the first one." : "No items match."}</td></tr>}
+                {items && shown.length === 0 && <tr><td colSpan="9" className="emptyrow">{items.length === 0 ? "No items yet. Add the first one." : "No items match."}</td></tr>}
               </tbody>
             </table>
           </div>
@@ -189,6 +193,7 @@ export default function ItemsPage() {
         <div className="scrim" onClick={(e) => e.target === e.currentTarget && setEdit(null)}>
           <form className="modal" role="dialog" aria-modal="true" onSubmit={save}>
             <h2>{edit.name}</h2>
+            <ImageField type="item" id={edit.id} url={imgs.url("item", edit.id)} onChanged={imgs.reload} />
             <p className="hint">Changing the cost only affects new orders. Orders already placed keep the price they were made at.</p>
             <div className="addr"><label htmlFor="ecat">Category</label>
               <select className="line" id="ecat" value={edit.categoryId} onChange={(e) => setEdit({ ...edit, categoryId: e.target.value })}>

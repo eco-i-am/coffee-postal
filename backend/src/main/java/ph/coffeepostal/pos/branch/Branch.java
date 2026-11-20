@@ -37,4 +37,10 @@ public class Branch {
     public boolean isVatRegistered() { return vatRegistered; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
+    public void setCode(String code) { this.code = code; }
+    public void setName(String name) { this.name = name; }
+    public void setAddress(String address) { this.address = address; }
+    public void setPhone(String phone) { this.phone = phone; }
+    public void setTin(String tin) { this.tin = tin; }
+    public void setVatRegistered(boolean vatRegistered) { this.vatRegistered = vatRegistered; }
 }

@@ -16,6 +16,18 @@ self.addEventListener("fetch", (event) => {
   if (req.method !== "GET") return;
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
+  // product and item photos: the address carries the photo's version, so a saved copy is always right. This keeps the POS tiles
+  // looking the same with no internet. (The list of which photos exist is an API call and is not cached here.)
+  if (url.pathname.startsWith("/api/pos/images/")) {
+    event.respondWith((async () => {
+      const cached = await caches.match(req);
+      if (cached) return cached;
+      const res = await fetch(req);
+      if (res.ok) (await caches.open(CACHE)).put(req, res.clone());
+      return res;
+    })());
+    return;
+  }
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/actuator/")) return;
 
   // opening a page: always try the network first so a new version shows up, fall back to the saved copy
