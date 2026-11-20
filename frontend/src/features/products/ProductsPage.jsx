@@ -14,7 +14,7 @@ import LabelModal from "../../shared/LabelModal.jsx";
 
 const loadProducts = () => api("/api/admin/products");
 const loadAddons = () => api("/api/admin/addons").catch(() => []);
-const EMPTY = { name: "", categoryId: "", price: "", cost: "", art: "hot", hasSizes: false, published: true, sku: "", barcode: "", description: "" };
+const EMPTY = { name: "", categoryId: "", price: "", cost: "", art: "hot", hasSizes: false, published: true, sku: "", barcode: "", description: "", tags: "" };
 const pesoText = (c) => (c / 100).toFixed(2);
 
 export default function ProductsPage() {
@@ -71,7 +71,7 @@ export default function ProductsPage() {
     setMsg("");
     setFormOpen(true);
     setForm({ name: p.name, categoryId: String(p.categoryId), price: pesoText(p.price), cost: pesoText(p.cost),
-      art: p.art, hasSizes: p.hasSizes, published: p.published, sku: p.sku || "", barcode: p.barcode || "", description: p.description || "" });
+      art: p.art, hasSizes: p.hasSizes, published: p.published, sku: p.sku || "", barcode: p.barcode || "", description: p.description || "", tags: p.tags || "" });
   }
 
   async function duplicate(p) {
@@ -174,7 +174,7 @@ export default function ProductsPage() {
 
   const q = search.trim().toLowerCase();
   const shown = products.filter((p) =>
-    (!catFilter || String(p.categoryId) === catFilter) && (!q || [p.name, p.sku, p.barcode].some((v) => v && v.toLowerCase().includes(q))));
+    (!catFilter || String(p.categoryId) === catFilter) && (!q || [p.name, p.sku, p.barcode, p.tags].some((v) => v && v.toLowerCase().includes(q))));
   const closeForm = () => { setFormOpen(false); setEditId(null); setForm(EMPTY); setFields({}); };
   const canSetup = can("product_headers_view") || can("product_categories_edit") || can("product_addons_view");
 
@@ -207,7 +207,7 @@ export default function ProductsPage() {
           <div className="tw">
             <table className="dense">
               <thead>
-                <tr><th></th><th>Product</th><th>SKU</th><th>Category</th><th className="n">Price</th><th>Status</th><th></th></tr>
+                <tr><th></th><th>Product</th><th>SKU</th><th>Category</th><th>Tags</th><th className="n">Price</th><th>Status</th><th></th></tr>
               </thead>
               <tbody>
                 {shown.map((p) => (
@@ -216,6 +216,7 @@ export default function ProductsPage() {
                     <td><b>{p.name}</b></td>
                     <td>{p.sku || ""}</td>
                     <td>{p.category}</td>
+                    <td>{p.tags ? p.tags.split(",").map((t) => <span key={t} className="tag y" style={{ marginRight: 4 }}>{t}</span>) : ""}</td>
                     <td className="n">{peso(p.price)}</td>
                     <td><span className={`tag ${p.active && p.published ? "g" : "r"}`}>{!p.published ? "Draft" : p.active ? "On menu" : "Off menu"}</span></td>
                     <td className="rowbtns">
@@ -287,6 +288,11 @@ export default function ProductsPage() {
           <div className="addr">
             <label htmlFor="pdesc">Description (optional)</label>
             <textarea id="pdesc" className="line" rows={2} maxLength={500} value={form.description} onChange={set("description")} />
+          </div>
+          <div className="addr">
+            <label htmlFor="ptags">Tags (optional)</label>
+            <input id="ptags" className="line" value={form.tags} maxLength={300} onChange={set("tags")} placeholder="best seller, summer, vegan" />
+            <p className="hint">Separate with commas. A tag adds the product to its own button on the POS, besides its category.</p>
           </div>
           <label className="check">
             <input type="checkbox" checked={form.hasSizes} onChange={set("hasSizes")} /> Offers Regular and Large (+&#8369;20)

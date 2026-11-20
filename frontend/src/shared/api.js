@@ -49,6 +49,15 @@ export async function api(path, { method = "GET", body, form, blob, timeoutMs } 
 
 // The XSRF cookie is set by the first response; /api/me is called on startup.
 export const getMe = () => api("/api/me");
-export const login = (username, password) =>
-  api("/api/auth/login", { method: "POST", form: { username, password } });
+// The server drops its security (CSRF) token cookie when someone signs out, and a missing token is answered with 401, which the
+// login page reads as a wrong password. So make sure there is a token before signing in; any response from the server sets one.
+async function ensureToken() {
+  if (xsrf()) return;
+  try { await fetch("/api/me", { credentials: "same-origin", headers: { Accept: "application/json" } }); } catch { /* the login itself will report no connection */ }
+}
+
+export const login = async (username, password) => {
+  await ensureToken();
+  return api("/api/auth/login", { method: "POST", form: { username, password } });
+};
 export const logout = () => api("/api/auth/logout", { method: "POST" });

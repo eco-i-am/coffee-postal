@@ -493,3 +493,61 @@ td.thc{width:48px;padding:3px 6px}
 }
 
 .btn.danger{background:#b3261e;color:#fff;border-color:#b3261e}
+
+/* POS search */
+.possearch{width:min(220px,40vw);flex:0 0 auto}
+
+/* Column charts (sales by day / hour) */
+.vchart{display:grid;gap:12px}
+.vhead{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+.vfacts{margin:0;display:flex;gap:6px 22px;flex-wrap:wrap;font-size:.9rem}
+.vfacts b{font-size:1.15rem;font-family:var(--head)}
+.vfacts small{margin-left:4px;opacity:.75}
+.vtabs{display:flex;gap:6px}
+.vtabs .chip{min-height:32px;padding:2px 12px}
+.vbody{display:grid;grid-template-columns:auto 1fr;gap:8px;height:230px;padding:14px 4px 26px 0}
+.vy{position:relative;width:48px}
+.vy span{position:absolute;right:0;transform:translateY(50%);font-size:.72rem;color:var(--ink);opacity:.75;white-space:nowrap}
+.vplot{position:relative}
+.vgrid{position:absolute;left:0;right:0;height:1px;background:var(--line)}
+.vcols{position:absolute;inset:0;display:flex;align-items:stretch}
+.vcol{flex:1;min-width:0;position:relative;display:flex;align-items:flex-end;justify-content:center;padding:0 1px;cursor:default}
+.vcol:focus-visible{outline:2px solid var(--midnight);outline-offset:-2px;border-radius:4px}
+.vbar{position:relative;display:block;width:min(100%,24px);background:#2F7A8A;border-radius:4px 4px 0 0}
+.vcol.on .vbar{background:var(--midnight)}
+.vpeak{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);margin-bottom:3px;font-style:normal;font-size:.72rem;font-weight:700;color:var(--ink);white-space:nowrap}
+.vx{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:6px;font-size:.7rem;color:var(--ink);opacity:.8;white-space:nowrap}
+.vtip{position:absolute;top:-8px;transform:translate(-50%,-100%);z-index:3;pointer-events:none;background:var(--midnight);color:var(--star);padding:6px 10px;border-radius:8px;display:grid;gap:1px;white-space:nowrap;box-shadow:0 4px 14px rgba(0,0,0,.25)}
+.vtip b{font-size:1rem}
+.vtip span,.vtip small{font-size:.75rem;opacity:.9}
+.vtip.left{transform:translate(-12%,-100%)}
+.vtip.right{transform:translate(-88%,-100%)}
+
+/* Dialogs: sized to their content so they fit without scrolling; compact on short screens, and long forms use two columns */
+.modal{width:min(560px,100%);max-height:calc(100vh - 24px);padding:18px 20px;gap:10px}
+.modal.wide{width:min(900px,100%);max-height:calc(100vh - 24px)}
+.modal h2{font-size:1.15rem}
+.modal .grid2{grid-template-columns:1fr 1fr;gap:8px 12px}
+.modal label{margin-bottom:2px}
+.modal input,.modal select,.modal textarea{min-height:38px}
+.modal p{margin:0}
+@media (max-height:820px){
+  .modal{padding:14px 16px;gap:8px}
+  .modal input,.modal select{min-height:34px}
+  .modal .btn{min-height:36px}
+}
+@media (max-width:560px){.modal .grid2{grid-template-columns:1fr}}
+
+/* tighter fields inside dialogs */
+.modal .addr{margin-bottom:6px;gap:2px}
+.modal .addr input,.modal .addr select{min-height:36px;font-size:1rem}
+.modal .opts{margin-top:4px}
+
+/* Coffee Postal logo: on a cream plate so its pink and yellow letters read on any bar colour */
+.brand{flex-direction:column;align-items:flex-start;gap:4px}
+.brandlogo{display:block;height:54px;width:auto;background:var(--star);border-radius:10px;padding:2px 8px}
+.brand small{display:block}
+.pc-l .logo .loginlogo{display:block;width:min(300px,100%);height:auto;background:var(--star);border-radius:14px;padding:6px 14px}
+.topbar .brand{flex-direction:row;align-items:center}
+.topbar .brandlogo{height:38px;padding:1px 6px;border-radius:8px}
+@media (max-width:760px){.brandlogo{height:44px}.topbar .brandlogo{height:34px}}

@@ -34,10 +34,10 @@ class ProductAdminApi {
                         List<CatalogService.CategoryRow> allCategories, List<CatalogService.Header> headers) {}
     record ProductReq(@NotBlank @Size(max = 120) String name, @NotNull Long categoryId, @NotBlank String price,
                       String cost, boolean hasSizes, @NotBlank String art,
-                      @Size(max = 40) String sku, @Size(max = 40) String barcode, @Size(max = 500) String description) {}
+                      @Size(max = 40) String sku, @Size(max = 40) String barcode, @Size(max = 500) String description, @Size(max = 300) String tags) {}
     record ProductEditReq(@NotBlank @Size(max = 120) String name, @NotNull Long categoryId, @NotBlank String price,
                           String cost, boolean hasSizes, @NotBlank String art, boolean published,
-                          @Size(max = 40) String sku, @Size(max = 40) String barcode, @Size(max = 500) String description) {}
+                          @Size(max = 40) String sku, @Size(max = 40) String barcode, @Size(max = 500) String description, @Size(max = 300) String tags) {}
     record CategoryReq(@NotBlank @Size(max = 80) String name) {}
     record CategoryEditReq(@NotBlank @Size(max = 80) String name, Long headerId, int sortOrder, boolean active) {}
     record HeaderReq(@NotBlank @Size(max = 80) String name) {}
@@ -67,6 +67,7 @@ class ProductAdminApi {
         checkCodes(r.sku(), r.barcode(), -1);
         long id = catalog.createProduct(r.categoryId(), name, price, cost, r.hasSizes(), r.art(), colorFor(r.art()));
         catalog.setProductExtras(id, r.sku(), r.barcode(), r.description());
+        catalog.setProductTags(id, r.tags());
         audit.record(who.getName(), null, "PRODUCT_CREATE", "product", String.valueOf(id), null,
             "{\"name\":\"" + name.replace("\"", "'") + "\",\"price\":" + price + "}", null);
         return Map.of("id", id);
@@ -86,6 +87,7 @@ class ProductAdminApi {
         checkCodes(r.sku(), r.barcode(), id);
         catalog.updateProduct(id, r.categoryId(), name, price, cost, r.hasSizes(), r.art(), colorFor(r.art()), r.published());
         catalog.setProductExtras(id, r.sku(), r.barcode(), r.description());
+        catalog.setProductTags(id, r.tags());
         boolean priceChanged = before.price() != price || before.cost() != cost;
         audit.record(who.getName(), null, priceChanged ? "PRODUCT_PRICE_CHANGE" : "PRODUCT_UPDATE", "product", String.valueOf(id),
             "{\"price\":" + before.price() + ",\"cost\":" + before.cost() + ",\"published\":" + before.published() + "}",

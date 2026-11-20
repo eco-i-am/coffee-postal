@@ -11,7 +11,6 @@ export default function MyReport() {
   const range = useMemo(() => presetRange(preset, todayManila()), [preset]);
   const load = useCallback(() => api(`/api/branch/my-report?from=${range.from}&to=${range.to}`), [range.from, range.to]);
   const { data: d, error, loading } = useLoad(load);
-  const peak = Math.max(1, ...(d?.days || []).map((x) => x.sales));
 
   return (
     <div className="sec">
@@ -31,14 +30,7 @@ export default function MyReport() {
             <div className="kpi"><small>Refunds</small><b className={d.refunds > 0 ? "short" : ""}>{peso(d.refunded)}</b><span>{d.refunds} {d.refunds === 1 ? "order" : "orders"}</span></div>
           </div>
           {d.days.length > 1 && (
-            <div className="bars" role="img" aria-label="My sales by day">
-              {d.days.map((x) => (
-                <div key={x.date} className="bar" title={`${dateOf(x.date)}: ${peso(x.sales)} (${x.orders} orders)`}>
-                  <i style={{ height: `${(x.sales / peak) * 100}%` }} />
-                  {d.days.length <= 31 && <span>{Number(x.date.slice(8))}</span>}
-                </div>
-              ))}
-            </div>
+            <ColumnChart points={dayPoints(d.days)} name="My sales by day" per="day" what="Date" />
           )}
           <div className="tw">
             <table className="dense">

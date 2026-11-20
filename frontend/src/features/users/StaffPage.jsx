@@ -16,10 +16,10 @@ function Field({ id, label, error, children }) {
   );
 }
 
-function Dialog({ onClose, children, onSubmit }) {
+function Dialog({ onClose, children, onSubmit, wide }) {
   return (
     <div className="scrim" onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <form className="modal" role="dialog" aria-modal="true" onSubmit={onSubmit} noValidate>{children}</form>
+      <form className={`modal${wide ? " wide" : ""}`} role="dialog" aria-modal="true" onSubmit={onSubmit} noValidate>{children}</form>
     </div>
   );
 }
@@ -126,7 +126,7 @@ export default function StaffPage({ side }) {
       )}
 
       {dlg && (
-        <Dialog onClose={close} onSubmit={submit}>
+        <Dialog onClose={close} onSubmit={submit} wide={dlg.kind === "edit"}>
           {dlg.kind === "password" && (
             <>
               <h2>New password for {f.fullName}</h2>
@@ -150,6 +150,7 @@ export default function StaffPage({ side }) {
           {dlg.kind === "edit" && (
             <>
               <h2>{f.id ? `Edit ${f.fullName}` : "Add user"}</h2>
+              <div className="grid2">
               <Field id="fn" label="Full name" error={fields.fullName}><input id="fn" value={f.fullName} onChange={setF("fullName")} /></Field>
               {!f.id && <Field id="un" label="Username" error={fields.username}><input id="un" autoComplete="off" value={f.username} onChange={setF("username")} placeholder="ana.cruz" /></Field>}
               <Field id="em" label="Email (optional)" error={fields.email}><input id="em" type="email" value={f.email} onChange={setF("email")} /></Field>
@@ -179,6 +180,7 @@ export default function StaffPage({ side }) {
                   <Field id="pn" label="PIN (optional, for refunds)" error={fields.pin}><input id="pn" inputMode="numeric" autoComplete="off" maxLength={6} value={f.pin} onChange={setF("pin")} /></Field>
                 </>
               )}
+              </div>
             </>
           )}
           {err && !Object.keys(fields).length && <p className="err" role="alert">{err}</p>}

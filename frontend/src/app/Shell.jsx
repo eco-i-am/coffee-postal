@@ -34,7 +34,7 @@ function navFor(me, can) {
     can("branch_inventory_view") && { to: "/branch/inventory", label: "Item Inventory" },
     can("branch_po_view") && { to: "/branch/purchase-orders", label: "Purchase Orders" },
     can("payables_view") && { to: "/branch/payables", label: "Payables" },
-    can("cash_inout_view") && { to: "/branch/cash", label: "Cash Drawer" },
+    can("cash_inout_view") && can("cashier_reports_view") && { to: "/branch/cash", label: "Cash Drawer" },   // a cashier's drawer is a dialog on the Point of Sale
     can("transfers_view") && { to: "/branch/transfers", label: "Transfers" },
     can("outsource_view") && { to: "/branch/outsource", label: "Outsource" },
     can("branch_expenses_view") && { to: "/branch/expenses", label: "Expenses" },
@@ -72,15 +72,8 @@ export default function Shell() {
 
   const brand = (
   <div className="brand">
-    <svg width="42" height="46" viewBox="0 0 40 44" aria-hidden="true">
-      <path d="M20 3C29 3 35 10 35 18C35 28 20 41 20 41C20 41 5 28 5 18C5 10 11 3 20 3Z" fill="#FE8282" />
-      <ellipse cx="20" cy="15" rx="8" ry="6" fill="#FFC74A" transform="rotate(-25 20 15)" />
-      <path d="M14 17c4-1 8-5 12-6" stroke="#FE8282" strokeWidth="1.6" fill="none" />
-    </svg>
-    <div>
-      <b>Coffee<br />Postal</b>
-      <small>Operating System</small>
-    </div>
+    <img className="brandlogo" src="/logo.png" alt="Coffee Postal" width="120" height="67" />
+    <small>Operating System</small>
   </div>
   );
   const links = (

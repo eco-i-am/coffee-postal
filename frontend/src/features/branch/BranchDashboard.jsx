@@ -19,7 +19,6 @@ export default function BranchDashboard() {
   const [date, setDate] = useState(todayManila());
   const load = useCallback(() => api(`/api/branch/dashboard?date=${date}`), [date]);
   const { data: d, error, loading } = useLoad(load);
-  const peak = d ? Math.max(1, ...d.hourly.map((h) => h.sales)) : 1;
   const paid = d ? d.payments.reduce((s, p) => s + p.amount, 0) : 0;
 
   return (
@@ -52,14 +51,8 @@ export default function BranchDashboard() {
             <div className="two">
               <div className="sec">
                 <h2>Sales by hour</h2>
-                <div className="bars" role="img" aria-label="Sales by hour of the day">
-                  {d.hourly.map((h) => (
-                    <div key={h.hour} className="bar" title={`${hourLabel(h.hour)}: ${peso(h.sales)}`}>
-                      <i style={{ height: `${(h.sales / peak) * 100}%` }} />
-                      <span>{hourLabel(h.hour)}</span>
-                    </div>
-                  ))}
-                </div>
+                <ColumnChart name="Sales by hour of the day" per="hour" what="Hour" noteHead=""
+                  points={d.hourly.map((h) => ({ key: h.hour, label: hourLabel(h.hour), title: hourLabel(h.hour), value: h.sales }))} />
               </div>
               <div className="sec">
                 <h2>How customers paid</h2>

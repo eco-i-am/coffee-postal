@@ -35,6 +35,12 @@ function Protected({ scope }) {
   return <Outlet />;
 }
 
+// a cashier's drawer is a dialog on the Point of Sale; the page is for managers
+function CashRoute() {
+  const { can } = useAuth();
+  return can("cashier_reports_view") ? <CashPage /> : <Navigate to="/pos" replace />;
+}
+
 function Home() {
   const { me, can } = useAuth();
   // a tablet account that can only clock people in and out goes straight to the clock
@@ -59,7 +65,7 @@ export default function App() {
           <Route path="/branch/payables" element={<InvoiceList side="branch" />} />
           <Route path="/branch/reports" element={<ReportsPage side="branch" />} />
           <Route path="/branch/users" element={<StaffPage side="branch" />} />
-          <Route path="/branch/cash" element={<CashPage />} />
+          <Route path="/branch/cash" element={<CashRoute />} />
           <Route path="/branch/clock" element={<ClockPage />} />
           <Route path="/branch/transfers" element={<TransfersPage side="branch" />} />
           <Route path="/branch/outsource" element={<OutsourcePage />} />

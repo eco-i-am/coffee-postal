@@ -14,6 +14,8 @@ import PayModal from "./PayModal.jsx";
 import Receipt from "./Receipt.jsx";
 import Modal from "../../shared/Modal.jsx";
 import ClockPage from "../clock/ClockPage.jsx";
+import { OpenShift, ShiftPanel } from "../branch/ShiftParts.jsx";
+import MyReport from "../branch/MyReport.jsx";
 
 export const TYPES = [["DINE_IN", "Dine-in"], ["TAKEOUT", "Takeout"], ["DELIVERY", "Delivery"]];
 
@@ -35,10 +37,12 @@ export default function PosPage() {
   }, [me.username]);
   const { data: menu, error, loading } = useLoad(loadMenu);
   const loadShift = useCallback(() => api("/api/branch/shift").catch(() => null), []);
-  const { data: shiftInfo } = useLoad(loadShift);
+  const { data: shiftInfo, reload: reloadShift } = useLoad(loadShift);
+  const [drawer, setDrawer] = useState(false);   // the cash drawer dialog
 
   const imgs = useImages();
   const [cat, setCat] = useState("All");
+  const [q, setQ] = useState("");   // search the menu by name
   const [cart, setCart] = useState([]);
   const [otype, setOtype] = useState("DINE_IN");
   const [disc, setDisc] = useState("NONE");
@@ -53,7 +57,9 @@ export default function PosPage() {
   const t = totals(cartGross(cart), rule, vatRegistered);
   const needsId = !!rule?.requiresId;
   const needsPin = rule?.approvalOver != null && t.discount > rule.approvalOver;
-  const items = (menu?.items || []).filter((m) => cat === "All" || m.category === cat);
+  const needle = q.trim().toLowerCase();
+  // while searching, look across every category
+  const items = (menu?.items || []).filter((m) => needle ? m.name.toLowerCase().includes(needle) : (cat === "All" || (cat.startsWith("tag:") ? m.tags?.includes(cat.slice(4)) : m.category === cat)));
 
   function edit(fn) {
     setCart(fn);
@@ -79,6 +85,17 @@ export default function PosPage() {
     setOrderId(null);
   }
 
+  // no shift, no sales: the till stays locked until the cashier counts the drawer and starts a shift
+  // (shiftInfo is empty when it could not be loaded, such as offline, and then the till is not locked)
+  if (shiftInfo && !shiftInfo.shift && can("cash_inout_add")) {
+    return (
+      <section className="fitpage">
+        <header className="pghead"><div><h1>Start your shift</h1><p>The Point of Sale opens once your shift has started.</p></div></header>
+        <OpenShift onDone={reloadShift} />
+      </section>
+    );
+  }
+
   return (
     <section className="fitpage">
       <header className="pghead poshead">
@@ -86,10 +103,16 @@ export default function PosPage() {
           <h1>Point of Sale</h1>
           <p>Tap an item to start an order.{vatRegistered ? " Prices include 12% VAT." : ""}</p>
         </div>
+        <input className="searchbox possearch" type="search" aria-label="Search the menu" placeholder="Search the menu" value={q} onChange={(e) => setQ(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter" && items.length === 1) { tap(items[0]); setQ(""); } else if (e.key === "Escape") setQ(""); }} />
+        {can("cash_inout_view") && <button type="button" className="btn ghost sm clockbtn" onClick={() => setDrawer(true)}>Cash drawer</button>}
         {can("time_clock_add") && <button type="button" className="btn ghost sm clockbtn" onClick={() => setClocking(true)}>Time In / Out</button>}
         <div className="tabs" role="group" aria-label="Categories">
           {["All", ...(menu?.categories || [])].map((c) => (
             <button key={c} className="chip" aria-pressed={c === cat} onClick={() => setCat(c)}>{c}</button>
+          ))}
+          {(menu?.tags || []).map((t) => (
+            <button key={`tag:${t}`} className="chip" aria-pressed={cat === `tag:${t}`} onClick={() => setCat(`tag:${t}`)}># {t}</button>
           ))}
         </div>
       </header>
@@ -101,6 +124,7 @@ export default function PosPage() {
 
       <div className="pos">
         <div className="menu">
+          {menu && items.length === 0 && <p className="hint" role="status">{needle ? `Nothing matches "${q.trim()}".` : "Nothing in this category."}</p>}
           {items.map((m) => (
             <button key={m.id} className="tile" style={{ "--c": m.color }} onClick={() => tap(m)}>
               <span className="art">{imgs.url("product", m.id) ? <img className="tilephoto" src={imgs.url("product", m.id)} alt="" loading="lazy" decoding="async" /> : <TileArt kind={m.art} />}</span>
@@ -160,6 +184,14 @@ export default function PosPage() {
           </div>
         </div>
       </div>
+
+      {drawer && (
+        <Modal title="Cash drawer" wide onClose={() => setDrawer(false)}>
+          {shiftInfo?.shift ? <ShiftPanel s={shiftInfo.shift} reload={reloadShift} onClosed={() => setDrawer(false)} /> : <p className="hint">No shift is open.</p>}
+          {can("pos_view") && !can("cashier_reports_view") && <MyReport />}
+          <div className="opts"><button type="button" className="btn ghost" onClick={() => setDrawer(false)}>Back to the POS</button></div>
+        </Modal>
+      )}
 
       {clocking && (
         <Modal title="Time In / Out" wide onClose={() => setClocking(false)}>

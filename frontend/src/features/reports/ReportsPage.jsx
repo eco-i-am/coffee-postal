@@ -5,6 +5,8 @@ import { peso } from "../../shared/money.js";
 import { PRESETS, presetRange, daysBetween } from "../../shared/dates.js";
 import { DISCOUNT_NAMES, METHOD_NAMES, PO_STATUS, dateTimeOf, fmtQty, poNo, todayManila } from "../../shared/format.js";
 import { pesoCell } from "../../shared/csv.js";
+import ColumnChart from "../../shared/ColumnChart.jsx";
+import { dayPoints } from "../../shared/chartScale.js";
 import { Kpi, ExportButton, RangeBar, useReport, State } from "./widgets.jsx";
 import { PaymentsTab, DiscountsTab, OrderTypesTab, CashiersTab, EmployeesTab, OutsourceTab, PoPaymentsTab } from "./ExtraTabs.jsx";
 
@@ -13,8 +15,6 @@ function SalesTab({ base, range, branchQ }) {
   const d = r.data;
   if (!d) return <State r={r} />;
   const t = d.totals;
-  const peak = Math.max(1, ...d.days.map((x) => x.sales));
-  const showLabels = d.days.length <= 31;
   const csv = [["Date", "Orders", "Sales", "Discounts", "VAT included", "Refunded orders", "Refunded amount"],
     ...d.days.map((x) => [x.date, x.orders, pesoCell(x.sales), pesoCell(x.discount), pesoCell(x.vat), x.refunds, pesoCell(x.refunded)]),
     ["Total", t.orders, pesoCell(t.sales), pesoCell(t.discount), pesoCell(t.vat), t.refunds, pesoCell(t.refunded)]];
@@ -29,14 +29,7 @@ function SalesTab({ base, range, branchQ }) {
       </div>
       <div className="sec">
         <div className="pghead"><h2>Sales by day</h2><ExportButton name="sales_by_day" rows={csv} range={range} /></div>
-        <div className="bars" role="img" aria-label="Sales by day">
-          {d.days.map((x) => (
-            <div key={x.date} className="bar" title={`${x.date}: ${peso(x.sales)} (${x.orders} orders)`}>
-              <i style={{ height: `${(x.sales / peak) * 100}%` }} />
-              {showLabels && <span>{Number(x.date.slice(8))}</span>}
-            </div>
-          ))}
-        </div>
+        <ColumnChart points={dayPoints(d.days)} name="Sales by day" per="day" what="Date" />
       </div>
       <div className="two">
         <div className="sec tw">

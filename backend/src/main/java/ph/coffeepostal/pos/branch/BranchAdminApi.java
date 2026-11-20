@@ -8,6 +8,10 @@ import java.util.List;
 import java.util.Map;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -33,8 +37,9 @@ class BranchAdminApi {
 
     private final BranchRepository branches;
     private final AuditService audit;
+    private final JdbcTemplate jdbc;
 
-    BranchAdminApi(BranchRepository branches, AuditService audit) { this.branches = branches; this.audit = audit; }
+    BranchAdminApi(BranchRepository branches, AuditService audit, JdbcTemplate jdbc) { this.branches = branches; this.audit = audit; this.jdbc = jdbc; }
 
     @GetMapping
     @PreAuthorize("hasAuthority('PERM_branches_view')")
@@ -78,6 +83,25 @@ class BranchAdminApi {
 
     private static String blank(String s) { return s == null || s.isBlank() ? null : s.trim(); }
     private static String clean(String s) { return s == null ? "" : s.replace("\"", "'"); }
+
+    /**
+     * Delete a branch that was never used. Anything tied to it (sales, shifts, staff, stock...) stops the delete and the
+     * branch is set inactive instead. Its old audit lines stay, no longer pointing at a branch.
+     */
+    @DeleteMapping("/{id}")
+    @Transactional
+    @PreAuthorize("hasAuthority('PERM_branches_delete')")
+    void delete(@PathVariable long id, Principal who) {
+        Branch b = branches.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "That branch no longer exists."));
+        String code = b.getCode(), name = clean(b.getName());
+        try {
+            jdbc.update("UPDATE audit_logs SET branch_id = NULL WHERE branch_id = ?", id);
+            jdbc.update("DELETE FROM branches WHERE id = ?", id);
+        } catch (DataIntegrityViolationException e) {
+            throw new ApiException(HttpStatus.CONFLICT, "This branch has sales, staff, stock or other records, so it cannot be deleted. Set it to inactive instead: it stops selling and the history stays.");
+        }
+        audit.record(who.getName(), null, "BRANCH_DELETE", "branch", String.valueOf(id), "{\"code\":\"" + code + "\",\"name\":\"" + name + "\"}", null, null);
+    }
 
     @PostMapping("/{id}/toggle")
     @PreAuthorize("hasAuthority('PERM_branches_edit')")

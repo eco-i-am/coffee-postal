@@ -36,12 +36,7 @@ export default function LoginPage() {
       <div className="postcard">
         <div className="pc-l">
           <div className="logo">
-            <svg width="62" height="68" viewBox="0 0 40 44" aria-hidden="true">
-              <path d="M20 3C29 3 35 10 35 18C35 28 20 41 20 41C20 41 5 28 5 18C5 10 11 3 20 3Z" fill="#FE8282" />
-              <ellipse cx="20" cy="15" rx="8" ry="6" fill="#FFC74A" transform="rotate(-25 20 15)" />
-              <path d="M14 17c4-1 8-5 12-6" stroke="#FE8282" strokeWidth="1.6" fill="none" />
-            </svg>
-            <b><span>COFFEE</span><br /><span>POSTAL</span></b>
+            <img className="loginlogo" src="/logo.png" alt="Coffee Postal" width="300" height="169" />
           </div>
           <p>Your affordable freshly brewed coffee destination</p>
           <div className="lgart" dangerouslySetInnerHTML={{ __html: LOGIN_ART }} />

@@ -57,10 +57,10 @@ export function stepsFor(me, can) {
   if (!admin && can("cash_inout_view")) {
     s.push({
       id: "shift",
-      title: "Cash Drawer and your shift",
-      page: "Cash Drawer",
+      title: can("cashier_reports_view") ? "Cash Drawer and your shift" : "Your shift",
+      page: can("cashier_reports_view") ? "Cash Drawer" : "Point of Sale",
       body: [
-        "Open your shift before the first sale. Cash sales are counted against the drawer, and at the end you see whether it is over or short.",
+        can("cashier_reports_view") ? "Open your shift before the first sale. Cash sales are counted against the drawer, and at the end you see whether it is over or short." : "The Point of Sale stays locked until you start your shift: count the drawer and take a photo. The Cash drawer button on the Point of Sale has cash in and out, the X reading and closing your shift.",
       ],
       buttons: [
         B("Open shift", "Starts your shift with the cash you begin with."),
@@ -68,7 +68,7 @@ export function stepsFor(me, can) {
         B("X reading", "A mid-shift sales summary. It does not close anything."),
         B("Close my shift / Close shift", "Count the drawer and end the shift. Not allowed while offline sales are still waiting to upload."),
       ],
-      to: "/branch/cash",
+      to: can("cashier_reports_view") ? "/branch/cash" : "/pos",
     });
   }
 

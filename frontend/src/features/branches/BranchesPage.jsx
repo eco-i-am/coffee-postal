@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import Modal from "../../shared/Modal.jsx";
+import { useAuth } from "../../app/AuthContext.jsx";
 
 const loadBranches = () => api("/api/admin/branches");
 const EMPTY = { code: "", name: "", address: "", phone: "", tin: "", vatRegistered: false };
@@ -15,6 +16,8 @@ export default function BranchesPage() {
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState(null);   // null = adding a new branch
   const [search, setSearch] = useState("");
+  const { can } = useAuth();
+  const [removing, setRemoving] = useState(null);   // the branch being deleted
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
 
@@ -46,6 +49,19 @@ export default function BranchesPage() {
     setAdding(true);
   }
 
+  async function remove() {
+    setMsg("");
+    try {
+      await api(`/api/admin/branches/${removing.id}`, { method: "DELETE" });
+      setMsg(`${removing.name} was deleted.`);
+      setRemoving(null);
+      reload();
+    } catch (err) {
+      setMsg(err.message);
+      setRemoving(null);
+    }
+  }
+
   function closeForm() { setAdding(false); setEditId(null); setForm(EMPTY); setFields({}); setMsg(""); }
 
   async function toggle(b) {
@@ -66,7 +82,7 @@ export default function BranchesPage() {
       <header className="pghead">
         <div>
           <h1>Branches</h1>
-          <p>Every Coffee Postal branch. Close one and it can no longer sell.</p>
+          <p>Every Coffee Postal branch. An inactive branch can no longer sell.</p>
         </div>
         <div className="toolbar">
           <input className="searchbox" type="search" aria-label="Search branches" placeholder="Search branches" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -90,10 +106,11 @@ export default function BranchesPage() {
                     <td>{b.address || ""}</td>
                     <td>{b.phone || ""}</td>
                     <td>{b.vatRegistered ? "Yes" : "No"}</td>
-                    <td><span className={`tag ${b.active ? "g" : "r"}`}>{b.active ? "Open" : "Closed"}</span></td>
+                    <td><span className={`tag ${b.active ? "g" : "r"}`}>{b.active ? "Active" : "Inactive"}</span></td>
                     <td className="rowbtns">
                       <button className="btn ghost sm" type="button" onClick={() => startEdit(b)}>Edit</button>
-                      <button className="btn ghost sm" type="button" onClick={() => toggle(b)}>{b.active ? "Close" : "Reopen"}</button>
+                      <button className="btn ghost sm" type="button" onClick={() => toggle(b)}>{b.active ? "Set inactive" : "Set active"}</button>
+                      {can("branches_delete") && <button className="btn ghost sm" type="button" onClick={() => setRemoving(b)}>Delete</button>}
                     </td>
                   </tr>
                 ))}
@@ -103,6 +120,17 @@ export default function BranchesPage() {
           </div>
         )}
       </div>
+
+      {removing && (
+        <Modal title="Delete branch" onClose={() => setRemoving(null)} onSubmit={(e) => { e.preventDefault(); remove(); }}>
+          <h2>Delete {removing.name}?</h2>
+          <p className="hint">This removes the branch for good and cannot be undone. If it has sales, staff, stock or other records it will not go through; set it to inactive instead.</p>
+          <div className="opts">
+            <button type="button" className="btn ghost" onClick={() => setRemoving(null)}>Keep it</button>
+            <button type="submit" className="btn danger">Delete for good</button>
+          </div>
+        </Modal>
+      )}
 
       {adding && (
         <Modal title={editId ? "Edit branch" : "Add a branch"} onClose={closeForm} onSubmit={add}>

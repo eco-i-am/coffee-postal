@@ -14,14 +14,14 @@ import org.springframework.transaction.annotation.Transactional;
 public class CatalogService {
     public record Category(long id, String name) {}
     public record ProductRow(long id, String name, String category, long categoryId, long price, long cost, boolean hasSizes, boolean active, boolean published, String art,
-                             String sku, String barcode, String description) {}
+                             String sku, String barcode, String description, String tags) {}
     public record CategoryRow(long id, String name, Long headerId, String header, int sortOrder, boolean active) {}
     public record Header(long id, String name, int sortOrder, boolean active) {}
     public record Opt(long id, String name, long price) {}
     public record MenuItem(long id, String name, String category, String header, long price, String art, String color,
-                           List<Opt> sizes, List<Opt> addons) {}
+                           List<Opt> sizes, List<Opt> addons, List<String> tags) {}
     public record DiscountOpt(String code, String name, String kind, long value, boolean requiresId, Long approvalOver) {}
-    public record Menu(List<String> categories, List<MenuItem> items, List<DiscountOpt> discounts, boolean vatRegistered) {}
+    public record Menu(List<String> categories, List<String> tags, List<MenuItem> items, List<DiscountOpt> discounts, boolean vatRegistered) {}
 
     /** Extra charge for the Large size on new drinks (centavos). */
     static final long LARGE_EXTRA = 2000;
@@ -38,13 +38,13 @@ public class CatalogService {
     public List<ProductRow> adminProducts() {
         return jdbc.query("""
             SELECT p.id, p.name, c.name AS category, p.category_id, p.price, p.cost, p.has_sizes, p.active, p.published, p.art,
-                   p.sku, p.barcode, p.description
+                   p.sku, p.barcode, p.description, p.tags
             FROM products p JOIN product_categories c ON c.id = p.category_id
             ORDER BY c.sort_order, c.name, p.name
             """, (rs, i) -> new ProductRow(rs.getLong("id"), rs.getString("name"), rs.getString("category"),
                 rs.getLong("category_id"), rs.getLong("price"), rs.getLong("cost"), rs.getBoolean("has_sizes"),
                 rs.getBoolean("active"), rs.getBoolean("published"), rs.getString("art"),
-                rs.getString("sku"), rs.getString("barcode"), rs.getString("description")));
+                rs.getString("sku"), rs.getString("barcode"), rs.getString("description"), rs.getString("tags")));
     }
 
     public List<CategoryRow> adminCategories() {
@@ -155,6 +155,23 @@ public class CatalogService {
         jdbc.update("UPDATE products SET sku = ?, barcode = ?, description = ? WHERE id = ?", blank(sku), blank(barcode), blank(description), id);
     }
 
+    /** Tags: comma separated, trimmed, lower case, no repeats, at most 8 of up to 30 characters each. */
+    public static String cleanTags(String raw) {
+        if (raw == null) return "";
+        LinkedHashSet<String> out = new LinkedHashSet<>();
+        for (String t : raw.split(",")) {
+            String x = t.trim().toLowerCase().replaceAll("\\s+", " ");
+            if (!x.isEmpty()) out.add(x.length() > 30 ? x.substring(0, 30) : x);
+            if (out.size() == 8) break;
+        }
+        return String.join(",", out);
+    }
+
+    @Transactional
+    public void setProductTags(long id, String tags) {
+        jdbc.update("UPDATE products SET tags = ? WHERE id = ?", cleanTags(tags), id);
+    }
+
     public static String blank(String s) { return s == null || s.isBlank() ? null : s.trim(); }
 
     public boolean productSkuTaken(String sku, long exceptId) {
@@ -180,8 +197,8 @@ public class CatalogService {
         String name = p.name() + " (copy)";
         for (int n = 2; productNameExists(name); n++) name = p.name() + " (copy " + n + ")";
         long copy = jdbc.queryForObject("""
-            INSERT INTO products(category_id, name, price, cost, has_sizes, art, color, description, published)
-            SELECT category_id, ?, price, cost, has_sizes, art, color, description, FALSE FROM products WHERE id = ? RETURNING id
+            INSERT INTO products(category_id, name, price, cost, has_sizes, art, color, description, tags, published)
+            SELECT category_id, ?, price, cost, has_sizes, art, color, description, tags, FALSE FROM products WHERE id = ? RETURNING id
             """, Long.class, name, id);
         jdbc.update("INSERT INTO product_variants(product_id, name, price_delta, sort_order) SELECT ?, name, price_delta, sort_order FROM product_variants WHERE product_id = ?", copy, id);
         jdbc.update("INSERT INTO product_addons(product_id, addon_id) SELECT ?, addon_id FROM product_addons WHERE product_id = ?", copy, id);
@@ -236,8 +253,9 @@ public class CatalogService {
                 .add(new Opt(rs.getLong("id"), rs.getString("name"), rs.getLong("price")));
         });
         LinkedHashSet<String> cats = new LinkedHashSet<>();
+        java.util.TreeSet<String> tagSet = new java.util.TreeSet<>();
         List<MenuItem> items = jdbc.query("""
-            SELECT p.id, p.name, c.name AS category, h.name AS header, coalesce(bp.price, p.price) AS price, p.art, p.color
+            SELECT p.id, p.name, c.name AS category, h.name AS header, coalesce(bp.price, p.price) AS price, p.art, p.color, p.tags
             FROM products p
             JOIN product_categories c ON c.id = p.category_id AND c.active
             LEFT JOIN product_headers h ON h.id = c.header_id
@@ -247,13 +265,15 @@ public class CatalogService {
             """, (rs, i) -> {
                 long id = rs.getLong("id");
                 cats.add(rs.getString("category"));
+                List<String> tg = rs.getString("tags").isEmpty() ? List.of() : List.of(rs.getString("tags").split(","));
+                tagSet.addAll(tg);
                 return new MenuItem(id, rs.getString("name"), rs.getString("category"), rs.getString("header"), rs.getLong("price"),
                     rs.getString("art"), rs.getString("color"),
-                    sizes.getOrDefault(id, List.of()), addons.getOrDefault(id, List.of()));
+                    sizes.getOrDefault(id, List.of()), addons.getOrDefault(id, List.of()), tg);
             }, branchId);
         List<DiscountOpt> discounts = jdbc.query("SELECT code, name, kind, value, requires_id, approval_over FROM discounts WHERE active ORDER BY sort_order, name",
             (rs, i) -> new DiscountOpt(rs.getString(1), rs.getString(2), rs.getString(3), rs.getLong(4), rs.getBoolean(5), (Long) rs.getObject(6)));
         boolean vat = Boolean.TRUE.equals(jdbc.queryForObject("SELECT vat_registered FROM branches WHERE id = ?", Boolean.class, branchId));
-        return new Menu(new ArrayList<>(cats), items, discounts, vat);
+        return new Menu(new ArrayList<>(cats), new ArrayList<>(tagSet), items, discounts, vat);
     }
 }
