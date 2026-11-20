@@ -45,8 +45,9 @@ public class UserService {
 
     private static UserRow map(java.sql.ResultSet rs, int i) throws java.sql.SQLException {
         long bid = rs.getLong("branch_id");
+        Long branch = rs.wasNull() ? null : bid;   // asked right after the read, or it reports a different column
         return new UserRow(rs.getLong("id"), rs.getString("username"), rs.getString("full_name"), rs.getString("email"), rs.getLong("role_id"),
-            rs.getString("role"), rs.getString("scope"), rs.wasNull() ? null : bid, rs.getString("branch"), rs.getString("status"),
+            rs.getString("role"), rs.getString("scope"), branch, rs.getString("branch"), rs.getString("status"),
             rs.getBoolean("locked"), rs.getBoolean("has_pin"), rs.getString("last_login"));
     }
 
