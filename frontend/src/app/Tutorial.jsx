@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useCardPosition } from "./useCardPosition.js";
+import { api } from "../shared/api.js";
 import { useNavigate } from "react-router-dom";
 import { stepsFor } from "./tutorialSteps.js";
 import { boxOf, locate } from "./tourTarget.js";
@@ -110,6 +111,10 @@ export default function Tutorial({ me, can, onClose, onChangePassword }) {
   function runAction() {
     if (step.action?.kind === "password") { onClose(); onChangePassword(); }
     else if (step.action?.kind === "practice") { onClose(); nav(step.action.to); }
+    else if (step.action?.kind === "practiceOrders") {   // switch practice mode on, then a full page load so every screen reads the practice copies
+      onClose();
+      api("/api/practice/start", { method: "POST", body: {} }).catch(() => {}).finally(() => window.location.assign(step.action.to));
+    }
   }
 
   const buttonNote = bi >= 0 ? ` · Button ${bi + 1} of ${found.length}` : "";

@@ -12,7 +12,7 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     setUnauthorizedHandler(() => { clearMe(); setMe(null); });
     getMe()
-      .then((m) => { saveMe(m); setMe(m); })
+      .then((m) => { saveMe({ ...m, practice: false }); setMe(m); })   // practice mode is never kept for offline use
       // no internet: open as the person who was signed in, so the till still works.
       // A signed-out or expired session answers 401, which lands in the else branch as a normal sign-out.
       .catch((e) => { if (e.status === 0) setMe(loadMe()); else { clearMe(); setMe(null); } })
@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
   const signIn = useCallback(async (u, p) => {
     await apiLogin(u, p);
     const m = await getMe();
-    saveMe(m);
+    saveMe({ ...m, practice: false });
     setMe(m);
   }, []);
   const signOut = useCallback(async () => {

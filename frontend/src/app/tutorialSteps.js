@@ -150,6 +150,7 @@ export function stepsFor(me, can) {
         "Create a purchase order for the items you need. Pick a delivery date: it must be at least 48 hours after you send the order (HQ can change this), and the form shows the earliest day. HQ approves it, then it moves along to Delivered and Completed.",
         "When goods arrive, anyone at the branch can open the order and count what actually came, in parts if needed. The invoice follows what you received. Only managers create, cancel or close orders.",
       ],
+      action: { label: "Practice ordering from HQ now", kind: "practiceOrders", to: "/branch/purchase-orders" },
       to: "/branch/purchase-orders",
     });
   }
@@ -385,6 +386,7 @@ export function stepsFor(me, can) {
           "Purchase orders from branches arrive here. Approve them (for fewer items if needed) or reject them, then move each one along: pay, process, pick-up, in transit, delivered.",
           "Once a branch confirms what it received, an invoice is made.",
         ],
+        action: { label: "Practice approving orders now", kind: "practiceOrders", to: "/admin/branch-po" },
         to: "/admin/branch-po",
       });
     }

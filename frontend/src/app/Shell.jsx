@@ -70,6 +70,41 @@ function navFor(me, can) {
   ].filter(Boolean);
 }
 
+// Practice mode for purchase orders: switched on per sign-in. A full page load after each switch makes every screen read the right data.
+const canPracticeOrders = (can) => can("branch_po_view") || can("branch_po_receive_view") || can("branch_po_admin_view");
+async function setPractice(on, to) {
+  try { await api(on ? "/api/practice/start" : "/api/practice/stop", { method: "POST", body: {} }); } catch { /* the page load below shows the truth */ }
+  window.location.assign(to);
+}
+
+function PracticeBanner({ me }) {
+  const hq = me.scope === "ADMIN";
+  const home = hq ? "/admin/branch-po" : "/branch/purchase-orders";
+  const [busy, setBusy] = useState(false);
+  async function reset() {
+    setBusy(true);
+    try { await api("/api/practice/reset", { method: "POST", body: {} }); } catch { /* shown on reload */ }
+    window.location.assign(home);
+  }
+  return (
+    <div className="practicebar practicebanner" role="status">
+      <b>PRACTICE MODE</b> Purchase orders, invoices and stock here are pretend. Nothing reaches the real lists, reports or stock, and sales, expenses and other changes are switched off.
+      <details>
+        <summary>What to try</summary>
+        {hq ? (
+          <ol><li>Open Purchase Orders. Orders made in practice by branch staff show here.</li><li>Approve one, then move it along each stage.</li><li>Open Receivables to see the invoice once the branch counts the delivery.</li></ol>
+        ) : (
+          <ol><li>Open Purchase Orders and tap New order. Pick items and a delivery day.</li><li>Open the order and tap Practice: let HQ do the next step, again and again, until it is on its way.</li><li>Tap Confirm what arrived. Stock goes up and an invoice is made.</li><li>Open Payables to see what you would owe HQ.</li></ol>
+        )}
+      </details>
+      <span className="practiceacts">
+        <button type="button" className="btn ghost sm" disabled={busy} onClick={reset}>Empty practice orders</button>
+        <button type="button" className="btn warm sm" disabled={busy} onClick={() => setPractice(false, home)}>Leave practice</button>
+      </span>
+    </div>
+  );
+}
+
 export default function Shell() {
   const { me, can, signOut } = useAuth();
   const [changing, setChanging] = useState(false);
@@ -185,6 +220,7 @@ export default function Shell() {
             <div className="acctmenu" role="menu">
               <p className="acctwho">{me.branchName || "Coffee Postal"}</p>
               {!counter && <button type="button" role="menuitem" onClick={() => { closeAcct(); moveMenu(); }}>Menu on the side</button>}
+              {canPracticeOrders(can) && !me.practice && <button type="button" role="menuitem" onClick={() => setPractice(true, me.scope === "ADMIN" ? "/admin/branch-po" : "/branch/purchase-orders")}>Practice orders</button>}
               <button type="button" role="menuitem" onClick={() => { closeAcct(); setTouring(true); }}>Quick tour</button>
               <button type="button" role="menuitem" onClick={() => { closeAcct(); setChanging(true); }}>Change password</button>
               <button type="button" role="menuitem" className="danger" onClick={signOut}>Sign out</button>
@@ -214,6 +250,7 @@ export default function Shell() {
           </div>
           <div className="sidelinks">
             <button className="out" type="button" onClick={moveMenu}>{top ? "Menu on the side" : "Menu on top"}</button>
+            {canPracticeOrders(can) && !me.practice && <button className="out" type="button" onClick={() => setPractice(true, me.scope === "ADMIN" ? "/admin/branch-po" : "/branch/purchase-orders")}>Practice orders</button>}
             <button className="out" type="button" onClick={() => setTouring(true)}>Quick tour</button>
             <button className="out" type="button" onClick={() => setChanging(true)}>Change password</button>
             <button className="out" type="button" onClick={signOut}>Sign out</button>
@@ -221,6 +258,7 @@ export default function Shell() {
         </div>
       </aside>}
       <main>
+        {me.practice && <PracticeBanner me={me} />}
         <div className="page"><Outlet /></div>
       </main>
       {touring && <Tutorial me={me} can={can} onClose={closeTour} onChangePassword={() => setChanging(true)} />}

@@ -10,7 +10,7 @@ import { useAuth } from "../../app/AuthContext.jsx";
  * reject, and move it along the stages. Quantities typed here are only suggestions: the server checks every rule.
  */
 export default function PoDetail({ id, side, onClose, onChanged }) {
-  const { can } = useAuth();
+  const { can, me } = useAuth();
   const base = side === "hq" ? "/api/admin/branch-pos" : "/api/branch/purchase-orders";
   const load = useCallback(() => api(`${base}/${id}`), [base, id]);
   const { data: d, error, reload } = useLoad(load);
@@ -28,6 +28,17 @@ export default function PoDetail({ id, side, onClose, onChanged }) {
       onChanged(doneMsg);
       await reload();
       setQty({}); setRejecting(false);
+    } catch (e) { setErr(e.message); }
+    finally { setBusy(false); }
+  }
+
+  // practice mode only: a branch has no HQ to approve a pretend order, so "HQ" takes the next step on request
+  async function hqStep() {
+    setBusy(true); setErr("");
+    try {
+      const r = await api(`/api/practice/hq-step/${id}`, { method: "POST", body: {} });
+      onChanged(`${poNo(id)}: HQ moved it to ${PO_STATUS[r.status].toLowerCase()} (practice).`);
+      await reload();
     } catch (e) { setErr(e.message); }
     finally { setBusy(false); }
   }
@@ -50,6 +61,7 @@ export default function PoDetail({ id, side, onClose, onChanged }) {
   const canCancel = brEdit && status === "REQUESTED";
   const canReceive = side === "branch" && can("branch_po_receive_edit") && PO_RECEIVABLE.includes(status) && lines.some((l) => due(l) > 0);
   const canComplete = brEdit && PO_RECEIVABLE.includes(status);
+  const canHqStep = side === "branch" && !!me?.practice && ["REQUESTED", "PENDING", "TO_PAY", "PROCESSING", "FOR_PICKUP", "IN_TRANSIT"].includes(status);
 
   const approveLines = asNumbers((l) => l.qtyOrdered);
   const approveBad = approveLines.some((x, i) => bad(x.qty, lines[i].qtyOrdered)) || approveLines.every((x) => x.qty === 0);
@@ -123,6 +135,7 @@ export default function PoDetail({ id, side, onClose, onChanged }) {
 
       <div className="opts">
         <button className="btn ghost" onClick={onClose}>Close</button>
+        {canHqStep && <button className="btn brand" style={{ flex: 1 }} disabled={busy} onClick={hqStep}>Practice: let HQ do the next step</button>}
         {canCancel && <button className="btn ghost" disabled={busy} onClick={() => act("cancel", undefined, `${poNo(po.id)} cancelled.`)}>Cancel order</button>}
         {canComplete && <button className="btn ghost" disabled={busy} onClick={() => act("close", undefined, `${poNo(po.id)} completed.`)}>Complete order</button>}
         {canReceive && <button className="btn warm" style={{ flex: 1 }} disabled={busy || receiveBad}

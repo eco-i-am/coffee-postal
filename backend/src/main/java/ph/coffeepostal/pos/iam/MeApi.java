@@ -15,7 +15,7 @@ import org.springframework.web.server.ResponseStatusException;
 @RequestMapping("/api")
 class MeApi {
     record Me(String username, String fullName, String role, String scope, List<String> permissions,
-              Long branchId, String branchName) {}
+              Long branchId, String branchName, boolean practice) {}
 
     private final JdbcTemplate jdbc;
     MeApi(JdbcTemplate jdbc) { this.jdbc = jdbc; }
@@ -37,6 +37,6 @@ class MeApi {
             .filter(a -> a.startsWith("PERM_")).map(a -> a.substring(5)).sorted().toList();
         return new Me(who.getName(), (String) rows.get(0).get("full_name"), (String) rows.get(0).get("role"), scope, perms,
             branch.isEmpty() ? null : ((Number) branch.get(0).get("id")).longValue(),
-            branch.isEmpty() ? null : (String) branch.get(0).get("name"));
+            branch.isEmpty() ? null : (String) branch.get(0).get("name"), ph.coffeepostal.pos.shared.PracticeContext.on());
     }
 }

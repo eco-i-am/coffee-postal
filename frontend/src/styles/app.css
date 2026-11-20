@@ -686,3 +686,9 @@ tr.clickrow:focus-visible{outline:2px solid var(--midnight);outline-offset:-2px}
 .coachcard.low{top:auto;bottom:12px;left:50%;transform:translateX(-50%)}
 .practicebar{background:var(--sunglow);color:var(--midnight);font-weight:700}
 @media(prefers-reduced-motion:reduce){.coach-spot{animation:none;transition:none}}
+
+/* purchase order practice banner */
+.practicebanner{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center;padding:10px 16px;margin:0 0 10px;border-radius:8px;font-size:.95rem}
+.practicebanner details{flex-basis:100%;order:3}
+.practicebanner ol{margin:6px 0 0 18px;padding:0}
+.practiceacts{display:flex;gap:8px;margin-left:auto}
