@@ -142,15 +142,21 @@ export function stepsFor(me, can) {
   }
 
   if (!admin && (can("branch_po_view") || can("branch_po_receive_view"))) {
+    const orders = can("branch_po_add");   // managers and owners order; everyone else only counts deliveries in
     s.push({
       id: "branch-po",
-      title: "Ordering stock from HQ",
+      title: orders ? "Ordering stock from HQ" : "Receiving stock from HQ",
       page: "Purchase Orders",
-      body: [
-        "Create a purchase order for the items you need. Pick a delivery date: it must be at least 48 hours after you send the order (HQ can change this), and the form shows the earliest day. HQ approves it, then it moves along to Delivered and Completed.",
-        "When goods arrive, anyone at the branch can open the order and count what actually came, in parts if needed. The invoice follows what you received. Only managers create, cancel or close orders.",
-      ],
-      action: { label: "Practice ordering from HQ now", kind: "practiceOrders", to: "/branch/purchase-orders" },
+      body: orders
+        ? [
+          "Create a purchase order for the items you need. Pick a delivery date: it must be at least 48 hours after you send the order (HQ can change this), and the form shows the earliest day. HQ approves it, then it moves along to Delivered and Completed.",
+          "When goods arrive, anyone at the branch can open the order and count what actually came, in parts if needed. The invoice follows what you received. Only managers create, cancel or close orders.",
+        ]
+        : [
+          "When stock from HQ arrives, open its order here and count what actually came, in parts if needed. Stock goes up by what you count, and the invoice follows what you received.",
+          "Ordering stock from HQ is done by your manager. You only receive it.",
+        ],
+      ...(orders ? { action: { label: "Practice ordering from HQ now", kind: "practiceOrders", to: "/branch/purchase-orders" } } : {}),
       to: "/branch/purchase-orders",
     });
   }

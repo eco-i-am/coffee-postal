@@ -56,3 +56,22 @@ describe('page-by-page tour', () => {
     expect(new Set(all.map((x) => x.id)).size).toBe(all.length);
   });
 });
+
+describe("purchase order step by role", () => {
+  const me = { scope: "BRANCH", role: "Cashier", username: "c" };
+  const step = (can) => stepsFor(me, can).find((x) => x.id === "branch-po");
+
+  it("tells staff who only receive stock that they do not order it", () => {
+    const s = step(canOf("branch_po_receive_view"));
+    expect(s.title).toBe("Receiving stock from HQ");
+    expect(s.body.join(" ")).not.toMatch(/create a purchase order/i);
+    expect(s.action).toBeUndefined();
+  });
+
+  it("tells managers how to order, and offers the practice", () => {
+    const s = step(canOf("branch_po_view", "branch_po_add", "branch_po_receive_view"));
+    expect(s.title).toBe("Ordering stock from HQ");
+    expect(s.body.join(" ")).toMatch(/create a purchase order/i);
+    expect(s.action.kind).toBe("practiceOrders");
+  });
+});

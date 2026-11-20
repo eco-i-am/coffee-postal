@@ -33,7 +33,7 @@ export function OpenShift({ onDone, practice = false }) {   // practice: no came
     catch (e2) { setErr(e2.message); }
   }
   return (
-    <form className="sec stack" onSubmit={submit} style={{ maxWidth: 460 }}>
+    <form className="sec stack" onSubmit={submit} style={{ maxWidth: 460, width: "100%", margin: "0 auto" }}>
       <h2>Start your shift</h2>
       <p className="hint">Count the cash in the drawer and type it in, or count the bills and coins and the total fills in. This is your opening float.</p>
       <div className="addr"><label htmlFor="oc">Cash in drawer (&#8369;)</label>

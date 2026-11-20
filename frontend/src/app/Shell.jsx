@@ -71,7 +71,7 @@ function navFor(me, can) {
 }
 
 // Practice mode for purchase orders: switched on per sign-in. A full page load after each switch makes every screen read the right data.
-const canPracticeOrders = (can) => can("branch_po_view") || can("branch_po_receive_view") || can("branch_po_admin_view");
+const canPracticeOrders = (can) => can("branch_po_add") || can("branch_po_admin_view");   // those who order or approve; staff who only receive have nothing to practise here
 async function setPractice(on, to) {
   try { await api(on ? "/api/practice/start" : "/api/practice/stop", { method: "POST", body: {} }); } catch { /* the page load below shows the truth */ }
   window.location.assign(to);
