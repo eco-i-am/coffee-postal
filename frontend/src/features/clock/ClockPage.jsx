@@ -1,4 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import PracticeCoach from "../pos/PracticeCoach.jsx";
+import { CLOCK_STEPS } from "../pos/practiceSteps.js";
+import { PRACTICE_STAFF, practiceRoster } from "../pos/practice.js";
 import { api } from "../../shared/api.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import { timeOf } from "../../shared/format.js";
@@ -16,16 +20,18 @@ const KEYS = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"]
  * The branch tablet's time clock. Staff type a 6-digit PIN; the server decides time in or time out.
  * With no internet the tablet recognises the PIN from its saved staff list and keeps the punch to send later.
  */
-export default function ClockPage({ embedded = false, onDone }) {   // embedded: shown over the POS; closes itself after a punch
+export default function ClockPage({ embedded = false, onDone, practice = false }) {   // practice: pretend staff and PINs; nothing is sent, read or saved   // embedded: shown over the POS; closes itself after a punch
   const { me, can, signOut } = useAuth();
-  const kiosk = !embedded && inKiosk(me, can);
+  const navigate = useNavigate();
+  const [round, setRound] = useState(0);   // practice: bumps to start the coach again
+  const kiosk = !embedded && !practice && inKiosk(me, can);
   const dedicated = clockOnlyAccount(me, can);   // a Time Clock account: always clock-only
   const [exiting, setExiting] = useState(false);
   const [mgrPin, setMgrPin] = useState("");
   const [exitErr, setExitErr] = useState("");
   const user = me.username;
-  const [roster, setRoster] = useState(() => loadRoster(user));
-  const [queue, setQueue] = useState(loadPunches);
+  const [roster, setRoster] = useState(() => (practice ? practiceRoster() : loadRoster(user)));
+  const [queue, setQueue] = useState(() => (practice ? [] : loadPunches()));
   const queueRef = useRef(queue);
   const [pin, setPin] = useState("");
   const [result, setResult] = useState(null);   // { name, kind, at, offline, flag } or { error }
@@ -35,14 +41,15 @@ export default function ClockPage({ embedded = false, onDone }) {   // embedded:
   const uploading = useRef(false);
   const timer = useRef(null);
   const videoRef = useRef(null);
-  const [camera, setCamera] = useState("starting");   // starting | on | off
+  const [camera, setCamera] = useState(practice ? "off" : "starting");   // starting | on | off
   const [chosen, setChosen] = useState(null);   // "names" | "pin" once a person picks; until then the screen decides
   const [picked, setPicked] = useState(null);   // the person whose face is being read
 
   // returns false if this browser would not keep it
-  const commit = useCallback((q) => { queueRef.current = q; setQueue(q); return savePunches(q); }, []);
+  const commit = useCallback((q) => { if (practice) return true; queueRef.current = q; setQueue(q); return savePunches(q); }, []);
 
   const refreshRoster = useCallback(async () => {
+    if (practice) return;
     try {
       const r = await api("/api/clock/roster", { timeoutMs: 8000 });
       setRoster({ ...r, savedAt: new Date().toISOString() });
@@ -54,7 +61,7 @@ export default function ClockPage({ embedded = false, onDone }) {   // embedded:
   }, [user]);
 
   const flush = useCallback(async () => {
-    if (uploading.current || !queueRef.current.some((p) => p.status === "pending")) return;
+    if (practice || uploading.current || !queueRef.current.some((p) => p.status === "pending")) return;
     uploading.current = true;
     try {
       const snap = queueRef.current;
@@ -74,14 +81,14 @@ export default function ClockPage({ embedded = false, onDone }) {   // embedded:
   useEffect(() => {
     refreshRoster();
     flush();
-    loadFace();   // warm up the face check so the first punch is quick
+    if (!practice) loadFace();   // warm up the face check so the first punch is quick
     const on = () => { setOnline(true); refreshRoster(); flush(); };
     const off = () => setOnline(false);
     window.addEventListener("online", on);
     window.addEventListener("offline", off);
     let stream = null;
     let alive = true;
-    if (videoRef.current) {
+    if (videoRef.current && !practice) {
       startCamera(videoRef.current).then((s) => {
         if (!alive) { stopCamera(s); return; }
         stream = s;
@@ -103,7 +110,23 @@ export default function ClockPage({ embedded = false, onDone }) {   // embedded:
     timer.current = setTimeout(() => { setResult(null); if (embedded && !r.error) onDone?.(); }, SHOW_MS);
   }
 
+  // a pretend punch: the practice staff list is checked here, in the browser, and nothing is sent or saved
+  function practiceSubmit(code) {
+    setPin("");
+    const who = PRACTICE_STAFF.find((s) => s.pin === code);
+    if (!who) { show({ error: "That PIN is not right. For practice, use 123456." }); return; }
+    const kind = roster.employees.find((e) => e.id === who.id)?.in ? "OUT" : "IN";
+    setRoster((r) => ({ ...r, employees: r.employees.map((e) => (e.id === who.id ? { ...e, in: kind === "IN" } : e)) }));
+    show({ name: who.name, kind, at: new Date().toISOString(), offline: false, photo: undefined });
+  }
+
+  function restartPractice() {
+    clearTimeout(timer.current);
+    setResult(null); setPin(""); setRoster(practiceRoster()); setRound((n) => n + 1);
+  }
+
   async function submit(code) {
+    if (practice) { practiceSubmit(code); return; }
     setBusy(true);
     setPin("");
     const clientId = crypto.randomUUID();
@@ -248,14 +271,20 @@ export default function ClockPage({ embedded = false, onDone }) {   // embedded:
   return (
     <section className={embedded ? "clockpage embedded" : `clockpage fitpage${kiosk ? " kioskpage" : ""}`}>
       {!embedded && <header className="pghead">
-        <div><h1>{kiosk ? "Coffee Postal: Time In / Out" : "Time In / Out"}</h1><p>{mode === "names" ? "Tap your name, then look at the camera." : "Type your 6-digit PIN."} The screen is ready for the next person after each punch.</p></div>
+        <div><h1>{practice ? "Practice: Time In / Out" : kiosk ? "Coffee Postal: Time In / Out" : "Time In / Out"}</h1><p>{mode === "names" ? "Tap your name, then look at the camera." : "Type your 6-digit PIN."} The screen is ready for the next person after each punch.</p></div>
         <div className="toolbar">
           {kiosk
             ? <button type="button" className="btn ghost sm" onClick={() => { setExitErr(""); setMgrPin(""); setExiting(true); }}>{dedicated ? "Manager: sign out" : "Manager: exit clock mode"}</button>
-            : can("branch_employees_edit") && <button type="button" className="btn ghost sm" onClick={startKiosk}>Clock-only mode</button>}
+            : practice
+              ? <button type="button" className="btn ghost sm" onClick={() => navigate("/branch/clock")}>Leave practice</button>
+              : <>
+                <button type="button" className="btn ghost sm" onClick={() => navigate("/branch/clock/practice")}>Practice</button>
+                {can("branch_employees_edit") && <button type="button" className="btn ghost sm" onClick={startKiosk}>Clock-only mode</button>}
+              </>}
         </div>
       </header>}
-      {camera === "off" && <p className="notice" role="status">The camera is off, so punches are saved without a photo. Allow the camera for this site in the browser settings.</p>}
+      {practice && <p className="notice practicebar" role="status">PRACTICE MODE. Pretend staff and PINs. Nothing is saved or counted.</p>}
+      {camera === "off" && !practice && <p className="notice" role="status">The camera is off, so punches are saved without a photo. Allow the camera for this site in the browser settings.</p>}
       {!online && <p className="notice offline" role="status">No internet. Punches are saved on this tablet and sent when it is back.</p>}
       {pending > 0 && <p className="notice" role="status">{pending} {pending === 1 ? "punch is" : "punches are"} saved on this tablet, waiting to upload.</p>}
       {rejected.map((p) => (
@@ -325,6 +354,11 @@ export default function ClockPage({ embedded = false, onDone }) {   // embedded:
           </div>
         </div>}
       </div>
+      {practice && (
+        <PracticeCoach key={round} steps={CLOCK_STEPS} doneTitle="Nice! You timed in and out." doneText="That is all staff do: type the PIN to time in, type it again to time out. Nothing was recorded." realLabel="Go to the real clock"
+          onRestart={restartPractice} onExit={() => navigate("/branch/clock")} onReal={() => navigate("/branch/clock")}
+          state={{ result: result ? (result.error ? "error" : result.kind) : null }} />
+      )}
       {exiting && (
         <div className="scrim" onClick={(e) => e.target === e.currentTarget && setExiting(false)}>
           <form className="modal" role="dialog" aria-modal="true" aria-label="Manager PIN" onSubmit={leave}>

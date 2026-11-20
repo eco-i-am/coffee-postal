@@ -109,7 +109,7 @@ export default function Tutorial({ me, can, onClose, onChangePassword }) {
 
   function runAction() {
     if (step.action?.kind === "password") { onClose(); onChangePassword(); }
-    else if (step.action?.kind === "practice") { onClose(); nav("/pos/practice"); }
+    else if (step.action?.kind === "practice") { onClose(); nav(step.action.to); }
   }
 
   const buttonNote = bi >= 0 ? ` · Button ${bi + 1} of ${found.length}` : "";

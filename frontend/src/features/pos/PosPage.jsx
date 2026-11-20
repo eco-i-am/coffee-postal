@@ -17,6 +17,7 @@ import ClockPage from "../clock/ClockPage.jsx";
 import { OpenShift, ShiftPanel } from "../branch/ShiftParts.jsx";
 import MyReport from "../branch/MyReport.jsx";
 import PracticeCoach from "./PracticeCoach.jsx";
+import { POS_STEPS } from "./practiceSteps.js";
 import { PRACTICE_MENU, practiceResult } from "./practice.js";
 
 export const TYPES = [["DINE_IN", "Dine-in"], ["TAKEOUT", "Takeout"], ["DELIVERY", "Delivery"]];
@@ -226,7 +227,7 @@ export default function PosPage({ practice = false }) {
       </div>
 
       {practice && menu && (
-        <PracticeCoach key={round} onRestart={restartPractice} onExit={() => navigate("/pos")} onReal={() => navigate("/pos")}
+        <PracticeCoach key={round} steps={POS_STEPS} doneTitle="Nice! You rang up a practice sale." doneText="That is the whole flow: pick, add, set the order type, charge, take payment. Nothing was really sold." realLabel="Go to the real POS" onRestart={restartPractice} onExit={() => navigate("/pos")} onReal={() => navigate("/pos")}
           state={{ cat, cartCount, otype, disc, discReady: !needsId || !!idNo.trim(), discOpen, modal: modal?.kind || null }} />
       )}
 
@@ -254,6 +255,7 @@ export default function PosPage({ practice = false }) {
         <Modal title="Cash drawer" wide onClose={() => setDrawer(false)}>
           {shiftInfo?.shift ? <ShiftPanel s={shiftInfo.shift} reload={reloadShift} onClosed={() => setDrawer(false)} /> : <p className="hint">No shift is open.</p>}
           {can("pos_view") && !can("cashier_reports_view") && <MyReport />}
+          <p className="hint"><Link to="/branch/cash/practice">Practice opening and closing a shift</Link> (nothing real)</p>
           <div className="opts"><button type="button" className="btn ghost" onClick={() => setDrawer(false)}>Back to the POS</button></div>
         </Modal>
       )}

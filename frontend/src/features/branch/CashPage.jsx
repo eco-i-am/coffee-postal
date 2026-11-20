@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { peso } from "../../shared/money.js";
@@ -14,6 +15,7 @@ const loadHistory = () => api("/api/branch/shifts");
 
 export default function CashPage() {
   const { can } = useAuth();
+  const navigate = useNavigate();
   const { data, error, loading, reload } = useLoad(loadShift);
   const noHistory = useCallback(() => Promise.resolve(null), []);
   const history = useLoad(can("cashier_reports_view") ? loadHistory : noHistory);
@@ -30,7 +32,7 @@ export default function CashPage() {
 
   return (
     <section>
-      <header className="pghead"><div><h1>Cash Drawer</h1><p>Your shift: opening cash, cash in and out, and the end-of-shift count.</p></div></header>
+      <header className="pghead"><div><h1>Cash Drawer</h1><p>Your shift: opening cash, cash in and out, and the end-of-shift count.</p></div><button type="button" className="btn ghost sm" onClick={() => navigate("/branch/cash/practice")}>Practice</button></header>
       {error && <p className="notice" role="alert">{error}</p>}
       {err && <p className="err" role="alert">{err}</p>}
       {loading && !data && <p role="status">Loading...</p>}

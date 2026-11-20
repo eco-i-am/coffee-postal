@@ -53,6 +53,7 @@ export function stepsFor(me, can) {
         B("Clear", "Wipes the PIN if you mistyped."),
         B("Clock-only mode", "Managers only. Turns the tablet into a clock with no menu. Leaving it takes a manager PIN."),
       ],
+      action: { label: "Practice time in / out now", kind: "practice", to: "/branch/clock/practice" },
       to: "/branch/clock",
     });
   }
@@ -71,6 +72,7 @@ export function stepsFor(me, can) {
         B("X reading", "A mid-shift sales summary. It does not close anything."),
         B("Close my shift / Close shift", "Count the drawer and end the shift. Not allowed while offline sales are still waiting to upload."),
       ],
+      action: { label: "Practice a shift now", kind: "practice", to: "/branch/cash/practice" },
       to: can("cashier_reports_view") ? "/branch/cash" : "/pos",
     });
   }
@@ -95,7 +97,7 @@ export function stepsFor(me, can) {
         B("Stars on the receipt", "Ask the customer for a rating from 1 to 5. It goes to Feedback."),
         B("QR code on the receipt", "Customers scan it with their phone to rate their visit, with no sign-in."),
       ],
-      action: { label: "Practice a sale now", kind: "practice" },
+      action: { label: "Practice a sale now", kind: "practice", to: "/pos/practice" },
       to: "/pos",
     });
     s.push({

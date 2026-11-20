@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { api } from "../../shared/api.js";
+import { useApi } from "../../shared/apiContext.jsx";
 import { peso } from "../../shared/money.js";
 import { dateTimeOf } from "../../shared/format.js";
 import { useSync } from "../../app/SyncContext.jsx";
@@ -11,7 +11,8 @@ export function Kpi({ label, value, note }) {
   return <div className="kpi"><small>{label}</small><b>{value}</b>{note && <span>{note}</span>}</div>;
 }
 
-export function OpenShift({ onDone }) {
+export function OpenShift({ onDone, practice = false }) {   // practice: no camera, nothing real
+  const api = useApi();
   const [cash, setCash] = useState("");
   const [err, setErr] = useState("");
   const videoRef = useRef(null);
@@ -19,13 +20,14 @@ export function OpenShift({ onDone }) {
   useEffect(() => {
     let stream = null;
     let alive = true;
+    if (practice) { setCamera("off"); return undefined; }
     startCamera(videoRef.current).then((s) => { if (!alive) { stopCamera(s); return; } stream = s; setCamera(s ? "on" : "off"); });
     return () => { alive = false; stopCamera(stream); };
   }, []);
   async function submit(e) {
     e.preventDefault();
     setErr("");
-    const photo = captureJpeg(videoRef.current);
+    const photo = practice ? "practice" : captureJpeg(videoRef.current);
     if (!photo) { setErr("Allow the camera for this site, then try again. A photo is needed to open your shift."); return; }
     try { await api("/api/branch/shift/open", { method: "POST", body: { openingCash: cash, photo } }); onDone(); }
     catch (e2) { setErr(e2.message); }
@@ -38,7 +40,8 @@ export function OpenShift({ onDone }) {
         <input id="oc" inputMode="decimal" value={cash} onChange={(e) => setCash(e.target.value)} placeholder="1000.00" autoFocus required /></div>
       <DenomCounter onTotal={setCash} />
       <video ref={videoRef} className="preview" muted playsInline aria-label="Camera preview" hidden={camera !== "on"} style={{ width: "100%", maxHeight: 200, borderRadius: 12, objectFit: "cover", transform: "scaleX(-1)" }} />
-      {camera === "off" && <p className="notice" role="status">The camera is off. Allow it for this site in the browser settings.</p>}
+      {camera === "off" && !practice && <p className="notice" role="status">The camera is off. Allow it for this site in the browser settings.</p>}
+      {practice && <p className="notice" role="status">Practice skips the camera. In real use a photo is taken here.</p>}
       <p className="hint">A photo is taken when you open the shift. Only your manager can see it, and it is deleted after a while.</p>
       {err && <p className="err" role="alert">{err}</p>}
       <button className="btn warm" type="submit">Take photo and open shift</button>
@@ -47,6 +50,7 @@ export function OpenShift({ onDone }) {
 }
 
 export function CloseShift({ shift, onClose, onDone }) {
+  const api = useApi();
   const [counted, setCounted] = useState("");
   const [err, setErr] = useState("");
   const [result, setResult] = useState(null);
@@ -109,7 +113,8 @@ export function CloseShift({ shift, onClose, onDone }) {
 
 
 /** The open shift: what should be in the drawer, cash in and out, the X reading, and closing the shift. */
-export function ShiftPanel({ s, reload, onClosed }) {
+export function ShiftPanel({ s, reload, onClosed, practice = false }) {
+  const api = useApi();
   const [kind, setKind] = useState("OUT");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
@@ -118,7 +123,7 @@ export function ShiftPanel({ s, reload, onClosed }) {
   const [tally, setTally] = useState(0);   // bumps after a save so the bill and coin counter starts empty again
   const [reading, setReading] = useState(null);
   const sync = useSync();
-  const waiting = sync.pending + sync.rejected.length;
+  const waiting = practice ? 0 : sync.pending + sync.rejected.length;
 
   async function openReading(path) {
     setErr("");

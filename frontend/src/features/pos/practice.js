@@ -23,6 +23,13 @@ export const PRACTICE_MENU = {
   ],
 };
 
+// the pretend staff on the practice time clock. The PIN stays here: the real tablet never has PINs.
+export const PRACTICE_STAFF = [
+  { id: -1, name: "Ana Reyes", position: "Barista", pin: "123456" },
+  { id: -2, name: "Ben Cruz", position: "Cashier", pin: "654321" },
+];
+export const practiceRoster = () => ({ photoDays: 90, employees: PRACTICE_STAFF.map(({ pin, ...e }) => ({ ...e, in: false, face: false })) });
+
 /** What the server would send back for a paid order, worked out here from the pretend cart. */
 export function practiceResult(cart, rule, method, tendered) {
   const t = totals(cartGross(cart), rule, PRACTICE_MENU.vatRegistered);
