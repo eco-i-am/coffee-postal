@@ -21,7 +21,7 @@ export default function BranchPoAdminPage() {
   return (
     <section>
       <header className="pghead">
-        <div><h1>Branch PO</h1><p>Review what branches ask for, approve it, and move it along: pay, process, pick-up, transit, delivered.</p></div>
+        <div><h1>Purchase Orders</h1><p>Review what branches ask for, approve it, and move it along: pay, process, pick-up, transit, delivered.</p></div>
       </header>
       <div className="tabs" role="group" aria-label="Filter">
         {FILTERS.map(([k, label]) => <button key={k} className="chip" aria-pressed={status === k} onClick={() => setStatus(k)}>{label}</button>)}

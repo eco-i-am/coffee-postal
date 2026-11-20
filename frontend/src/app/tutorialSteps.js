@@ -16,7 +16,7 @@ export function stepsFor(me, can) {
     title: `Welcome${name ? `, ${name}` : ""}!`,
     body: [
       `This is the Coffee Postal Operating System. You are signed in as ${me.role} at ${where}.`,
-      "This tour goes page by page through the left menu: what each page is for, and what its buttons do. Open it again any time from Quick tour at the bottom of the menu. Some pages are folded into groups, like Money or People. Click a group name to open it.",
+      "This tour goes page by page through the left menu: what each page is for, and what its buttons do. Open it again any time from Quick tour at the bottom of the menu. Some pages are folded into groups, like Finance or People. Click a group name to open it.",
     ],
   });
 
@@ -371,7 +371,7 @@ export function stepsFor(me, can) {
       s.push({
         id: "hq-po",
         title: "Branch orders",
-        page: "Branch PO",
+        page: "Purchase Orders",
         body: [
           "Purchase orders from branches arrive here. Approve them (for fewer items if needed) or reject them, then move each one along: pay, process, pick-up, in transit, delivered.",
           "Once a branch confirms what it received, an invoice is made.",
