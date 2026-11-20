@@ -1,5 +1,6 @@
 import { peso } from "../../shared/money.js";
 import { useReceiptText } from "../../shared/receiptText.js";
+import QrCode, { rateUrl, useRateToken } from "../../shared/QrCode.jsx";
 import { dateTimeOf } from "../../shared/format.js";
 
 const TYPE_NAMES = { DINE_IN: "Dine-in", TAKEOUT: "Takeout", DELIVERY: "Delivery" };
@@ -8,6 +9,7 @@ const METHOD_NAMES = { CASH: "Cash", GCASH: "GCash", MAYA: "Maya", CARD: "Card" 
 /** A receipt printed from the saved order (a reprint). Prints on an 80 mm roll; see the print rules in app.css. */
 export default function ReceiptSheet({ r, onClose }) {
   const rt = useReceiptText();
+  const rateToken = useRateToken();
   return (
     <>
       <div className="receipt printable">
@@ -46,6 +48,7 @@ export default function ReceiptSheet({ r, onClose }) {
           </>
         )}
         <div className="c"><hr />{rt.footer}<br /><i>{rt.note}</i></div>
+        {rateToken && <div className="c rateqr"><hr />Scan to rate your visit<QrCode text={rateUrl(rateToken)} size={96} label="Scan to rate your visit" /></div>}
       </div>
       <div className="opts noprint">
         <button type="button" className="btn ghost" onClick={onClose}>Close</button>

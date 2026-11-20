@@ -27,7 +27,7 @@ import ph.coffeepostal.pos.shared.AuditService;
 @RequestMapping("/api/branch/purchase-orders")
 class BranchPoApi {
     record LineReq(@NotNull Long itemId, long qty) {}
-    record CreateReq(@Size(max = 300) String note, @NotEmpty @Size(max = 100) List<@Valid LineReq> lines) {}
+    record CreateReq(@Size(max = 300) String note, @NotEmpty @Size(max = 100) List<@Valid LineReq> lines, java.time.LocalDate deliverOn) {}
     record Qty(@NotNull Long lineId, long qty) {}
     record ReceiveReq(@NotNull List<@Valid Qty> lines) {}
 
@@ -36,6 +36,11 @@ class BranchPoApi {
     private final AuditService audit;
 
     BranchPoApi(BranchPoService pos, OrderService orders, AuditService audit) { this.pos = pos; this.orders = orders; this.audit = audit; }
+
+    /** The lead time and the earliest delivery day, for the order form. */
+    @GetMapping("/rules")
+    @PreAuthorize("hasAuthority('PERM_branch_po_view')")
+    BranchPoService.Rules rules() { return pos.rules(); }
 
     @GetMapping
     @PreAuthorize("hasAuthority('PERM_branch_po_view')")
@@ -55,7 +60,7 @@ class BranchPoApi {
     Map<String, Object> create(@Valid @RequestBody CreateReq r, Principal who) {
         var me = orders.whoIs(who.getName());
         long id = pos.create(me.branchId(), me.userId(), r.note(),
-            r.lines().stream().map(l -> new BranchPoService.NewLine(l.itemId(), l.qty())).toList());
+            r.lines().stream().map(l -> new BranchPoService.NewLine(l.itemId(), l.qty())).toList(), r.deliverOn());
         audit.record(who.getName(), me.branchId(), "BRANCH_PO_CREATE", "branch_po", String.valueOf(id), null,
             "{\"lines\":" + r.lines().size() + "}", null);
         return Map.of("id", id);

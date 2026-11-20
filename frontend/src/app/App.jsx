@@ -29,6 +29,7 @@ import FeedbackPage from "../features/engagement/FeedbackPage.jsx";
 import CustomersPage from "../features/engagement/CustomersPage.jsx";
 import TrainingPage from "../features/engagement/TrainingPage.jsx";
 import SettingsPage from "../features/engagement/SettingsPage.jsx";
+import RatePage from "../features/engagement/RatePage.jsx";
 import TransfersPage from "../features/inventory/TransfersPage.jsx";
 import ClockPage from "../features/clock/ClockPage.jsx";
 import EmployeesPage from "../features/employees/EmployeesPage.jsx";
@@ -61,6 +62,7 @@ export default function App() {
   const { me, ready } = useAuth();
   return (
     <Routes>
+      <Route path="/rate/:token" element={<RatePage />} />
       <Route path="/login" element={ready && me ? <Navigate to="/" replace /> : <LoginPage />} />
       <Route element={<Protected />}>
         <Route element={<Shell />}>

@@ -622,3 +622,20 @@ tr.clickrow:focus-visible{outline:2px solid var(--midnight);outline-offset:-2px}
 
 .settingsform{max-width:760px;display:grid;gap:4px}
 .settingsform h2{margin:10px 0 2px}
+
+.navgrouphead{display:flex;align-items:center;gap:8px;width:100%;min-height:36px;padding:0 10px;background:none;border:0;border-left:4px solid transparent;color:rgba(249,246,227,.7);font:inherit;font-size:.74rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;cursor:pointer;text-align:left}
+.navgrouphead span:first-child{flex:1}
+.navgrouphead:hover{color:var(--star)}
+.navgroup{display:flex;flex-direction:column;gap:2px;margin-top:4px}
+.navgroup a{padding-left:20px}
+@media(min-width:761px){.nav{overflow-y:auto}.navgroup a{flex:0 0 auto;min-height:32px}}
+
+.qr{display:block;margin:6px auto 0}.qr svg{width:100%;height:100%;display:block}
+.rateqr{font-size:.85em}
+.posterbox{display:grid;justify-items:center;gap:8px;text-align:center;padding:12px}
+.ratepage{min-height:100vh;display:grid;place-items:center;padding:16px;background:var(--star,#f9f6e3)}
+.ratecard{width:100%;max-width:420px;background:#fff;border-radius:14px;padding:22px 18px;box-shadow:0 2px 14px rgba(0,0,0,.12);display:grid;gap:12px;text-align:center}
+.ratecard form{display:grid;gap:10px}
+.ratecard textarea{width:100%;font:inherit;padding:8px;border:1px solid #bbb;border-radius:8px;resize:vertical}
+.ratestars.big button{font-size:2.4rem;min-width:48px;min-height:48px}
+.ratethanks{font-size:1.1rem}

@@ -58,20 +58,21 @@ public class AttendanceService {
         for (Log l : logs) byPerson.computeIfAbsent(l.employeeId(), k -> new ArrayList<>()).add(l);
         List<Session> out = new ArrayList<>();
         Instant now = Instant.now();
+        java.time.LocalTime late = lateAfter();
         for (List<Log> mine : byPerson.values()) {
             Log open = null;
             for (Log l : mine) {
                 if (l.kind().equals("IN")) {
-                    if (open != null) out.add(session(open, null, now, true));    // a new time in: the earlier one was never closed
+                    if (open != null) out.add(session(open, null, now, true, late));    // a new time in: the earlier one was never closed
                     open = l;
                 } else if (open != null) {
-                    out.add(session(open, l, now, false));
+                    out.add(session(open, l, now, false, late));
                     open = null;
                 } else {
-                    out.add(session(null, l, now, false));
+                    out.add(session(null, l, now, false, late));
                 }
             }
-            if (open != null) out.add(session(open, null, now, false));
+            if (open != null) out.add(session(open, null, now, false, late));
         }
         out.sort((a, b) -> {
             int c = b.date().compareTo(a.date());
@@ -81,7 +82,18 @@ public class AttendanceService {
         return new Report(from.toString(), to.toString(), out, total);
     }
 
-    private static Session session(Log in, Log out, Instant now, boolean superseded) {
+    /** The time of day after which a time in is late: the shift start plus the grace, both from Settings (09:00 and 15 minutes until set). */
+    private java.time.LocalTime lateAfter() {
+        try {
+            java.util.Map<String, String> s = new java.util.HashMap<>();
+            jdbc.query("SELECT key, value FROM settings WHERE key IN ('clock_shift_start', 'clock_late_grace_minutes')", rs -> { s.put(rs.getString(1), rs.getString(2)); });
+            return java.time.LocalTime.parse(s.getOrDefault("clock_shift_start", "09:00")).plusMinutes(Long.parseLong(s.getOrDefault("clock_late_grace_minutes", "15")));
+        } catch (RuntimeException e) {
+            return java.time.LocalTime.of(9, 15);
+        }
+    }
+
+    private static Session session(Log in, Log out, Instant now, boolean superseded, java.time.LocalTime lateAfter) {
         Log any = in != null ? in : out;
         List<String> notes = new ArrayList<>();
         for (Log l : new Log[] { in, out }) {
@@ -90,6 +102,7 @@ public class AttendanceService {
             if ("MANUAL".equals(l.flag())) notes.add("Added by a manager");
             if (l.corrected()) notes.add("Corrected by a manager");
         }
+        if (in != null && in.at().atZone(MANILA).toLocalTime().isAfter(lateAfter)) notes.add("Late");
         String status;
         Long minutes = null;
         if (in == null) status = "NO_TIME_IN";

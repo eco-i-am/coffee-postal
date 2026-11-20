@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@vladmandic/face-api": "^1.7.15",
-    "@vladmandic/face-api": "^1.7.15",
+    "qrcode": "^1.5.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.28.0"

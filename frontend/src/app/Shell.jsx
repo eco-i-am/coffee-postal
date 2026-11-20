@@ -11,6 +11,16 @@ import { useAuth } from "./AuthContext.jsx";
 // the counter (cashier) only gives feedback at the till; reading it is for the people who run the branch
 const counterOnly = (can) => can("pos_view") && !can("branch_reports_view");
 
+// The side menu folds the less-used pages into groups so it stays short. Pages not listed stay at the top level.
+const GROUPS = {
+  "Menu & stock": ["Products", "Discounts", "Items", "Transfers", "Suppliers", "Item Inventory", "Purchase Orders", "Outsource"],
+  "Money": ["Branch PO", "Receivables", "Expenses", "Payables", "Cash Drawer"],
+  "People": ["Employees", "Users", "Roles", "Customers", "Training"],
+  "Messages": ["Announcements", "Support Chat", "Feedback"],
+  "System": ["Settings", "Logs"],
+};
+const groupOf = (label) => Object.keys(GROUPS).find((g) => GROUPS[g].includes(label));
+
 function navFor(me, can) {
   if (me.scope === "ADMIN") {
     return [
@@ -76,6 +86,9 @@ export default function Shell() {
   const sync = useSync();
   // unread counts shown beside menu items: announcements not opened, support messages not read
   const [badges, setBadges] = useState({});
+  const groupKey = `cp.menugroups.v1:${me.username}`;
+  const [openGroups, setOpenGroups] = useState(() => { try { return JSON.parse(localStorage.getItem(groupKey) || "{}"); } catch { return {}; } });
+  const toggleGroup = (g) => setOpenGroups((o) => { const n = { ...o, [g]: !o[g] }; try { localStorage.setItem(groupKey, JSON.stringify(n)); } catch { /* ignore */ } return n; });
   const hqUser = me.scope === "ADMIN";
   const wantsAnn = !hqUser && can("branch_announcements_view");
   const wantsSupport = hqUser ? can("support_view") : can("branch_support_view");
@@ -108,6 +121,35 @@ export default function Shell() {
     <img className="brandlogo" src="/logo.png" alt="Coffee Postal" width="120" height="67" />
     <small>Operating System</small>
   </div>
+  );
+  const items = navFor(me, can);
+  const link = (n) => n.soon ? (
+    <span key={n.label} className="soon"><span>{n.label}</span><small>soon</small></span>
+  ) : (
+    <NavLink key={n.to} to={n.to} end={n.end}>{n.label}{badges[n.to] > 0 && <span className="navbadge" aria-label={`${badges[n.to]} unread`}>{badges[n.to]}</span>}</NavLink>
+  );
+  // the side menu: loose pages first, then each group as a fold. The group holding the open page stays open.
+  const sideLinks = (
+    <>
+      {items.filter((n) => !groupOf(n.label)).map(link)}
+      {Object.keys(GROUPS).map((g) => {
+        const mine = items.filter((n) => groupOf(n.label) === g);
+        if (mine.length === 0) return null;
+        const here = mine.some((n) => where.pathname === n.to || where.pathname.startsWith(n.to + "/"));
+        const open = here || openGroups[g];
+        const unread = mine.reduce((s, n) => s + (badges[n.to] || 0), 0);
+        return (
+          <div key={g} className="navgroup">
+            <button type="button" className="navgrouphead" aria-expanded={open} onClick={() => toggleGroup(g)}>
+              <span>{g}</span>
+              {!open && unread > 0 && <span className="navbadge" aria-label={`${unread} unread`}>{unread}</span>}
+              <span aria-hidden="true">{open ? "\u25B4" : "\u25BE"}</span>
+            </button>
+            {open && mine.map(link)}
+          </div>
+        );
+      })}
+    </>
   );
   const links = (
     <>
@@ -159,7 +201,7 @@ export default function Shell() {
       {!top && <aside className="side">
         {brand}
         <nav className="nav" aria-label="Main">
-          {links}
+          {sideLinks}
         </nav>
         <div className="demo">
           {(!sync.online || sync.pending > 0) && (

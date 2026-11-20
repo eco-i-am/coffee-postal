@@ -39,6 +39,7 @@ class SecurityConfig {
           .addFilterAfter(new CsrfCookieFilter(), BasicAuthenticationFilter.class)
           .authorizeHttpRequests(a -> a
               .requestMatchers("/actuator/health/**").permitAll()
+              .requestMatchers("/api/public/**").permitAll()
               .requestMatchers("/api/admin/**").hasAuthority("SCOPE_ADMIN")
               .requestMatchers("/api/pos/**", "/api/branch/**").hasAnyAuthority("SCOPE_BRANCH", "SCOPE_ADMIN")
               .anyRequest().authenticated())

@@ -8,6 +8,7 @@ export function stepsFor(me, can) {
   const name = (me.fullName || me.username || "").split(" ")[0];
   const where = admin ? "HQ" : me.branchName || "your branch";
   const s = [];
+  const counterOnlyAccount = can("pos_view") && !can("branch_reports_view");   // cashiers give feedback at the till and do not read it
   const B = (label, does) => ({ label, does });
 
   s.push({
@@ -15,7 +16,7 @@ export function stepsFor(me, can) {
     title: `Welcome${name ? `, ${name}` : ""}!`,
     body: [
       `This is the Coffee Postal Operating System. You are signed in as ${me.role} at ${where}.`,
-      "This tour goes page by page through the left menu: what each page is for, and what its buttons do. Open it again any time from Quick tour at the bottom of the menu.",
+      "This tour goes page by page through the left menu: what each page is for, and what its buttons do. Open it again any time from Quick tour at the bottom of the menu. Some pages are folded into groups, like Money or People. Click a group name to open it.",
     ],
   });
 
@@ -85,6 +86,8 @@ export function stepsFor(me, can) {
         B("+ / Clear", "Change the quantity of a line, or empty the order."),
         B("Discount (dropdown)", "Picks a discount for the order. One over its limit asks for a manager PIN."),
         B("Charge", "Opens payment: Cash, GCash, Maya or Card, then prints or shows the receipt."),
+        B("Stars on the receipt", "Ask the customer for a rating from 1 to 5. It goes to Feedback."),
+        B("QR code on the receipt", "Customers scan it with their phone to rate their visit, with no sign-in."),
       ],
       to: "/pos",
     });
@@ -135,7 +138,7 @@ export function stepsFor(me, can) {
       title: "Ordering stock from HQ",
       page: "Purchase Orders",
       body: [
-        "Create a purchase order for the items you need. HQ approves it, then it moves along to Delivered and Completed.",
+        "Create a purchase order for the items you need. Pick a delivery date: it must be at least 48 hours after you send the order (HQ can change this), and the form shows the earliest day. HQ approves it, then it moves along to Delivered and Completed.",
         "When goods arrive, use Delivered Items to record what actually came, in parts if needed. The invoice follows what you received.",
       ],
       to: "/branch/purchase-orders",
@@ -226,6 +229,77 @@ export function stepsFor(me, can) {
         B("CSV / Excel / PDF", "Download what is on screen."),
       ],
       to: "/branch/reports",
+    });
+  }
+
+  if (!admin && can("branch_customers_view")) {
+    s.push({
+      id: "branch-customers",
+      title: "Your customers",
+      page: "Customers",
+      body: ["The people who buy here. Type a customer's name in the \"for\" box at the till and their orders add up on their card."],
+      buttons: [
+        B("+ Add customer", "Saves a name, phone, email and notes such as a usual order."),
+        B("Click a row", "Opens their card with every order made out to that name."),
+        B("Edit / Delete", "Managers fix details. Only owners delete. Past orders are kept."),
+      ],
+      to: "/branch/customers",
+    });
+  }
+
+  if (!admin && can("branch_announcements_view")) {
+    s.push({
+      id: "branch-announcements",
+      title: "Announcements from HQ",
+      page: "Announcements",
+      body: ["Notices from HQ. A number in the menu shows how many you have not read. Open one to mark it read."],
+      to: "/branch/announcements",
+    });
+  }
+
+  if (!admin && can("branch_support_view")) {
+    s.push({
+      id: "branch-support",
+      title: "Chat with HQ",
+      page: "Support Chat",
+      body: ["Ask HQ for help. Start a conversation, and replies show up here. A number in the menu means HQ answered."],
+      buttons: [B("New conversation", "Starts a thread with a short subject and your question.")],
+      to: "/branch/support",
+    });
+  }
+
+  if (!admin && can("branch_training_view")) {
+    s.push({
+      id: "branch-training",
+      title: "Training",
+      page: "Training",
+      body: ["Videos, guides and links from HQ. Open one, then mark it done so HQ can see who has finished."],
+      buttons: [
+        B("Open / Download", "Opens the link, or downloads the document."),
+        B("Mark as done", "Tells HQ you finished it. You can undo it."),
+      ],
+      to: "/branch/training",
+    });
+  }
+
+  if (!admin && can("branch_settings_view")) {
+    s.push({
+      id: "branch-settings",
+      title: "Branch details",
+      page: "Settings",
+      body: ["Your branch address and phone, as they appear on receipts. HQ sets the TIN and VAT status."],
+      to: "/branch/settings",
+    });
+  }
+
+  if (!admin && can("feedback_view") && !counterOnlyAccount) {
+    s.push({
+      id: "branch-feedback",
+      title: "Customer feedback",
+      page: "Feedback",
+      body: ["Star ratings and comments customers leave after paying, at the till or by scanning the QR code on the receipt."],
+      buttons: [B("QR code to print", "Shows this branch's QR code to print for the counter.")],
+      to: "/branch/feedback",
     });
   }
 
@@ -410,6 +484,65 @@ export function stepsFor(me, can) {
         page: "Users",
         body: ["Who can sign in, and to which branch. Each person has a role."],
         to: "/admin/users",
+      });
+    }
+    if (can("announcements_view")) {
+      s.push({
+        id: "hq-announcements",
+        title: "Announcements",
+        page: "Announcements",
+        body: ["Post a notice to all branches or to chosen ones. You see how many people have read it."],
+        buttons: [
+          B("+ New announcement", "A title and message, sent to all branches or only the ones you tick."),
+          B("Take down", "Hides it from branches."),
+        ],
+        to: "/admin/announcements",
+      });
+    }
+    if (can("support_view")) {
+      s.push({
+        id: "hq-support",
+        title: "Support Chat",
+        page: "Support Chat",
+        body: ["Questions from branches. Open a thread to reply. A number in the menu shows threads waiting for you."],
+        buttons: [B("Close / Reopen", "Marks a thread solved. If the branch writes again, it reopens by itself.")],
+        to: "/admin/support",
+      });
+    }
+    if (can("feedback_admin_view")) {
+      s.push({
+        id: "hq-feedback",
+        title: "Customer feedback",
+        page: "Feedback",
+        body: ["Ratings and comments from the till and from the QR code on receipts, across all branches, with the average and how many gave each star."],
+        to: "/admin/feedback",
+      });
+    }
+    if (can("training_admin_view")) {
+      s.push({
+        id: "hq-training",
+        title: "Training",
+        page: "Training",
+        body: ["Publish videos, documents or links for branch staff, and see who has finished each."],
+        buttons: [
+          B("+ Add training", "A title, then a link, or a file up to 8 MB (PDF, Word, PowerPoint, Excel, JPG, PNG)."),
+          B("Click a row", "Shows who finished it, with their branch and date."),
+          B("Take down", "Branches no longer see it."),
+        ],
+        to: "/admin/training",
+      });
+    }
+    if (can("settings_admin_view")) {
+      s.push({
+        id: "hq-settings",
+        title: "Settings",
+        page: "Settings",
+        body: ["Company details, the words on every receipt, the purchase order lead time, and when a time in counts as late."],
+        buttons: [
+          B("Lead time (hours)", "How many hours ahead of delivery a branch must send a purchase order. Default 48."),
+          B("Shift starts at / Late after", "A time in later than the start plus the grace is marked Late in attendance."),
+        ],
+        to: "/admin/settings",
       });
     }
     if (can("roles_view")) {

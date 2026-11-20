@@ -51,12 +51,12 @@ class FeedbackApis {
             LocalDate start = from == null ? end.minusDays(29) : from;
             List<Entry> entries = jdbc.query("""
                 SELECT f.id, f.branch_id, b.name, f.order_ref, f.rating, f.comment, u.full_name, f.created_at
-                FROM feedback f JOIN branches b ON b.id = f.branch_id JOIN users u ON u.id = f.created_by
+                FROM feedback f JOIN branches b ON b.id = f.branch_id LEFT JOIN users u ON u.id = f.created_by
                 WHERE (?::bigint IS NULL OR f.branch_id = ?)
                   AND (f.created_at AT TIME ZONE 'Asia/Manila')::date BETWEEN ? AND ?
                 ORDER BY f.created_at DESC LIMIT 2000
                 """, (rs, i) -> new Entry(rs.getLong(1), rs.getLong(2), rs.getString(3), rs.getString(4), rs.getInt(5), rs.getString(6),
-                    rs.getString(7), rs.getTimestamp(8).toInstant()), branchId, branchId, start, end);
+                    rs.getString(7) == null ? "Customer (QR)" : rs.getString(7), rs.getTimestamp(8).toInstant()), branchId, branchId, start, end);
             int[] by = new int[5];
             long sum = 0;
             for (Entry e : entries) { by[e.rating() - 1]++; sum += e.rating(); }
@@ -88,12 +88,71 @@ class FeedbackApis {
         private final Svc svc;
         private final OrderService orders;
 
-        BranchApi(Svc svc, OrderService orders) { this.svc = svc; this.orders = orders; }
+        private final JdbcTemplate jdbc;
+
+        BranchApi(Svc svc, OrderService orders, JdbcTemplate jdbc) { this.svc = svc; this.orders = orders; this.jdbc = jdbc; }
+
+        /** The branch's QR link code, for receipts and the printable poster. */
+        @GetMapping("/link")
+        @PreAuthorize("hasAuthority('PERM_feedback_view')")
+        Map<String, String> link(Principal who) {
+            return Map.of("token", jdbc.queryForObject("SELECT feedback_token FROM branches WHERE id = ?", String.class, orders.whoIs(who.getName()).branchId()));
+        }
 
         @GetMapping
         @PreAuthorize("hasAuthority('PERM_feedback_view')")
         Report list(@RequestParam(required = false) LocalDate from, @RequestParam(required = false) LocalDate to, Principal who) {
             return svc.report(orders.whoIs(who.getName()).branchId(), from, to);
+        }
+    }
+
+    /** Rating from the QR code on a receipt: no sign-in, the branch is found by the random code in the link. Rate-limited per phone and per branch. */
+    @RestController
+    @RequestMapping("/api/public/feedback")
+    static class PublicApi {
+        record Page(String branch, String company) {}
+        private final JdbcTemplate jdbc;
+        private final Map<String, java.util.ArrayDeque<Long>> hits = new java.util.concurrent.ConcurrentHashMap<>();
+
+        PublicApi(JdbcTemplate jdbc) { this.jdbc = jdbc; }
+
+        private Map<String, Object> branch(String token) {
+            var rows = jdbc.queryForList("SELECT id, name FROM branches WHERE feedback_token = ? AND active", token);
+            if (rows.isEmpty()) throw new ph.coffeepostal.pos.shared.ApiException(HttpStatus.NOT_FOUND, "This rating link is not valid.");
+            return rows.get(0);
+        }
+
+        /** True if this key has been used fewer than max times in the last hour; counts the use. */
+        private boolean allow(String key, int max) {
+            long now = System.currentTimeMillis();
+            var q = hits.computeIfAbsent(key, k -> new java.util.ArrayDeque<>());
+            synchronized (q) {
+                while (!q.isEmpty() && now - q.peekFirst() > 3_600_000L) q.pollFirst();
+                if (q.size() >= max) return false;
+                q.addLast(now);
+                return true;
+            }
+        }
+
+        @GetMapping("/{token}")
+        Page page(@org.springframework.web.bind.annotation.PathVariable String token) {
+            var b = branch(token);
+            var co = jdbc.queryForList("SELECT value FROM settings WHERE key = 'company_name'", String.class);
+            return new Page((String) b.get("name"), co.isEmpty() ? "Coffee Postal" : co.get(0));
+        }
+
+        @PostMapping("/{token}")
+        @ResponseStatus(HttpStatus.CREATED)
+        Map<String, Object> rate(@org.springframework.web.bind.annotation.PathVariable String token, @Valid @RequestBody CreateReq r, jakarta.servlet.http.HttpServletRequest req) {
+            var b = branch(token);
+            String fwd = req.getHeader("X-Forwarded-For");
+            String ip = fwd != null && !fwd.isBlank() ? fwd.split(",")[0].trim() : req.getRemoteAddr();
+            if (!allow(token + "|" + ip, 3) || !allow(token, 300)) {
+                throw new ph.coffeepostal.pos.shared.ApiException(HttpStatus.TOO_MANY_REQUESTS, "Thanks, we already have your rating. Please try again later.");
+            }
+            String comment = r.comment() == null || r.comment().isBlank() ? null : r.comment().trim();
+            jdbc.update("INSERT INTO feedback(branch_id, rating, comment, source) VALUES (?, ?, ?, 'QR')", ((Number) b.get("id")).longValue(), r.rating(), comment);
+            return Map.of("ok", true);
         }
     }
 

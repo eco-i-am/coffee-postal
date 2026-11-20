@@ -20,7 +20,8 @@ import ph.coffeepostal.pos.shared.ApiException;
  */
 @Service
 public class BranchPoService {
-    public record Row(long id, long branchId, String branch, String status, Instant requestedAt, int lines, long value) {}
+    public record Row(long id, long branchId, String branch, String status, Instant requestedAt, int lines, long value, java.time.LocalDate deliverOn) {}
+    public record Rules(int leadTimeHours, java.time.LocalDate earliest) {}
     public record Line(long id, long itemId, String name, String unit, long unitCost, long qtyOrdered, Long qtyApproved, Long qtyReceived) {}
     public record Step(String from, String to, String by, String note, Instant at) {}
     public record Detail(Row po, String note, String rejectReason, String requestedBy, Instant decidedAt, Instant shippedAt,
@@ -53,6 +54,7 @@ public class BranchPoService {
 
     private static final String ROW = """
         SELECT p.id, p.branch_id, b.name AS branch, p.status, p.requested_at,
+               p.deliver_on,
                (SELECT count(*) FROM branch_po_lines l WHERE l.po_id = p.id) AS n,
                (SELECT coalesce(sum(coalesce(l.qty_received, l.qty_approved, l.qty_ordered) * l.unit_cost), 0)
                   FROM branch_po_lines l WHERE l.po_id = p.id) AS value
@@ -61,7 +63,8 @@ public class BranchPoService {
 
     private static Row row(java.sql.ResultSet rs) throws java.sql.SQLException {
         return new Row(rs.getLong("id"), rs.getLong("branch_id"), rs.getString("branch"), rs.getString("status"),
-            rs.getTimestamp("requested_at").toInstant(), rs.getInt("n"), rs.getLong("value"));
+            rs.getTimestamp("requested_at").toInstant(), rs.getInt("n"), rs.getLong("value"),
+            rs.getDate("deliver_on") == null ? null : rs.getDate("deliver_on").toLocalDate());
     }
 
     public List<Row> list(Long branchId, String status, int limit) {
@@ -108,15 +111,36 @@ public class BranchPoService {
     private static Instant instant(Object ts) { return ts == null ? null : ((java.sql.Timestamp) ts).toInstant(); }
 
     @Transactional
-    public long create(long branchId, long userId, String note, List<NewLine> lines) {
+    /** How many hours ahead of delivery an order must be sent. HQ sets it in Settings; 48 until then. */
+    public int leadTimeHours() {
+        List<String> v = jdbc.queryForList("SELECT value FROM settings WHERE key = 'po_lead_time_hours'", String.class);
+        try { return v.isEmpty() ? 48 : Integer.parseInt(v.get(0).trim()); } catch (NumberFormatException e) { return 48; }
+    }
+
+    /** The earliest delivery day allowed for an order sent now. */
+    public Rules rules() {
+        int h = leadTimeHours();
+        return new Rules(h, java.time.ZonedDateTime.now(java.time.ZoneId.of("Asia/Manila")).plusHours(h).toLocalDate());
+    }
+
+    public long create(long branchId, long userId, String note, List<NewLine> lines) { return create(branchId, userId, note, lines, null); }
+
+    /** deliverOn null = the earliest allowed day. An earlier day than the lead time allows is refused. */
+    public long create(long branchId, long userId, String note, List<NewLine> lines, java.time.LocalDate deliverOn) {
+        Rules rules = rules();
+        java.time.LocalDate on = deliverOn == null ? rules.earliest() : deliverOn;
+        if (on.isBefore(rules.earliest())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Delivery must be at least " + rules.leadTimeHours() + " hours after you send the order. The earliest day is " + rules.earliest() + ".",
+                Map.of("deliverOn", "Pick " + rules.earliest() + " or later."));
+        }
         Map<Long, Long> merged = new LinkedHashMap<>();
         for (NewLine l : lines) {
             if (l.qty() <= 0 || l.qty() > 100_000) throw new ApiException(HttpStatus.BAD_REQUEST, "Quantities must be between 1 and 100,000.");
             merged.merge(l.itemId(), l.qty(), Long::sum);
         }
         if (merged.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "Add at least one item.");
-        long id = jdbc.queryForObject("INSERT INTO branch_pos(branch_id, note, requested_by) VALUES (?, ?, ?) RETURNING id",
-            Long.class, branchId, blank(note), userId);
+        long id = jdbc.queryForObject("INSERT INTO branch_pos(branch_id, note, requested_by, deliver_on) VALUES (?, ?, ?, ?) RETURNING id",
+            Long.class, branchId, blank(note), userId, on);
         for (var e : merged.entrySet()) {
             int n = jdbc.update("""
                 INSERT INTO branch_po_lines(po_id, item_id, name, unit, unit_cost, qty_ordered)

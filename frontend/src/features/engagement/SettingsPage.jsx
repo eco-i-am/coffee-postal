@@ -41,7 +41,7 @@ function HqView() {
 
   return (
     <section className="fitpage">
-      <header className="pghead"><div><h1>Settings</h1><p>Company details, receipt wording and the purchase order rules.</p></div></header>
+      <header className="pghead"><div><h1>Settings</h1><p>Company details, receipt wording, the purchase order rule and the time clock late rule.</p></div></header>
       {error && <p className="err" role="alert">{error}</p>}
       {loading && !form ? <p role="status">Loading...</p> : form && (
         <form className="sec settingsform" onSubmit={save} noValidate>
@@ -56,8 +56,12 @@ function HqView() {
           <F k="receipt_note" label="Small print" maxLength={200} hint="For example: Not an official receipt." />
           <h2>Purchase orders</h2>
           <div className="grid2">
-            <F k="po_lead_time_hours" label="Lead time (hours)" inputMode="numeric" maxLength={4} hint="How long ahead a branch must order." />
-            <F k="po_late_grace_minutes" label="Late grace (minutes)" inputMode="numeric" maxLength={4} hint="How late an order can arrive before it counts as late." />
+            <F k="po_lead_time_hours" label="Lead time (hours)" inputMode="numeric" maxLength={4} hint="The delivery date on an order must be at least this many hours after it is sent." />
+          </div>
+          <h2>Time clock</h2>
+          <div className="grid2">
+            <F k="clock_shift_start" label="Shift starts at" placeholder="09:00" maxLength={5} hint="24-hour time, like 09:00." />
+            <F k="clock_late_grace_minutes" label="Late after (minutes)" inputMode="numeric" maxLength={4} hint="A time in later than the shift start plus this is marked Late." />
           </div>
           {msg && <p className="err" role="alert">{msg}</p>}
           <Saved at={saved} />

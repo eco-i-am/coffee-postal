@@ -66,7 +66,7 @@ export default function PoDetail({ id, side, onClose, onChanged }) {
     <Shell onClose={onClose}>
       <h2>{poNo(po.id)} <span className={`tag ${poTone(status)}`}>{PO_STATUS[status]}</span></h2>
       <p className="hint">
-        {po.branch} &middot; asked by {d.requestedBy} on {dateTimeOf(po.requestedAt)}
+        {po.branch} &middot; asked by {d.requestedBy} on {dateTimeOf(po.requestedAt)}{po.deliverOn ? `, delivery wanted ${po.deliverOn}` : ""}
         {d.shippedAt && <> &middot; sent {dateTimeOf(d.shippedAt)}</>}
         {d.receivedAt && <> &middot; last received {dateTimeOf(d.receivedAt)}</>}
       </p>

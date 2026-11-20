@@ -5,12 +5,16 @@ import { presetRange } from "../../shared/dates.js";
 import { dateTimeOf, todayManila } from "../../shared/format.js";
 import { RangeBar, Kpi, ExportButton } from "../reports/widgets.jsx";
 import PagedRows from "../../shared/PagedRows.jsx";
+import Modal from "../../shared/Modal.jsx";
+import QrCode, { rateUrl, useRateToken } from "../../shared/QrCode.jsx";
 
 export const Stars = ({ n }) => <span className="stars" role="img" aria-label={`${n} out of 5`}>{"★".repeat(n)}<span className="starsoff">{"★".repeat(5 - n)}</span></span>;
 
 /** Customer feedback from the till: the average, how the ratings spread, and every comment. Branch sees its own; HQ sees all and can pick a branch. */
 export default function FeedbackPage({ side }) {
   const hq = side === "hq";
+  const rateToken = useRateToken();
+  const [poster, setPoster] = useState(false);
   const [range, setRange] = useState(() => presetRange("30d", todayManila()));
   const [branchId, setBranchId] = useState("");
   const branches = useLoad(useCallback(() => (hq ? api("/api/admin/branches") : Promise.resolve([])), [hq])).data || [];
@@ -26,8 +30,23 @@ export default function FeedbackPage({ side }) {
   return (
     <section className="fitpage">
       <header className="pghead">
-        <div><h1>Customer feedback</h1><p>{hq ? "What customers said at the till, across all branches." : "What customers said at your till."}</p></div>
+        <div><h1>Customer feedback</h1><p>{hq ? "What customers said at the till or by scanning the QR code on their receipt, across all branches." : "What customers said at your till or by scanning the QR code on their receipt."}</p></div>
+        {!hq && rateToken && <div className="toolbar"><button type="button" className="btn ghost sm" onClick={() => setPoster(true)}>QR code to print</button></div>}
       </header>
+      {poster && (
+        <Modal title="QR code to print" onClose={() => setPoster(false)}>
+          <div className="printable posterbox">
+            <b>Rate your visit</b>
+            <QrCode text={rateUrl(rateToken)} size={220} label="Scan to rate your visit" />
+            <small>Scan with your phone camera</small>
+          </div>
+          <p className="hint noprint">Put this on the counter or a table. Anyone who scans it can rate this branch from their own phone. The same code is printed on every receipt.</p>
+          <div className="opts noprint">
+            <button type="button" className="btn ghost" onClick={() => setPoster(false)}>Close</button>
+            <button type="button" className="btn warm" style={{ flex: 1 }} onClick={() => window.print()}>Print</button>
+          </div>
+        </Modal>
+      )}
       <RangeBar range={range} setRange={setRange} />
       {hq && (
         <div className="toolbar">

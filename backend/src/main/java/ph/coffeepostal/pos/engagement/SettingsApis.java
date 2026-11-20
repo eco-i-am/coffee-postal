@@ -31,7 +31,8 @@ class SettingsApis {
         DEFAULTS.put("receipt_footer", "Thank you! Your affordable freshly brewed coffee destination.");
         DEFAULTS.put("receipt_note", "Not an official receipt.");
         DEFAULTS.put("po_lead_time_hours", "48");
-        DEFAULTS.put("po_late_grace_minutes", "0");
+        DEFAULTS.put("clock_shift_start", "09:00");
+        DEFAULTS.put("clock_late_grace_minutes", "15");
     }
 
     record Receipt(String companyName, String footer, String note) {}
@@ -57,7 +58,10 @@ class SettingsApis {
                 if (!DEFAULTS.containsKey(k)) throw new ApiException(HttpStatus.BAD_REQUEST, "Unknown setting: " + k);
                 String v = e.getValue() == null ? "" : e.getValue().trim();
                 if (v.length() > 500) throw new ApiException(HttpStatus.BAD_REQUEST, "That is too long.", Map.of(k, "Keep it under 500 characters."));
-                if (k.equals("po_lead_time_hours") || k.equals("po_late_grace_minutes")) {
+                if (k.equals("clock_shift_start") && !v.matches("([01]\\d|2[0-3]):[0-5]\\d")) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "Use a time like 09:00.", Map.of(k, "Use a time like 09:00."));
+                }
+                if (k.equals("po_lead_time_hours") || k.equals("clock_late_grace_minutes")) {
                     if (!v.matches("\\d{1,4}")) throw new ApiException(HttpStatus.BAD_REQUEST, "Use a whole number.", Map.of(k, "Use a whole number, such as 48."));
                 }
                 if (k.equals("company_name") && v.isEmpty()) throw new ApiException(HttpStatus.BAD_REQUEST, "The company name cannot be empty.", Map.of(k, "Required."));

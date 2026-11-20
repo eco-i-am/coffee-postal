@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../../shared/api.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import { useReceiptText } from "../../shared/receiptText.js";
+import QrCode, { rateUrl, useRateToken } from "../../shared/QrCode.jsx";
 import { peso } from "../../shared/money.js";
 
 const TYPE_NAMES = { DINE_IN: "Dine-in", TAKEOUT: "Takeout", DELIVERY: "Delivery" };
@@ -41,6 +42,7 @@ function Rate({ orderNo }) {
 export default function Receipt({ res, method, tendered, cart, otype, discName, idNo, vatRegistered = true, who, onDone }) {
   const { can } = useAuth();
   const rt = useReceiptText();
+  const rateToken = useRateToken();
   const time = new Date().toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
   return (
     <>
@@ -65,6 +67,7 @@ export default function Receipt({ res, method, tendered, cart, otype, discName, 
         {vatRegistered && <div className="r"><span>VATable</span><span>{peso(res.vatable)}</span></div>}
         {vatRegistered && <div className="r"><span>VAT 12%</span><span>{peso(res.vat)}</span></div>}
         <div className="c"><hr />{rt.footer}<br /><i>{rt.note}</i></div>
+        {rateToken && <div className="c rateqr"><hr />Scan to rate your visit<QrCode text={rateUrl(rateToken)} size={96} label="Scan to rate your visit" /></div>}
       </div>
       {can("feedback_add") && !res.offline && <Rate orderNo={res.orderNo} />}
       <div className="opts noprint">

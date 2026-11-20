@@ -14,6 +14,8 @@ function NewPo({ onClose, onCreated }) {
   const { data: items, error } = useLoad(loadItems);
   const [qty, setQty] = useState({});
   const [note, setNote] = useState("");
+  const rules = useLoad(useCallback(() => api("/api/branch/purchase-orders/rules"), [])).data;
+  const [deliverOn, setDeliverOn] = useState("");   // empty = the earliest day
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
 
@@ -29,7 +31,7 @@ function NewPo({ onClose, onCreated }) {
     try {
       const r = await api("/api/branch/purchase-orders", {
         method: "POST",
-        body: { note, lines: picked.map((i) => ({ itemId: i.itemId, qty: Number(qty[i.itemId]) })) },
+        body: { note, deliverOn: deliverOn || null, lines: picked.map((i) => ({ itemId: i.itemId, qty: Number(qty[i.itemId]) })) },
       });
       onCreated(r.id);
     } catch (e2) { setErr(e2.message); setBusy(false); }
@@ -63,6 +65,9 @@ function NewPo({ onClose, onCreated }) {
             </table>
           </div>
         )}
+        <div className="addr"><label htmlFor="podate">Delivery date</label>
+          <input id="podate" type="date" min={rules?.earliest} value={deliverOn || rules?.earliest || ""} onChange={(e) => setDeliverOn(e.target.value)} />
+          {rules && <small className="hint">At least {rules.leadTimeHours} hours after you send the order. The earliest day is {rules.earliest}.</small>}</div>
         <div className="addr"><label htmlFor="ponote">Note for HQ (optional)</label>
           <input id="ponote" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} /></div>
         {err && <p className="err" role="alert">{err}</p>}
@@ -97,15 +102,15 @@ export default function PurchaseOrdersPage() {
       <div className="sec tw">
         {loading && !rows ? <p role="status">Loading...</p> : (
           <table>
-            <thead><tr><th>No.</th><th>Asked</th><th className="n">Items</th><th className="n">Value</th><th>Status</th></tr></thead>
+            <thead><tr><th>No.</th><th>Asked</th><th>Deliver on</th><th className="n">Items</th><th className="n">Value</th><th>Status</th></tr></thead>
             <tbody>
               <PagedRows rows={rows || []} render={(r) => (
                 <tr key={r.id} className="clickrow" tabIndex={0} onClick={() => setOpen(r.id)} onKeyDown={(e) => e.key === "Enter" && setOpen(r.id)}>
-                  <td><b>{poNo(r.id)}</b></td><td>{dateTimeOf(r.requestedAt)}</td><td className="n">{r.lines}</td><td className="n">{peso(r.value)}</td>
+                  <td><b>{poNo(r.id)}</b></td><td>{dateTimeOf(r.requestedAt)}</td><td>{r.deliverOn || ""}</td><td className="n">{r.lines}</td><td className="n">{peso(r.value)}</td>
                   <td><span className={`tag ${poTone(r.status)}`}>{PO_STATUS[r.status]}</span></td>
                 </tr>
               )} />
-              {rows && rows.length === 0 && <tr><td colSpan="5" className="emptyrow">No purchase orders yet.</td></tr>}
+              {rows && rows.length === 0 && <tr><td colSpan="6" className="emptyrow">No purchase orders yet.</td></tr>}
             </tbody>
           </table>
         )}

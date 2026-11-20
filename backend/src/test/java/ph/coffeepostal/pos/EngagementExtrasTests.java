@@ -97,4 +97,22 @@ class EngagementExtrasTests {
 		mvc.perform(get("/api/admin/settings").session(cashier)).andExpect(status().isForbidden());
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM settings WHERE key = 'receipt_footer'", Integer.class)).isEqualTo(1);
 	}
+
+	@Test
+	void aCustomerRatesFromTheReceiptQrWithoutSigningIn() throws Exception {
+		String token = jdbc.queryForObject("SELECT feedback_token FROM branches WHERE code = 'CEB-01'", String.class);
+		mvc.perform(get("/api/public/feedback/" + token)).andExpect(status().isOk()).andExpect(jsonPath("$.branch").exists());
+		mvc.perform(get("/api/public/feedback/not-a-real-code")).andExpect(status().isNotFound());
+		mvc.perform(post("/api/public/feedback/" + token).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"rating\":5,\"comment\":\"Great\"}"))
+			.andExpect(status().isCreated());
+		mvc.perform(post("/api/public/feedback/" + token).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"rating\":9}"))
+			.andExpect(status().isBadRequest());
+		assertThat(jdbc.queryForObject("SELECT count(*) FROM feedback WHERE source = 'QR' AND comment = 'Great'", Integer.class)).isGreaterThanOrEqualTo(1);
+		// the branch sees it, marked as from a customer
+		mvc.perform(get("/api/branch/feedback").session(login("manager"))).andExpect(status().isOk());
+		// the same phone cannot send more than three an hour
+		for (int i = 0; i < 3; i++) mvc.perform(post("/api/public/feedback/" + token).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"rating\":4}"));
+		mvc.perform(post("/api/public/feedback/" + token).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"rating\":4}")).andExpect(status().isTooManyRequests());
+		mvc.perform(get("/api/branch/feedback/link").session(login("cashier"))).andExpect(jsonPath("$.token").value(token));
+	}
 }
