@@ -639,3 +639,8 @@ tr.clickrow:focus-visible{outline:2px solid var(--midnight);outline-offset:-2px}
 .ratecard textarea{width:100%;font:inherit;padding:8px;border:1px solid #bbb;border-radius:8px;resize:vertical}
 .ratestars.big button{font-size:2.4rem;min-width:48px;min-height:48px}
 .ratethanks{font-size:1.1rem}
+/* the logo, trimmed of its white margin: a cream plate the width of the menu, so it sits cleanly on the dark sidebar */
+.side .brand{align-items:stretch;gap:6px}
+.side .brandlogo{width:100%;height:auto;padding:10px 12px;border-radius:12px;box-sizing:border-box}
+.side .brand small{text-align:center}
+.topbar .brandlogo{width:auto;height:34px;padding:3px 8px}

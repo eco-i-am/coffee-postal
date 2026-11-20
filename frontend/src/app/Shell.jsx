@@ -51,7 +51,7 @@ function navFor(me, can) {
     can("pos_view") && { to: "/pos", label: "Point of Sale" },
     can("orders_view") && { to: "/branch/orders", label: "Order List" },
     can("branch_inventory_view") && { to: "/branch/inventory", label: "Item Inventory" },
-    can("branch_po_view") && { to: "/branch/purchase-orders", label: "Purchase Orders" },
+    (can("branch_po_view") || can("branch_po_receive")) && { to: "/branch/purchase-orders", label: "Purchase Orders" },
     can("payables_view") && { to: "/branch/payables", label: "Payables" },
     can("cash_inout_view") && can("cashier_reports_view") && { to: "/branch/cash", label: "Cash Drawer" },   // a cashier's drawer is a dialog on the Point of Sale
     can("transfers_view") && { to: "/branch/transfers", label: "Transfers" },
@@ -118,7 +118,7 @@ export default function Shell() {
 
   const brand = (
   <div className="brand">
-    <img className="brandlogo" src="/logo.png" alt="Coffee Postal" width="120" height="67" />
+    <img className="brandlogo" src="/logo.png" alt="Coffee Postal" width="168" height="51" />
     <small>Operating System</small>
   </div>
   );

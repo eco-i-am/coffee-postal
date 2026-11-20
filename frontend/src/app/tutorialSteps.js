@@ -132,14 +132,14 @@ export function stepsFor(me, can) {
     });
   }
 
-  if (!admin && can("branch_po_view")) {
+  if (!admin && (can("branch_po_view") || can("branch_po_receive"))) {
     s.push({
       id: "branch-po",
       title: "Ordering stock from HQ",
       page: "Purchase Orders",
       body: [
         "Create a purchase order for the items you need. Pick a delivery date: it must be at least 48 hours after you send the order (HQ can change this), and the form shows the earliest day. HQ approves it, then it moves along to Delivered and Completed.",
-        "When goods arrive, use Delivered Items to record what actually came, in parts if needed. The invoice follows what you received.",
+        "When goods arrive, anyone at the branch can open the order and count what actually came, in parts if needed. The invoice follows what you received. Only managers create, cancel or close orders.",
       ],
       to: "/branch/purchase-orders",
     });

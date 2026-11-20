@@ -115,4 +115,16 @@ class EngagementExtrasTests {
 		mvc.perform(post("/api/public/feedback/" + token).with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"rating\":4}")).andExpect(status().isTooManyRequests());
 		mvc.perform(get("/api/branch/feedback/link").session(login("cashier"))).andExpect(jsonPath("$.token").value(token));
 	}
+
+	@Test
+	void aCashierCanCountADeliveryInButNotOrderOrCancel() throws Exception {
+		var cashier = login("cashier");
+		mvc.perform(get("/api/branch/purchase-orders").session(cashier)).andExpect(status().isOk());
+		mvc.perform(post("/api/branch/purchase-orders").session(cashier).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"lines\":[{\"itemId\":1,\"qty\":1}]}")).andExpect(status().isForbidden());
+		mvc.perform(post("/api/branch/purchase-orders/999999/cancel").session(cashier).with(csrf())).andExpect(status().isForbidden());
+		// receiving is allowed: a PO that does not exist is answered with "not found", not "forbidden"
+		mvc.perform(post("/api/branch/purchase-orders/999999/receive").session(cashier).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"lines\":[]}")).andExpect(status().is4xxClientError()).andExpect(result -> assertThat(result.getResponse().getStatus()).isNotEqualTo(403));
+	}
 }

@@ -36,7 +36,7 @@ export default function LoginPage() {
       <div className="postcard">
         <div className="pc-l">
           <div className="logo">
-            <img className="loginlogo" src="/logo.png" alt="Coffee Postal" width="300" height="169" />
+            <img className="loginlogo" src="/logo.png" alt="Coffee Postal" width="300" height="91" />
           </div>
           <p>Your affordable freshly brewed coffee destination</p>
           <div className="lgart" dangerouslySetInnerHTML={{ __html: LOGIN_ART }} />

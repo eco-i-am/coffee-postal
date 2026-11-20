@@ -39,7 +39,7 @@ class PosApplicationTests {
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM modules", Integer.class)).isGreaterThan(30);
 		assertThat(jdbc.queryForObject(
 			"SELECT count(*) FROM role_permissions rp JOIN roles r ON r.id=rp.role_id WHERE r.name='Cashier'",
-			Integer.class)).isEqualTo(10);   // 7 plus announcements, the support chat and customers
+			Integer.class)).isEqualTo(11);   // 7 plus announcements, the support chat, customers and receiving deliveries
 	}
 
 	@Test
