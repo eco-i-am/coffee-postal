@@ -39,17 +39,17 @@ class BranchPoApi {
 
     /** The lead time and the earliest delivery day, for the order form. */
     @GetMapping("/rules")
-    @PreAuthorize("hasAnyAuthority('PERM_branch_po_view', 'PERM_branch_po_receive')")
+    @PreAuthorize("hasAnyAuthority('PERM_branch_po_view', 'PERM_branch_po_receive_view')")
     BranchPoService.Rules rules() { return pos.rules(); }
 
     @GetMapping
-    @PreAuthorize("hasAnyAuthority('PERM_branch_po_view', 'PERM_branch_po_receive')")
+    @PreAuthorize("hasAnyAuthority('PERM_branch_po_view', 'PERM_branch_po_receive_view')")
     List<BranchPoService.Row> list(@RequestParam(required = false) String status, @RequestParam(defaultValue = "100") int limit, Principal who) {
         return pos.list(orders.whoIs(who.getName()).branchId(), status, limit);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyAuthority('PERM_branch_po_view', 'PERM_branch_po_receive')")
+    @PreAuthorize("hasAnyAuthority('PERM_branch_po_view', 'PERM_branch_po_receive_view')")
     BranchPoService.Detail detail(@PathVariable long id, Principal who) {
         return pos.detail(id, orders.whoIs(who.getName()).branchId());
     }
@@ -76,7 +76,7 @@ class BranchPoApi {
     }
 
     @PostMapping("/{id}/receive")
-    @PreAuthorize("hasAuthority('PERM_branch_po_receive')")
+    @PreAuthorize("hasAuthority('PERM_branch_po_receive_edit')")
     Map<String, Object> receive(@PathVariable long id, @Valid @RequestBody ReceiveReq r, Principal who) {
         var me = orders.whoIs(who.getName());
         Map<Long, Long> q = r.lines().stream().collect(Collectors.toMap(Qty::lineId, Qty::qty, (a, b) -> b));

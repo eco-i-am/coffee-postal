@@ -48,7 +48,7 @@ export default function PoDetail({ id, side, onClose, onChanged }) {
   const nextSteps = hqEdit ? PO_NEXT[status] || [] : [];
   const canReject = hqEdit && PO_REJECTABLE.includes(status);
   const canCancel = brEdit && status === "REQUESTED";
-  const canReceive = side === "branch" && can("branch_po_receive") && PO_RECEIVABLE.includes(status) && lines.some((l) => due(l) > 0);
+  const canReceive = side === "branch" && can("branch_po_receive_edit") && PO_RECEIVABLE.includes(status) && lines.some((l) => due(l) > 0);
   const canComplete = brEdit && PO_RECEIVABLE.includes(status);
 
   const approveLines = asNumbers((l) => l.qtyOrdered);

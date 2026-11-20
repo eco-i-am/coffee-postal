@@ -132,7 +132,7 @@ export function stepsFor(me, can) {
     });
   }
 
-  if (!admin && (can("branch_po_view") || can("branch_po_receive"))) {
+  if (!admin && (can("branch_po_view") || can("branch_po_receive_view"))) {
     s.push({
       id: "branch-po",
       title: "Ordering stock from HQ",
