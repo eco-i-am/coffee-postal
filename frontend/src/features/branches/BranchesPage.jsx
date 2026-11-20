@@ -18,6 +18,7 @@ export default function BranchesPage() {
   const [search, setSearch] = useState("");
   const { can } = useAuth();
   const [removing, setRemoving] = useState(null);   // the branch being deleted
+  const [withUsers, setWithUsers] = useState(false);   // also delete the accounts that belong only to it
 
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.type === "checkbox" ? e.target.checked : e.target.value });
 
@@ -52,7 +53,7 @@ export default function BranchesPage() {
   async function remove() {
     setMsg("");
     try {
-      await api(`/api/admin/branches/${removing.id}`, { method: "DELETE" });
+      await api(`/api/admin/branches/${removing.id}?withUsers=${withUsers}`, { method: "DELETE" });
       setMsg(`${removing.name} was deleted.`);
       setRemoving(null);
       reload();
@@ -110,7 +111,7 @@ export default function BranchesPage() {
                     <td className="rowbtns">
                       <button className="btn ghost sm" type="button" onClick={() => startEdit(b)}>Edit</button>
                       <button className="btn ghost sm" type="button" onClick={() => toggle(b)}>{b.active ? "Set inactive" : "Set active"}</button>
-                      {can("branches_delete") && <button className="btn ghost sm" type="button" onClick={() => setRemoving(b)}>Delete</button>}
+                      {can("branches_delete") && <button className="btn ghost sm" type="button" onClick={() => { setWithUsers(false); setRemoving(b); }}>Delete</button>}
                     </td>
                   </tr>
                 ))}
@@ -125,6 +126,10 @@ export default function BranchesPage() {
         <Modal title="Delete branch" onClose={() => setRemoving(null)} onSubmit={(e) => { e.preventDefault(); remove(); }}>
           <h2>Delete {removing.name}?</h2>
           <p className="hint">This removes the branch for good and cannot be undone. If it has sales, staff, stock or other records it will not go through; set it to inactive instead.</p>
+          <label className="check">
+            <input type="checkbox" checked={withUsers} onChange={(e) => setWithUsers(e.target.checked)} /> Also delete the user accounts that belong only to this branch
+          </label>
+          {withUsers && <p className="hint">Accounts that also work at another branch are kept and only lose this branch. Your own account is never deleted. If any of them has sales or shifts, nothing is deleted.</p>}
           <div className="opts">
             <button type="button" className="btn ghost" onClick={() => setRemoving(null)}>Keep it</button>
             <button type="submit" className="btn danger">Delete for good</button>

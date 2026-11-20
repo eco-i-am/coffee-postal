@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -91,16 +92,29 @@ class BranchAdminApi {
     @DeleteMapping("/{id}")
     @Transactional
     @PreAuthorize("hasAuthority('PERM_branches_delete')")
-    void delete(@PathVariable long id, Principal who) {
+    void delete(@PathVariable long id, @RequestParam(defaultValue = "false") boolean withUsers, Principal who) {
         Branch b = branches.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "That branch no longer exists."));
         String code = b.getCode(), name = clean(b.getName());
+        int users = 0;
         try {
+            if (withUsers) {
+                // accounts that belong to this branch only; someone who also works at another branch just loses this one.
+                // Never the signed-in user, who would be locking themselves out.
+                List<Long> own = jdbc.queryForList("""
+                    SELECT u.id FROM users u JOIN user_branches ub ON ub.user_id = u.id AND ub.branch_id = ?
+                    WHERE lower(u.username) <> lower(?)
+                      AND NOT EXISTS (SELECT 1 FROM user_branches o WHERE o.user_id = u.id AND o.branch_id <> ?)
+                    """, Long.class, id, who.getName(), id);
+                jdbc.update("DELETE FROM user_branches WHERE branch_id = ?", id);
+                for (long uid : own) jdbc.update("DELETE FROM users WHERE id = ?", uid);
+                users = own.size();
+            }
             jdbc.update("UPDATE audit_logs SET branch_id = NULL WHERE branch_id = ?", id);
             jdbc.update("DELETE FROM branches WHERE id = ?", id);
         } catch (DataIntegrityViolationException e) {
-            throw new ApiException(HttpStatus.CONFLICT, "This branch has sales, staff, stock or other records, so it cannot be deleted. Set it to inactive instead: it stops selling and the history stays.");
+            throw new ApiException(HttpStatus.CONFLICT, "This branch, or one of its accounts, has sales, shifts, stock or other records, so it cannot be deleted. Set it to inactive instead: it stops selling and the history stays.");
         }
-        audit.record(who.getName(), null, "BRANCH_DELETE", "branch", String.valueOf(id), "{\"code\":\"" + code + "\",\"name\":\"" + name + "\"}", null, null);
+        audit.record(who.getName(), null, "BRANCH_DELETE", "branch", String.valueOf(id), "{\"code\":\"" + code + "\",\"name\":\"" + name + "\",\"usersDeleted\":" + users + "}", null, null);
     }
 
     @PostMapping("/{id}/toggle")

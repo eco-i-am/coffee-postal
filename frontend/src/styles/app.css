@@ -551,3 +551,9 @@ td.thc{width:48px;padding:3px 6px}
 .topbar .brand{flex-direction:row;align-items:center}
 .topbar .brandlogo{height:38px;padding:1px 6px;border-radius:8px}
 @media (max-width:760px){.brandlogo{height:44px}.topbar .brandlogo{height:34px}}
+
+/* a form nested in a dialog must not be squeezed by the dialog's flex column (this cropped the Add employee dialog) */
+.modal>*{flex-shrink:0}
+.modal form.stack{display:grid;gap:8px;min-height:0}
+.modal .grid2 .addr{min-width:0}
+.modal .addr select{width:100%;min-width:0}

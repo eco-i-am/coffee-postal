@@ -53,6 +53,29 @@ export default function FaceEnroll({ employee, base, onClose, onDone }) {
     } finally { setBusy(false); }
   }
 
+  /** A photo file instead of the camera: one reading from the picture, and the picture itself is not kept. */
+  async function fromPhoto(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setErr(""); setBusy(true); setNote("Reading the photo...");
+    const url = URL.createObjectURL(file);
+    try {
+      if (!file.type.startsWith("image/")) throw new Error("Pick a photo file (JPG or PNG).");
+      const img = new Image();
+      await new Promise((res, rej) => { img.onload = res; img.onerror = () => rej(new Error("That file could not be opened as a photo.")); img.src = url; });
+      const r = await readFace(img, { loadMs: 15000 });
+      if (r.state === "off") throw new Error("The face check could not start on this device. Check the connection and try again.");
+      if (r.state === "multi") throw new Error("More than one face is in the photo. Use a photo with only the employee.");
+      if (r.state !== "ok") throw new Error("No clear face found in that photo. Use a recent, front-facing photo in good light, without a cap or mask.");
+      setNote("Saving...");
+      await api(`${base}/${employee.id}/face`, { method: "POST", body: { descriptor: r.descriptor, consent: true } });
+      onDone(`${employee.fullName}: face saved from the photo.`);
+    } catch (e2) {
+      setErr(e2.message); setNote("");
+    } finally { URL.revokeObjectURL(url); setBusy(false); }
+  }
+
   async function remove() {
     setErr(""); setBusy(true);
     try {
@@ -65,7 +88,7 @@ export default function FaceEnroll({ employee, base, onClose, onDone }) {
     <Modal title={`Face for ${employee.fullName}`} onClose={onClose}>
       <p className="hint">
         The time clock will compare each punch with this face and flag a poor match for a manager to check. It never blocks a punch.
-        Only 128 numbers are saved, not a photo. They are deleted if you remove them here or when the employee is marked Left.
+        Only 128 numbers are saved, not a photo, even when you upload one. They are deleted if you remove them here or when the employee is marked Left.
       </p>
       <video ref={videoRef} className="preview" muted playsInline aria-label="Camera preview" hidden={camera !== "on"} />
       {camera === "off" && <p className="notice" role="status">The camera is off. Allow it for this site in the browser settings.</p>}
@@ -78,6 +101,10 @@ export default function FaceEnroll({ employee, base, onClose, onDone }) {
       <div className="opts">
         <button type="button" className="btn ghost" onClick={onClose}>Close</button>
         {employee.faceEnrolled && <button type="button" className="btn ghost" disabled={busy} onClick={remove}>Remove face</button>}
+        <label className={`btn ghost${busy || !consent ? " disabled" : ""}`} style={{ cursor: busy || !consent ? "not-allowed" : "pointer", opacity: busy || !consent ? 0.5 : 1 }}>
+          Upload a photo
+          <input type="file" accept="image/*" hidden disabled={busy || !consent} onChange={fromPhoto} />
+        </label>
         <button type="button" className="btn warm" style={{ flex: 1 }} disabled={busy || !consent || camera !== "on"} onClick={capture}>
           {employee.faceEnrolled ? "Take a new reading" : "Take reading"}
         </button>

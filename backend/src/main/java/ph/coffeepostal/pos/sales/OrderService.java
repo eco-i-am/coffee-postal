@@ -34,6 +34,13 @@ public class OrderService {
 
     public OrderService(JdbcTemplate jdbc, ManagerApproval approval) { this.jdbc = jdbc; this.approval = approval; }
 
+    /** Just the account id, for HQ users who are not assigned to any branch. */
+    public long userId(String username) {
+        List<Long> r = jdbc.queryForList("SELECT id FROM users WHERE username = ?", Long.class, username);
+        if (r.isEmpty()) throw new ApiException(HttpStatus.FORBIDDEN, "Your account was not found.");
+        return r.get(0);
+    }
+
     public Who whoIs(String username) {
         List<Who> r = jdbc.query("""
             SELECT u.id AS uid, ub.branch_id FROM users u JOIN user_branches ub ON ub.user_id = u.id

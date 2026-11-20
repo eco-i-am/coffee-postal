@@ -41,10 +41,10 @@ export function pickFace(detections) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(() => r(null), ms));
 
-/** Reads the face currently in front of the camera. Never throws and never waits long: on any trouble the state is "off". */
+/** Reads the face in a camera preview (video) or in a loaded photo (img). Never throws and never waits long: on any trouble the state is "off". */
 export async function readFace(video, { loadMs = 3000 } = {}) {
   try {
-    if (!video || !video.videoWidth || !video.videoHeight) return { state: "off" };
+    if (!video || !(video.videoWidth || video.naturalWidth) || !(video.videoHeight || video.naturalHeight)) return { state: "off" };
     const faceapi = await Promise.race([loadFace(), sleep(loadMs)]);
     if (!faceapi) return { state: "off" };
     const found = await faceapi

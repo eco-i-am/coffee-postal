@@ -276,7 +276,7 @@ final class HrApis {
             var e = employees.get(id);
             if (e == null || e.branchId() == null) throw new ApiException(HttpStatus.NOT_FOUND, "That employee was not found, or does not use the branch time clock.");
             if (!r.consent()) throw new ApiException(HttpStatus.BAD_REQUEST, "Tick that the employee agreed to this first.");
-            employees.enrollFace(id, r.descriptor(), orders.whoIs(who.getName()).userId());
+            employees.enrollFace(id, r.descriptor(), orders.userId(who.getName()));   // HQ accounts have no branch
             audit.record(who.getName(), e.branchId(), "EMPLOYEE_FACE_ENROLL", "employee", String.valueOf(id), null, null, null);
             return Map.of("id", id);
         }
