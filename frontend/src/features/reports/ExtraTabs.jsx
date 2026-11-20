@@ -2,6 +2,7 @@ import { peso } from "../../shared/money.js";
 import { METHOD_NAMES, PAY_METHODS, TYPE_NAMES, dateOf, dateTimeOf, fmtQty, poNo, invNo } from "../../shared/format.js";
 import { pesoCell } from "../../shared/csv.js";
 import { Kpi, ExportButton, useReport, State } from "./widgets.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const pct = (part, whole) => (whole ? `${Math.round((part / whole) * 100)}%` : "");
 export const hoursOf = (min) => `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, "0")}m`;
@@ -95,11 +96,11 @@ export function DiscountsTab({ base, range, branchQ, hq }) {
         <table>
           <thead><tr><th>Order</th><th>When</th>{hq && <th>Branch</th>}<th>Cashier</th><th>Discount</th><th>ID no.</th><th className="n">Discount</th><th className="n">Total</th><th>Approved by</th><th>Status</th></tr></thead>
           <tbody>
-            {rows.map((x) => (
+            <PagedRows rows={rows} render={(x) => (
               <tr key={`${x.branch}-${x.orderNo}`}><td><b>#{x.orderNo}</b></td><td>{dateTimeOf(x.at)}</td>{hq && <td>{x.branch}</td>}<td>{x.cashier}</td><td>{x.discount}</td><td>{x.idNo || ""}</td>
                 <td className="n">{peso(x.amount)}</td><td className="n">{peso(x.total)}</td>
                 <td>{x.approvedBy || ""}{x.needsReview && <span className="tag y">Review</span>}</td><td>{x.status === "PAID" ? "Paid" : "Refunded"}</td></tr>
-            ))}
+            )} />
             {rows.length === 0 && <tr><td colSpan={hq ? 10 : 9} className="emptyrow">No discounts in this range.</td></tr>}
           </tbody>
         </table>
@@ -128,10 +129,10 @@ export function OrderTypesTab({ base, range, branchQ }) {
         <table>
           <thead><tr><th>Order type</th><th className="n">Orders</th><th className="n">Sales</th><th className="n">Share</th><th className="n">Average order</th><th className="n">Refunds</th></tr></thead>
           <tbody>
-            {rows.map((x) => (
+            <PagedRows rows={rows} render={(x) => (
               <tr key={x.type}><td><b>{TYPE_NAMES[x.type]}</b></td><td className="n">{x.orders}</td><td className="n">{peso(x.sales)}</td><td className="n">{pct(x.sales, sales)}</td>
                 <td className="n">{peso(x.avgOrder)}</td><td className={`n${x.refunds > 0 ? " short" : ""}`}>{x.refunds}</td></tr>
-            ))}
+            )} />
           </tbody>
           <tfoot><tr><td><b>Total</b></td><td className="n">{orders}</td><td className="n"><b>{peso(sales)}</b></td><td></td><td></td><td></td></tr></tfoot>
         </table>
@@ -153,12 +154,12 @@ export function CashiersTab({ base, range, branchQ }) {
       <table>
         <thead><tr><th>Cashier</th><th className="n">Orders</th><th className="n">Sales</th><th className="n">Average</th><th className="n">Discounts</th><th className="n">Refunds</th><th className="n">Shifts closed</th><th className="n">Drawer over / short</th></tr></thead>
         <tbody>
-          {rows.map((x) => (
+          <PagedRows rows={rows} render={(x) => (
             <tr key={x.id}><td><b>{x.name}</b></td><td className="n">{x.orders}</td><td className="n">{peso(x.sales)}</td><td className="n">{peso(x.avgOrder)}</td><td className="n">{peso(x.discount)}</td>
               <td className={`n${x.refunds > 0 ? " short" : ""}`}>{x.refunds > 0 ? `${x.refunds} (${peso(x.refunded)})` : 0}</td>
               <td className="n">{x.shifts}{x.offShifts > 0 ? ` (${x.offShifts} off)` : ""}</td>
               <td className={`n${x.overShort < 0 ? " short" : ""}`}>{x.shifts ? signed(x.overShort) : ""}</td></tr>
-          ))}
+          )} />
           {rows.length === 0 && <tr><td colSpan="8" className="emptyrow">No sales in this range.</td></tr>}
         </tbody>
       </table>
@@ -180,11 +181,11 @@ export function EmployeesTab({ base, range, branchQ, hq }) {
       <table>
         <thead><tr><th>Employee</th>{hq && <th>Branch</th>}<th className="n">Days</th><th className="n">Shifts</th><th className="n">Hours</th><th className="n">Not clocked out</th><th className="n">Flagged</th><th className="n">Photos to check</th></tr></thead>
         <tbody>
-          {rows.map((x) => (
+          <PagedRows rows={rows} render={(x) => (
             <tr key={x.id}><td><b>{x.name}</b>{x.position && <><br /><small>{x.position}</small></>}</td>{hq && <td>{x.branch}</td>}
               <td className="n">{x.days}</td><td className="n">{x.shifts}</td><td className="n">{hoursOf(x.minutes)}</td>
               <td className={`n${x.notClockedOut > 0 ? " short" : ""}`}>{x.notClockedOut}</td><td className="n">{x.flagged}</td><td className={`n${x.photoReview > 0 ? " short" : ""}`}>{x.photoReview}</td></tr>
-          ))}
+          )} />
           {rows.length === 0 && <tr><td colSpan={hq ? 8 : 7} className="emptyrow">No time in or out in this range.</td></tr>}
         </tbody>
       </table>
@@ -209,11 +210,11 @@ export function OutsourceTab({ base, range, branchQ, hq }) {
         <table>
           <thead><tr><th>Date</th>{hq && <th>Branch</th>}<th>Vendor</th><th>Item</th><th className="n">Qty</th><th className="n">Unit cost</th><th className="n">Amount</th><th>Paid with</th></tr></thead>
           <tbody>
-            {rows.map((x, i) => (
+            <PagedRows rows={rows} render={(x, i) => (
               <tr key={i}><td>{dateOf(x.date)}</td>{hq && <td>{x.branch}</td>}<td>{x.vendor}{x.receiptNo && <><br /><small>Receipt {x.receiptNo}</small></>}</td>
                 <td>{x.description}{x.stocked && <span className="tag g">In stock</span>}</td><td className="n">{fmtQty(x.qty)}</td><td className="n">{peso(x.unitCost)}</td>
                 <td className="n">{peso(x.amount)}</td><td>{PAY_METHODS[x.paidWith] || x.paidWith}</td></tr>
-            ))}
+            )} />
             {rows.length === 0 && <tr><td colSpan={hq ? 8 : 7} className="emptyrow">Nothing bought outside in this range.</td></tr>}
           </tbody>
           {rows.length > 0 && <tfoot><tr><td colSpan={hq ? 6 : 5}><b>Total</b></td><td className="n"><b>{peso(total)}</b></td><td></td></tr></tfoot>}
@@ -244,10 +245,10 @@ export function PoPaymentsTab({ base, range, branchQ, hq }) {
         <table>
           <thead><tr><th>Paid on</th>{hq && <th>Branch</th>}<th>Purchase order</th><th>Invoice</th><th>Method</th><th>Reference</th><th className="n">Amount</th><th>Recorded by</th></tr></thead>
           <tbody>
-            {rows.map((x, i) => (
+            <PagedRows rows={rows} render={(x, i) => (
               <tr key={i}><td>{dateOf(x.paidOn)}</td>{hq && <td>{x.branch}</td>}<td>{poNo(x.poId)}</td><td>{invNo(x.invoiceId)}</td><td>{PAY_METHODS[x.method] || x.method}</td>
                 <td>{x.reference || ""}</td><td className="n"><b>{peso(x.amount)}</b></td><td>{x.recordedBy}</td></tr>
-            ))}
+            )} />
             {rows.length === 0 && <tr><td colSpan={hq ? 8 : 7} className="emptyrow">No payments in this range.</td></tr>}
           </tbody>
         </table>

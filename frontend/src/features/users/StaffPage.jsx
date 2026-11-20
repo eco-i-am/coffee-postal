@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { useAuth } from "../../app/AuthContext.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const STATUS = { ACTIVE: "Active", DISABLED: "Disabled", BLOCKED: "Blocked" };
 const BLANK = { id: null, username: "", fullName: "", email: "", roleId: "", branchId: "", status: "ACTIVE", password: "", pin: "" };
@@ -99,7 +100,7 @@ export default function StaffPage({ side }) {
           <table>
             <thead><tr><th>Name</th><th>Role</th>{hq && <th>Branch</th>}<th>Status</th><th>Last sign-in</th><th></th></tr></thead>
             <tbody>
-              {(list || []).map((u) => (
+              <PagedRows rows={list || []} render={(u) => (
                 <tr key={u.id}>
                   <td><b>{u.fullName}</b><br /><small>{u.username}</small></td>
                   <td>{u.role}</td>
@@ -118,7 +119,7 @@ export default function StaffPage({ side }) {
                     {can(`${mod}_delete`) && u.username !== me.username && <button className="btn ghost sm" onClick={() => open("delete", { id: u.id, fullName: u.fullName })}>Delete</button>}
                   </td>
                 </tr>
-              ))}
+              )} />
               {list && list.length === 0 && <tr><td colSpan="6" className="emptyrow">No users yet.</td></tr>}
             </tbody>
           </table>

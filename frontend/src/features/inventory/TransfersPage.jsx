@@ -3,6 +3,7 @@ import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import { dateTimeOf } from "../../shared/format.js";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const TONE = { SENT: ["y", "On the way"], RECEIVED: ["g", "Received"], CANCELLED: ["r", "Cancelled"] };
 const qtyText = (t) => String(t / 1000);
@@ -98,7 +99,7 @@ export default function TransfersPage({ side }) {
           <table>
             <thead><tr><th>#</th><th>From</th><th>To</th><th>Items</th><th>Status</th><th>Sent</th><th></th></tr></thead>
             <tbody>
-              {rows.map((t) => {
+              <PagedRows rows={rows} render={(t) => {
                 const [tone, label] = TONE[t.status] || ["y", t.status];
                 const incoming = !hq && t.toBranch === myBranchName;
                 const outgoing = !hq && !incoming;
@@ -115,7 +116,7 @@ export default function TransfersPage({ side }) {
                     </td>
                   </tr>
                 );
-              })}
+              }} />
               {rows.length === 0 && <tr><td colSpan="7" className="emptyrow">No transfers yet.</td></tr>}
             </tbody>
           </table>

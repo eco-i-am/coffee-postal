@@ -8,6 +8,7 @@ import { useAuth } from "../../app/AuthContext.jsx";
 import ImportModal from "../../shared/ImportModal.jsx";
 import HistoryModal from "../../shared/HistoryModal.jsx";
 import LabelModal from "../../shared/LabelModal.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const loadItems = () => api("/api/admin/items");
 const loadCats = () => api("/api/admin/item-categories");
@@ -130,7 +131,7 @@ export default function ItemsPage() {
             <table className="dense">
               <thead><tr><th></th><th>Item</th><th>SKU</th><th>Category</th><th>Unit</th><th className="n">Cost</th><th className="n">Low at</th><th>Orderable</th><th>Status</th><th></th></tr></thead>
               <tbody>
-                {shown.map((i) => (
+                <PagedRows rows={shown} render={(i) => (
                   <tr key={i.id}>
                     <td className="thc"><Thumb url={imgs.url("item", i.id)} alt="" /></td>
                     <td><b>{i.name}</b></td><td>{i.sku || ""}</td><td>{i.category || ""}</td><td>{i.unit}</td><td className="n">{peso(i.cost)}</td><td className="n">{i.reorderLevel}</td>
@@ -146,7 +147,7 @@ export default function ItemsPage() {
                       <button className="btn ghost sm" type="button" onClick={() => toggle(i)}>{i.active ? "Hide" : "Show"}</button>
                     </td>
                   </tr>
-                ))}
+                )} />
                 {items && shown.length === 0 && <tr><td colSpan="10" className="emptyrow">{items.length === 0 ? "No items yet. Add the first one." : "No items match."}</td></tr>}
               </tbody>
             </table>

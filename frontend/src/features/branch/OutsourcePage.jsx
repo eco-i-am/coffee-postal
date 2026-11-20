@@ -7,6 +7,7 @@ import { presetRange } from "../../shared/dates.js";
 import { dateOf, todayManila } from "../../shared/format.js";
 import { pesoCell } from "../../shared/csv.js";
 import { ExportButton, RangeBar } from "../reports/widgets.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const METHODS = ["CASH", "GCASH", "MAYA", "BANK", "CHECK"];
 const EMPTY_LINE = { itemId: "", description: "", qty: "", unitCost: "" };
@@ -96,13 +97,13 @@ export default function OutsourcePage() {
           <table>
             <thead><tr><th>Date</th><th>Bought from</th><th>What</th><th>Paid with</th><th className="n">Total</th></tr></thead>
             <tbody>
-              {rows.map((p) => (
+              <PagedRows rows={rows} render={(p) => (
                 <tr key={p.id}>
                   <td>{dateOf(p.purchasedOn)}</td><td><b>{p.vendor}</b>{p.receiptNo && <small> #{p.receiptNo}</small>}</td>
                   <td>{p.lines.map((l) => <div key={l.id}>{l.qty / 1000} × {l.description}</div>)}</td>
                   <td>{p.paidWith}</td><td className="n">{peso(p.total)}</td>
                 </tr>
-              ))}
+              )} />
               {rows.length === 0 && <tr><td colSpan="5" className="emptyrow">No outsource purchases in this range.</td></tr>}
             </tbody>
             <tfoot><tr><td colSpan="4" className="n">Total</td><td className="n"><b>{peso(total)}</b></td></tr></tfoot>

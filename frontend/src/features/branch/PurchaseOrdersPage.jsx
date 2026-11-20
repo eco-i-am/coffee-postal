@@ -6,6 +6,7 @@ import { peso } from "../../shared/money.js";
 import { PO_STATUS, dateTimeOf, fmtQty, poNo, poTone } from "../../shared/format.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import PoDetail from "../po/PoDetail.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const loadItems = () => api("/api/branch/inventory");
 
@@ -98,12 +99,12 @@ export default function PurchaseOrdersPage() {
           <table>
             <thead><tr><th>No.</th><th>Asked</th><th className="n">Items</th><th className="n">Value</th><th>Status</th></tr></thead>
             <tbody>
-              {(rows || []).map((r) => (
+              <PagedRows rows={rows || []} render={(r) => (
                 <tr key={r.id} className="clickrow" tabIndex={0} onClick={() => setOpen(r.id)} onKeyDown={(e) => e.key === "Enter" && setOpen(r.id)}>
                   <td><b>{poNo(r.id)}</b></td><td>{dateTimeOf(r.requestedAt)}</td><td className="n">{r.lines}</td><td className="n">{peso(r.value)}</td>
                   <td><span className={`tag ${poTone(r.status)}`}>{PO_STATUS[r.status]}</span></td>
                 </tr>
-              ))}
+              )} />
               {rows && rows.length === 0 && <tr><td colSpan="5" className="emptyrow">No purchase orders yet.</td></tr>}
             </tbody>
           </table>

@@ -1,4 +1,5 @@
 import ReceiptSheet from "../pos/ReceiptSheet.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 import { useCallback, useState } from "react";
 import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
@@ -162,7 +163,7 @@ export default function OrdersPage() {
           <table>
             <thead><tr><th>No.</th><th>For</th><th>Time</th><th>Type</th><th>Paid by</th><th>Cashier</th><th className="n">Total</th><th>Status</th></tr></thead>
             <tbody>
-              {(rows || []).map((o) => (
+              <PagedRows rows={rows || []} render={(o) => (
                 <tr key={o.id} className="clickrow" tabIndex={0} onClick={() => setOpen(o.id)}
                     onKeyDown={(e) => e.key === "Enter" && setOpen(o.id)}>
                   <td><b>#{o.orderNo}</b></td>
@@ -174,7 +175,7 @@ export default function OrdersPage() {
                   <td className="n">{peso(o.total)}</td>
                   <td><span className={`tag ${o.status === "PAID" ? "g" : "r"}`}>{STATUS_NAMES[o.status]}</span></td>
                 </tr>
-              ))}
+              )} />
               {rows && rows.length === 0 && <tr><td colSpan="8" className="emptyrow">No orders match.</td></tr>}
             </tbody>
           </table>

@@ -6,6 +6,7 @@ import { peso } from "../../shared/money.js";
 import { dateOf, invNo, invStatus } from "../../shared/format.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import InvoiceDetail from "./InvoiceDetail.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const FILTERS = [["open", "Still owed"], ["overdue", "Overdue"], ["paid", "Paid"], ["all", "All"]];
 
@@ -67,7 +68,7 @@ export default function InvoiceList({ side }) {
           <table>
             <thead><tr><th>No.</th>{hq && <th>Branch</th>}<th>Due</th><th className="n">Amount</th><th className="n">Balance</th><th>Status</th></tr></thead>
             <tbody>
-              {(rows || []).map((r) => {
+              <PagedRows rows={rows || []} render={(r) => {
                 const st = invStatus(r);
                 return (
                   <tr key={r.id} className="clickrow" tabIndex={0} onClick={() => setOpen(r.id)} onKeyDown={(e) => e.key === "Enter" && setOpen(r.id)}>
@@ -76,7 +77,7 @@ export default function InvoiceList({ side }) {
                     <td><span className={`tag ${st.tone}`}>{st.label}</span></td>
                   </tr>
                 );
-              })}
+              }} />
               {rows && rows.length === 0 && <tr><td colSpan={hq ? 6 : 5} className="emptyrow">{filter === "open" ? "Nothing owed. All clear." : "Nothing here."}</td></tr>}
             </tbody>
           </table>

@@ -11,6 +11,7 @@ import { useImages } from "../../shared/images.js";
 import ImportModal from "../../shared/ImportModal.jsx";
 import HistoryModal from "../../shared/HistoryModal.jsx";
 import LabelModal from "../../shared/LabelModal.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const loadProducts = () => api("/api/admin/products");
 const loadAddons = () => api("/api/admin/addons").catch(() => []);
@@ -210,7 +211,7 @@ export default function ProductsPage() {
                 <tr><th></th><th>Product</th><th>SKU</th><th>Category</th><th>Tags</th><th className="n">Price</th><th>Status</th><th></th></tr>
               </thead>
               <tbody>
-                {shown.map((p) => (
+                <PagedRows rows={shown} render={(p) => (
                   <tr key={p.id}>
                     <td className="thc"><Thumb url={imgs.url("product", p.id)} alt="" /></td>
                     <td><b>{p.name}</b></td>
@@ -229,7 +230,7 @@ export default function ProductsPage() {
                       <button className="btn ghost sm" type="button" onClick={() => toggle(p)}>{p.active ? "Switch off" : "Switch on"}</button>
                     </td>
                   </tr>
-                ))}
+                )} />
                 {data && shown.length === 0 && (
                   <tr><td colSpan="7" className="emptyrow">{products.length === 0 ? "No products yet. Add the first one." : "No products match."}</td></tr>
                 )}

@@ -3,9 +3,10 @@ import { api } from "../../shared/api.js";
 import { useLoad } from "../../shared/hooks.js";
 import Modal from "../../shared/Modal.jsx";
 import { useAuth } from "../../app/AuthContext.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const loadBranches = () => api("/api/admin/branches");
-const EMPTY = { code: "", name: "", address: "", phone: "", tin: "", vatRegistered: false };
+const EMPTY = { code: "", type: "EXPRESS", name: "", address: "", phone: "", tin: "", vatRegistered: false };
 
 export default function BranchesPage() {
   const { data: branches, error, loading, reload } = useLoad(loadBranches);
@@ -17,6 +18,7 @@ export default function BranchesPage() {
   const [editId, setEditId] = useState(null);   // null = adding a new branch
   const [search, setSearch] = useState("");
   const { can } = useAuth();
+  const [viewing, setViewing] = useState(null);   // the branch whose details are open
   const [removing, setRemoving] = useState(null);   // the branch being deleted
   const [withUsers, setWithUsers] = useState(false);   // also delete the accounts that belong only to it
 
@@ -46,7 +48,7 @@ export default function BranchesPage() {
 
   function startEdit(b) {
     setMsg(""); setFields({}); setEditId(b.id);
-    setForm({ code: b.code, name: b.name, address: b.address || "", phone: b.phone || "", tin: b.tin || "", vatRegistered: !!b.vatRegistered });
+    setForm({ code: b.code, type: b.type || "", name: b.name, address: b.address || "", phone: b.phone || "", tin: b.tin || "", vatRegistered: !!b.vatRegistered });
     setAdding(true);
   }
 
@@ -98,29 +100,48 @@ export default function BranchesPage() {
         {loading && !branches ? <p role="status">Loading...</p> : (
           <div className="tw">
             <table className="dense">
-              <thead><tr><th>Code</th><th>Name</th><th>Address</th><th>Phone</th><th>VAT</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Code</th><th>Type</th><th>Name</th><th>Address</th><th>Status</th><th></th></tr></thead>
               <tbody>
-                {rows.map((b) => (
-                  <tr key={b.id}>
+                <PagedRows rows={rows} render={(b) => (
+                  <tr key={b.id} className="clickrow" tabIndex={0} onClick={() => setViewing(b)} onKeyDown={(e) => { if (e.key === "Enter" && e.target === e.currentTarget) setViewing(b); }}>
                     <td>{b.code}</td>
+                    <td>{b.type === "KIOSK" ? "Kiosk" : b.type === "EXPRESS" ? "Express" : ""}</td>
                     <td><b>{b.name}</b></td>
                     <td>{b.address || ""}</td>
-                    <td>{b.phone || ""}</td>
-                    <td>{b.vatRegistered ? "Yes" : "No"}</td>
                     <td><span className={`tag ${b.active ? "g" : "r"}`}>{b.active ? "Active" : "Inactive"}</span></td>
-                    <td className="rowbtns">
+                    <td className="rowbtns" onClick={(e) => e.stopPropagation()}>
                       <button className="btn ghost sm" type="button" onClick={() => startEdit(b)}>Edit</button>
                       <button className="btn ghost sm" type="button" onClick={() => toggle(b)}>{b.active ? "Set inactive" : "Set active"}</button>
-                      {can("branches_delete") && <button className="btn ghost sm" type="button" onClick={() => { setWithUsers(false); setRemoving(b); }}>Delete</button>}
+                      {can("branches_delete") && <button className="btn ghost sm iconbtn" type="button" title="Delete branch" aria-label={`Delete ${b.name}`} onClick={() => { setWithUsers(false); setRemoving(b); }}>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 6h18" /><path d="M8 6V4h8v2" /><path d="M6 6l1 14h10l1-14" /><path d="M10 11v5M14 11v5" /></svg>
+                      </button>}
                     </td>
                   </tr>
-                ))}
-                {branches && rows.length === 0 && <tr><td colSpan="7" className="emptyrow">{branches.length === 0 ? "No branches yet. Add the first one." : "No branches match."}</td></tr>}
+                )} />
+                {branches && rows.length === 0 && <tr><td colSpan="6" className="emptyrow">{branches.length === 0 ? "No branches yet. Add the first one." : "No branches match."}</td></tr>}
               </tbody>
             </table>
           </div>
         )}
       </div>
+
+      {viewing && (
+        <Modal title={viewing.name} onClose={() => setViewing(null)}>
+          <dl className="facts">
+            <div><dt>Code</dt><dd>{viewing.code}</dd></div>
+            <div><dt>Type</dt><dd>{viewing.type === "KIOSK" ? "Kiosk" : viewing.type === "EXPRESS" ? "Express" : "None"}</dd></div>
+            <div><dt>Status</dt><dd>{viewing.active ? "Active" : "Inactive"}</dd></div>
+            <div><dt>Address</dt><dd>{viewing.address || "Not set"}</dd></div>
+            <div><dt>Phone</dt><dd>{viewing.phone || "Not set"}</dd></div>
+            <div><dt>TIN</dt><dd>{viewing.tin || "Not set"}</dd></div>
+            <div><dt>VAT registered</dt><dd>{viewing.vatRegistered ? "Yes (receipts show the VAT lines and the TIN)" : "No"}</dd></div>
+          </dl>
+          <div className="opts">
+            <button type="button" className="btn ghost" onClick={() => setViewing(null)}>Close</button>
+            <button type="button" className="btn warm" style={{ flex: 1 }} onClick={() => { const b = viewing; setViewing(null); startEdit(b); }}>Edit</button>
+          </div>
+        </Modal>
+      )}
 
       {removing && (
         <Modal title="Delete branch" onClose={() => setRemoving(null)} onSubmit={(e) => { e.preventDefault(); remove(); }}>
@@ -144,6 +165,15 @@ export default function BranchesPage() {
               <label htmlFor="code">Code</label>
               <input id="code" value={form.code} onChange={set("code")} placeholder="CEB-03" required autoFocus />
               {fields.code && <p className="err" role="alert">{fields.code}</p>}
+            </div>
+            <div className="addr">
+              <label htmlFor="btype">Type</label>
+              <select className="line" id="btype" value={form.type} onChange={set("type")}>
+                {editId && <option value="">None</option>}
+                <option value="EXPRESS">Express</option>
+                <option value="KIOSK">Kiosk</option>
+              </select>
+              {fields.type && <p className="err" role="alert">{fields.type}</p>}
             </div>
             <div className="addr">
               <label htmlFor="name">Name</label>

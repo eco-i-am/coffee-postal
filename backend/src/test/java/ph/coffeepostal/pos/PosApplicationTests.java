@@ -75,11 +75,12 @@ class PosApplicationTests {
 	@Test
 	void adminCreatesBranchAndItIsAudited() throws Exception {
 		var session = login("admin");
-		String json = "{\"code\":\"ceb-09\",\"name\":\"Test Branch\",\"address\":\"Cebu\",\"phone\":\"\"}";
+		String json = "{\"code\":\"ceb-09\",\"name\":\"Test Branch\",\"address\":\"Cebu\",\"phone\":\"\",\"type\":\"kiosk\"}";
 		mvc.perform(post("/api/admin/branches").session(session).with(csrf())
 				.contentType(MediaType.APPLICATION_JSON).content(json))
 			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.code").value("CEB-09"));
+			.andExpect(jsonPath("$.code").value("CEB-09"))
+			.andExpect(jsonPath("$.type").value("KIOSK"));
 		assertThat(jdbc.queryForObject("SELECT count(*) FROM audit_logs WHERE action='BRANCH_CREATE'", Integer.class))
 			.isGreaterThanOrEqualTo(1);
 		// duplicate code is refused, not saved twice

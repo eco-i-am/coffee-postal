@@ -28,19 +28,27 @@ import ph.coffeepostal.pos.shared.AuditService;
 @RestController
 @RequestMapping("/api/admin/branches")
 class BranchAdminApi {
-    record BranchDto(long id, String code, String name, String address, String phone, String tin, boolean vatRegistered, boolean active) {
-        static BranchDto of(Branch b) { return new BranchDto(b.getId(), b.getCode(), b.getName(), b.getAddress(), b.getPhone(), b.getTin(), b.isVatRegistered(), b.isActive()); }
+    record BranchDto(long id, String code, String name, String address, String phone, String tin, boolean vatRegistered, boolean active, String type) {
+        static BranchDto of(Branch b) { return new BranchDto(b.getId(), b.getCode(), b.getName(), b.getAddress(), b.getPhone(), b.getTin(), b.isVatRegistered(), b.isActive(), b.getBranchType()); }
     }
     record BranchReq(@NotBlank @Size(max = 20) String code, @NotBlank @Size(max = 120) String name,
-                     @Size(max = 300) String address, @Size(max = 40) String phone) {}
+                     @Size(max = 300) String address, @Size(max = 40) String phone, String type) {}
     record BranchEditReq(@NotBlank @Size(max = 20) String code, @NotBlank @Size(max = 120) String name,
-                         @Size(max = 300) String address, @Size(max = 40) String phone, @Size(max = 30) String tin, boolean vatRegistered) {}
+                         @Size(max = 300) String address, @Size(max = 40) String phone, @Size(max = 30) String tin, boolean vatRegistered, String type) {}
 
     private final BranchRepository branches;
     private final AuditService audit;
     private final JdbcTemplate jdbc;
 
     BranchAdminApi(BranchRepository branches, AuditService audit, JdbcTemplate jdbc) { this.branches = branches; this.audit = audit; this.jdbc = jdbc; }
+
+    /** Express or Kiosk. Required for a new branch; an older one (flagship, sample) may have none. */
+    private static String type(String t, boolean required) {
+        String x = t == null ? "" : t.trim().toUpperCase();
+        if (x.isEmpty() && !required) return null;
+        if (!x.equals("EXPRESS") && !x.equals("KIOSK")) throw new ApiException(HttpStatus.BAD_REQUEST, "Pick Express or Kiosk.", Map.of("type", "Pick Express or Kiosk."));
+        return x;
+    }
 
     @GetMapping
     @PreAuthorize("hasAuthority('PERM_branches_view')")
@@ -51,10 +59,13 @@ class BranchAdminApi {
     @PreAuthorize("hasAuthority('PERM_branches_add')")
     BranchDto create(@Valid @RequestBody BranchReq r, Principal who) {
         String code = r.code().trim().toUpperCase();
+        String type = type(r.type(), true);
         if (branches.existsByCodeIgnoreCase(code)) {
             throw new ApiException(HttpStatus.CONFLICT, "That branch code is already used.", Map.of("code", "Already used."));
         }
-        Branch b = branches.save(new Branch(code, r.name().trim(), r.address(), r.phone()));
+        Branch b = new Branch(code, r.name().trim(), r.address(), r.phone());
+        b.setBranchType(type);
+        b = branches.save(b);
         audit.record(who.getName(), b.getId(), "BRANCH_CREATE", "branch", String.valueOf(b.getId()), null,
             "{\"code\":\"" + b.getCode() + "\",\"name\":\"" + b.getName().replace("\"", "'") + "\"}", null);
         return BranchDto.of(b);
@@ -66,6 +77,7 @@ class BranchAdminApi {
     BranchDto update(@PathVariable long id, @Valid @RequestBody BranchEditReq r, Principal who) {
         Branch b = branches.findById(id).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "That branch no longer exists."));
         String code = r.code().trim().toUpperCase();
+        String type = type(r.type(), false);
         if (branches.existsByCodeIgnoreCaseAndIdNot(code, id)) {
             throw new ApiException(HttpStatus.CONFLICT, "That branch code is already used.", Map.of("code", "Already used."));
         }
@@ -76,6 +88,7 @@ class BranchAdminApi {
         b.setPhone(blank(r.phone()));
         b.setTin(blank(r.tin()));
         b.setVatRegistered(r.vatRegistered());
+        b.setBranchType(type);
         branches.save(b);
         audit.record(who.getName(), b.getId(), "BRANCH_UPDATE", "branch", String.valueOf(id), before,
             "{\"code\":\"" + code + "\",\"name\":\"" + clean(b.getName()) + "\",\"vat\":" + b.isVatRegistered() + "}", null);

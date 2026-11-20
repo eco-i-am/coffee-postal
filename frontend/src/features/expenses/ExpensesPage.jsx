@@ -8,6 +8,7 @@ import { dateOf, todayManila } from "../../shared/format.js";
 import { pesoCell } from "../../shared/csv.js";
 import { ExportButton, RangeBar } from "../reports/widgets.jsx";
 import Modal from "../../shared/Modal.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const METHODS = ["CASH", "BANK", "GCASH", "MAYA", "CHECK"];
 
@@ -96,14 +97,14 @@ export default function ExpensesPage({ side }) {
             <table className="dense">
               <thead><tr><th>Date</th>{hq && <th>Branch</th>}<th>Category</th><th>What for</th><th>Paid with</th><th className="n">Amount</th><th></th></tr></thead>
               <tbody>
-                {rows.map((x) => (
+                <PagedRows rows={rows} render={(x) => (
                   <tr key={x.id} className={x.voided ? "voided" : ""}>
                     <td>{dateOf(x.date)}</td>{hq && <td>{x.branch}</td>}<td>{x.category}</td>
                     <td>{x.description}{x.receiptNo && <small> #{x.receiptNo}</small>}{x.voided && <small> · Voided: {x.voidReason}</small>}</td>
                     <td>{x.paidWith}</td><td className="n">{x.voided ? <s>{peso(x.amount)}</s> : peso(x.amount)}</td>
                     <td className="rowbtns">{!x.voided && can(`${perm}_edit`) && <button className="btn ghost sm" type="button" onClick={() => { setVoiding(x); setReason(""); }}>Void</button>}</td>
                   </tr>
-                ))}
+                )} />
                 {rows.length === 0 && <tr><td colSpan={hq ? 7 : 6} className="emptyrow">No expenses in this range.</td></tr>}
               </tbody>
             </table>

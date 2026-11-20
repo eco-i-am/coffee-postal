@@ -5,6 +5,7 @@ import { MOVE_NAMES, dateTimeOf, fmtQty } from "../../shared/format.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import { Thumb } from "../../shared/ImageField.jsx";
 import { useImages } from "../../shared/images.js";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const loadStock = () => api("/api/branch/inventory");
 
@@ -118,7 +119,7 @@ export default function InventoryPage() {
           <table>
             <thead><tr><th></th><th>Item</th><th className="n">On hand</th><th>Unit</th><th>Status</th><th></th></tr></thead>
             <tbody>
-              {shown.map((r) => (
+              <PagedRows rows={shown} render={(r) => (
                 <tr key={r.itemId}>
                   <td className="thc"><Thumb url={imgs.url("item", r.itemId)} alt="" /></td>
                   <td><b>{r.name}</b></td>
@@ -130,7 +131,7 @@ export default function InventoryPage() {
                     {can("branch_inventory_edit") && <button className="btn ghost sm" onClick={() => setAdjust(r)}>Adjust</button>}
                   </td>
                 </tr>
-              ))}
+              )} />
               {rows && shown.length === 0 && <tr><td colSpan="6" className="emptyrow">{onlyLow ? "Nothing is low. Nice." : "HQ has not added any items yet."}</td></tr>}
             </tbody>
           </table>

@@ -557,3 +557,24 @@ td.thc{width:48px;padding:3px 6px}
 .modal form.stack{display:grid;gap:8px;min-height:0}
 .modal .grid2 .addr{min-width:0}
 .modal .addr select{width:100%;min-width:0}
+
+/* clickable table rows and a details list */
+tr.clickrow{cursor:pointer}
+tr.clickrow:hover td{background:var(--star)}
+tr.clickrow:focus-visible{outline:2px solid var(--midnight);outline-offset:-2px}
+.facts{margin:0;display:grid;grid-template-columns:1fr 1fr;gap:8px 16px}
+.facts div{display:grid;gap:1px;min-width:0}
+.facts div:nth-child(n+4){grid-column:1/-1}
+.facts dt{font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--reseda)}
+.facts dd{margin:0;font-size:1rem;overflow-wrap:anywhere}
+
+.btn.iconbtn{padding:0 9px;min-width:34px;display:inline-flex;align-items:center;justify-content:center}
+.btn.iconbtn:hover{color:var(--warn)}
+
+/* table page bar */
+.pagerrow td{padding:10px 8px;background:transparent;border-bottom:0}
+.pager{display:flex;align-items:center;justify-content:flex-end;gap:6px;flex-wrap:wrap}
+.pagerinfo{margin-right:auto;font-size:.85rem;opacity:.8}
+.pager .btn.sm{min-height:32px;padding:0 10px}
+.pagenum[aria-current="page"]{background:var(--midnight);color:var(--star);border-color:var(--midnight)}
+.pagergap{padding:0 2px;opacity:.6}

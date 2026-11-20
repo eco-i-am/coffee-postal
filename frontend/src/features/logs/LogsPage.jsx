@@ -4,6 +4,7 @@ import { useLoad } from "../../shared/hooks.js";
 import { PRESETS, presetRange } from "../../shared/dates.js";
 import { todayManila } from "../../shared/format.js";
 import { deviceName, prettyJson, actionName } from "./device.js";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 function Pager({ page, total, size, onPage }) {
   const pages = Math.max(1, Math.ceil(total / size));
@@ -60,7 +61,7 @@ function Audit({ range, setRange }) {
           <table>
             <thead><tr><th>When</th><th>Who</th><th>What</th><th>Branch</th><th></th></tr></thead>
             <tbody>
-              {d.rows.map((a) => (
+              <PagedRows rows={d.rows} render={(a) => (
                 <Fragment key={a.id}>
                   <tr>
                     <td>{a.at}</td><td>{a.user}</td>
@@ -76,7 +77,7 @@ function Audit({ range, setRange }) {
                     </td></tr>
                   )}
                 </Fragment>
-              ))}
+              )} />
               {d.rows.length === 0 && <tr><td colSpan="5" className="emptyrow">Nothing recorded for these filters.</td></tr>}
             </tbody>
           </table>
@@ -108,7 +109,7 @@ function Logins({ range, setRange }) {
           <table>
             <thead><tr><th>When</th><th>Person</th><th>Result</th><th>Device</th><th>Address</th></tr></thead>
             <tbody>
-              {d.rows.map((h) => (
+              <PagedRows rows={d.rows} render={(h) => (
                 <tr key={h.id}>
                   <td>{h.at}</td>
                   <td><b>{h.fullName || "Unknown account"}</b><br /><small>{h.username}</small></td>
@@ -116,7 +117,7 @@ function Logins({ range, setRange }) {
                   <td title={h.device || ""}>{deviceName(h.device)}</td>
                   <td>{h.ip || ""}</td>
                 </tr>
-              ))}
+              )} />
               {d.rows.length === 0 && <tr><td colSpan="5" className="emptyrow">Nothing recorded for these filters.</td></tr>}
             </tbody>
           </table>

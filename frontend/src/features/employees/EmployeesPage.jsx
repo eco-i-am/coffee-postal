@@ -7,6 +7,7 @@ import { dateOf, timeOf, todayManila } from "../../shared/format.js";
 import { ExportButton, Kpi, RangeBar } from "../reports/widgets.jsx";
 import SharedModal from "../../shared/Modal.jsx";
 import FaceEnroll from "./FaceEnroll.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 // what the face check said about a punch (managers only)
 const FACE = {
@@ -133,7 +134,7 @@ function StaffTab({ hq, perm, branchId, branches, can, addOpen, setAddOpen }) {
             <table className="dense">
               <thead><tr><th>Name</th>{hq && <th>Branch</th>}<th>Position</th><th>Clock PIN</th><th>Face</th><th>Status</th><th></th></tr></thead>
               <tbody>
-                {rows.map((e) => (
+                <PagedRows rows={rows} render={(e) => (
                   <tr key={e.id}>
                     <td><b>{e.fullName}</b></td>{hq && <td>{e.branch || "HQ"}</td>}<td>{e.position}</td>
                     <td>{e.branchId == null ? "n/a" : e.hasPin ? "Set" : <span className="tag r">None</span>}</td>
@@ -147,7 +148,7 @@ function StaffTab({ hq, perm, branchId, branches, can, addOpen, setAddOpen }) {
                       {can(`${perm}_delete`) && <button className="btn ghost sm" type="button" onClick={() => { setMsg(""); setRemoving(e); }}>Delete</button>}
                     </td>
                   </tr>
-                ))}
+                )} />
                 {rows.length === 0 && <tr><td colSpan={hq ? 7 : 6} className="emptyrow">No employees yet.</td></tr>}
               </tbody>
             </table>

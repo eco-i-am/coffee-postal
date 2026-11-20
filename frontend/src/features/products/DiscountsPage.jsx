@@ -4,6 +4,7 @@ import { useLoad } from "../../shared/hooks.js";
 import { peso } from "../../shared/money.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import Modal from "../../shared/Modal.jsx";
+import PagedRows from "../../shared/PagedRows.jsx";
 
 const loadDiscounts = () => api("/api/admin/discounts");
 const EMPTY = { code: "", name: "", kind: "PERCENT", value: "", requiresId: false, approvalOver: "", active: true };
@@ -76,7 +77,7 @@ export default function DiscountsPage() {
             <table className="dense">
               <thead><tr><th>Name</th><th>Takes off</th><th>PIN above</th><th>Status</th><th></th></tr></thead>
               <tbody>
-                {rows.map((d) => (
+                <PagedRows rows={rows} render={(d) => (
                   <tr key={d.code}>
                     <td><b>{d.name}</b> <small>{d.code}{d.requiresId ? " · asks for ID" : ""}</small></td>
                     <td>{valueText(d)}</td>
@@ -87,7 +88,7 @@ export default function DiscountsPage() {
                       {can("discounts_edit") && <button className="btn ghost sm" type="button" onClick={() => toggle(d)}>{d.active ? "Switch off" : "Switch on"}</button>}
                     </td>
                   </tr>
-                ))}
+                )} />
                 {rows.length === 0 && <tr><td colSpan="5" className="emptyrow">No discounts yet.</td></tr>}
               </tbody>
             </table>

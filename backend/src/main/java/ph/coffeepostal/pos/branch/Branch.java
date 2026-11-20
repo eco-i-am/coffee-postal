@@ -19,6 +19,7 @@ public class Branch {
     private String phone;
     private String tin;
     @Column(name = "vat_registered", nullable = false) private boolean vatRegistered;
+    @Column(name = "branch_type") private String branchType;   // EXPRESS | KIOSK, null for flagship and sample
     @Column(nullable = false) private boolean active = true;
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false) private Instant updatedAt;
@@ -35,6 +36,8 @@ public class Branch {
     public String getPhone() { return phone; }
     public String getTin() { return tin; }
     public boolean isVatRegistered() { return vatRegistered; }
+    public String getBranchType() { return branchType; }
+    public void setBranchType(String branchType) { this.branchType = branchType; }
     public boolean isActive() { return active; }
     public void setActive(boolean active) { this.active = active; }
     public void setCode(String code) { this.code = code; }
