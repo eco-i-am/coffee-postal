@@ -49,9 +49,10 @@ class InventoryPoTests {
 	}
 
 	@Test
-	void cashiersCannotSeeInventoryOrPurchaseOrdersButManagersCanSeeLowStock() throws Exception {
+	void cashiersCannotSeeInventoryButManagersCanSeeLowStock() throws Exception {
 		mvc.perform(get("/api/branch/inventory").session(login("cashier"))).andExpect(status().isForbidden());
-		mvc.perform(get("/api/branch/purchase-orders").session(login("cashier"))).andExpect(status().isForbidden());
+		// cashiers can open purchase orders to count a delivery in (but not order); see EngagementExtrasTests
+		mvc.perform(get("/api/branch/purchase-orders").session(login("cashier"))).andExpect(status().isOk());
 		mvc.perform(get("/api/branch/inventory").session(login("manager")))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$[?(@.name=='Caramel syrup (750 ml)')].low").value(true));
