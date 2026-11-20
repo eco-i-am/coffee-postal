@@ -41,7 +41,13 @@ export default function PosPage() {
   const [drawer, setDrawer] = useState(false);   // the cash drawer dialog
 
   const imgs = useImages();
-  const [cat, setCat] = useState("All");
+  // Favourites: the items this device taps most, so the usual orders are one tap away (kept on the tablet, works offline)
+  const tapsKey = `cp.pos.taps.v1:${me.username}`;
+  const [taps, setTaps] = useState(() => { try { return JSON.parse(localStorage.getItem(tapsKey) || "{}"); } catch { return {}; } });
+  const [cat, setCat] = useState(() => (Object.keys(taps).length ? "fav" : "All"));
+  const [discOpen, setDiscOpen] = useState(false);   // the discount panel
+  const [nameOpen, setNameOpen] = useState(false);   // the optional name or table line
+  const [confirmClear, setConfirmClear] = useState(false);
   const [q, setQ] = useState("");   // search the menu by name
   const [cart, setCart] = useState([]);
   const [otype, setOtype] = useState("DINE_IN");
@@ -58,12 +64,32 @@ export default function PosPage() {
   const needsId = !!rule?.requiresId;
   const needsPin = rule?.approvalOver != null && t.discount > rule.approvalOver;
   const needle = q.trim().toLowerCase();
+  const favItems = (menu?.items || []).filter((m) => taps[m.id] > 0).sort((a, b) => taps[b.id] - taps[a.id]).slice(0, 12);
+  const view = cat === "fav" && favItems.length === 0 ? "All" : cat;   // no favourites yet: show everything
   // while searching, look across every category
-  const items = (menu?.items || []).filter((m) => needle ? m.name.toLowerCase().includes(needle) : (cat === "All" || (cat.startsWith("tag:") ? m.tags?.includes(cat.slice(4)) : m.category === cat)));
+  const items = needle
+    ? (menu?.items || []).filter((m) => m.name.toLowerCase().includes(needle))
+    : view === "fav" ? favItems
+    : (menu?.items || []).filter((m) => view === "All" || (view.startsWith("tag:") ? m.tags?.includes(view.slice(4)) : m.category === view));
+  const cartCount = cart.reduce((n, l) => n + l.qty, 0);
 
   function edit(fn) {
     setCart(fn);
     setOrderId(null); // the order changed, so it is a new sale
+  }
+
+  // count what was actually sold, once the order is paid, so the Favourites tiles never move while an order is being taken
+  function countSold(lines) {
+    setTaps((old) => {
+      const next = { ...old };
+      for (const l of lines) next[l.productId] = (next[l.productId] || 0) + l.qty;
+      try { localStorage.setItem(tapsKey, JSON.stringify(next)); } catch { /* favourites just will not be kept */ }
+      return next;
+    });
+  }
+
+  function clearOrder() {
+    setCart([]); setDisc("NONE"); setIdNo(""); setWho(""); setOrderId(null); setConfirmClear(false); setNameOpen(false);
   }
 
   function tap(item) {
@@ -78,11 +104,8 @@ export default function PosPage() {
 
   function paid(res, method, tendered) {
     setModal({ kind: "receipt", data: { res, method, tendered, cart, otype, discName: rule?.name, idNo: needsId ? idNo.trim() : "", vatRegistered, who: who.trim() } });
-    setCart([]);
-    setDisc("NONE");
-    setIdNo("");
-    setWho("");
-    setOrderId(null);
+    countSold(cart);
+    clearOrder();
   }
 
   // no shift, no sales: the till stays locked until the cashier counts the drawer and starts a shift
@@ -107,14 +130,6 @@ export default function PosPage() {
           onKeyDown={(e) => { if (e.key === "Enter" && items.length === 1) { tap(items[0]); setQ(""); } else if (e.key === "Escape") setQ(""); }} />
         {can("cash_inout_view") && <button type="button" className="btn ghost sm clockbtn" onClick={() => setDrawer(true)}>Cash drawer</button>}
         {can("time_clock_add") && <button type="button" className="btn ghost sm clockbtn" onClick={() => setClocking(true)}>Time In / Out</button>}
-        <div className="tabs" role="group" aria-label="Categories">
-          {["All", ...(menu?.categories || [])].map((c) => (
-            <button key={c} className="chip" aria-pressed={c === cat} onClick={() => setCat(c)}>{c}</button>
-          ))}
-          {(menu?.tags || []).map((t) => (
-            <button key={`tag:${t}`} className="chip" aria-pressed={cat === `tag:${t}`} onClick={() => setCat(`tag:${t}`)}># {t}</button>
-          ))}
-        </div>
       </header>
       {error && <p className="notice" role="alert">{error}</p>}
       <SyncPanel menuSavedAt={menuSavedAt} />
@@ -123,6 +138,15 @@ export default function PosPage() {
       )}
 
       <div className="pos">
+        <nav className="catrail" aria-label="Categories">
+          {favItems.length > 0 && <button type="button" className="catbtn fav" aria-pressed={!needle && view === "fav"} onClick={() => { setCat("fav"); setQ(""); }}><span aria-hidden="true">&#9733;</span>Favourites</button>}
+          {["All", ...(menu?.categories || [])].map((c) => (
+            <button key={c} type="button" className="catbtn" aria-pressed={!needle && c === view} onClick={() => { setCat(c); setQ(""); }}>{c}</button>
+          ))}
+          {(menu?.tags || []).map((tg) => (
+            <button key={`tag:${tg}`} type="button" className="catbtn" aria-pressed={!needle && view === `tag:${tg}`} onClick={() => { setCat(`tag:${tg}`); setQ(""); }}># {tg}</button>
+          ))}
+        </nav>
         <div className="menu">
           {menu && items.length === 0 && <p className="hint" role="status">{needle ? `Nothing matches "${q.trim()}".` : "Nothing in this category."}</p>}
           {items.map((m) => (
@@ -139,15 +163,24 @@ export default function PosPage() {
 
         <div className="cart">
           <div className="hd">
-            <h2>New order</h2>
-            <button className="btn ghost sm" onClick={() => { setCart([]); setDisc("NONE"); setIdNo(""); setWho(""); setOrderId(null); }}>Clear</button>
+            <h2>New order{cartCount > 0 && <span className="cartcount">{cartCount}</span>}</h2>
+            {confirmClear ? (
+              <span className="clearask" role="group" aria-label="Clear this order?">
+                <button type="button" className="btn ghost sm" onClick={() => setConfirmClear(false)}>Keep</button>
+                <button type="button" className="btn brand sm" onClick={clearOrder}>Yes, clear</button>
+              </span>
+            ) : (
+              <button type="button" className="btn ghost sm" disabled={cart.length === 0 && !who && disc === "NONE"} onClick={() => (cart.length > 0 ? setConfirmClear(true) : clearOrder())}>Clear</button>
+            )}
           </div>
-          <div className="seg" role="group" aria-label="Order type">
+          <div className="seg bigseg" role="group" aria-label="Order type">
             {TYPES.map(([k, label]) => (
-              <button key={k} className="chip" aria-pressed={otype === k} onClick={() => setOtype(k)}>{label}</button>
+              <button key={k} type="button" className="chip" aria-pressed={otype === k} onClick={() => setOtype(k)}>{label}</button>
             ))}
           </div>
-          <input className="custname" aria-label="Customer name or order label (optional)" value={who} maxLength={60} onChange={(e) => setWho(e.target.value)} placeholder="Customer name or table (optional)" />
+          {nameOpen || who
+            ? <input className="custname" aria-label="Customer name or order label (optional)" value={who} maxLength={60} autoFocus={!who} onChange={(e) => setWho(e.target.value)} placeholder="Customer name or table" />
+            : <button type="button" className="linkbtn" onClick={() => setNameOpen(true)}>+ Add name or table</button>}
           <div className="cartlines">
             {cart.length === 0 && <div className="empty">Nothing on this order yet.<br />Tap a drink or snack to add it.</div>}
             {cart.map((l) => (
@@ -164,18 +197,11 @@ export default function PosPage() {
             ))}
           </div>
           <div className="cartfoot">
-          <label className="discrow">
-            Discount
-            <select value={disc} onChange={(e) => { setDisc(e.target.value); setOrderId(null); }}>
-              <option value="NONE">None</option>
-              {(menu?.discounts || []).map((d) => <option key={d.code} value={d.code}>{d.name}</option>)}
-            </select>
-          </label>
-          {needsId && (
-            <label className="discrow">
-              ID no.
-              <input aria-label="Senior or PWD ID number" value={idNo} maxLength={40} onChange={(e) => { setIdNo(e.target.value); setOrderId(null); }} placeholder="ID number" />
-            </label>
+          {(menu?.discounts || []).length > 0 && (
+            <button type="button" className={`discbtn${rule ? " on" : ""}`} onClick={() => setDiscOpen(true)}>
+              <span>{rule ? `Discount: ${rule.name}` : "Discount"}</span>
+              <span aria-hidden="true">{rule ? (needsId && !idNo.trim() ? "ID needed" : "Change") : "Add"}</span>
+            </button>
           )}
           {t.discount > 0 && <div className="tot"><span>Discount</span><span>&minus;{peso(t.discount)}</span></div>}
           {vatRegistered && <div className="tot vatrow"><span>incl. VAT 12%</span><span>{peso(t.vat)}</span></div>}
@@ -184,6 +210,26 @@ export default function PosPage() {
           </div>
         </div>
       </div>
+
+      {discOpen && (
+        <Modal title="Discount" onClose={() => setDiscOpen(false)} onSubmit={(e) => { e.preventDefault(); if (!needsId || idNo.trim()) setDiscOpen(false); }}>
+          <div className="discpick" role="group" aria-label="Discount">
+            {[["NONE", "No discount"], ...(menu?.discounts || []).map((d) => [d.code, d.name])].map(([code, name]) => (
+              <button key={code} type="button" className="chip" aria-pressed={disc === code} onClick={() => { setDisc(code); setOrderId(null); if (code === "NONE") setIdNo(""); }}>{name}</button>
+            ))}
+          </div>
+          {needsId && (
+            <label className="discrow">
+              ID no.
+              <input aria-label="Senior or PWD ID number" value={idNo} maxLength={40} autoFocus onChange={(e) => { setIdNo(e.target.value); setOrderId(null); }} placeholder="ID number" />
+            </label>
+          )}
+          {rule && t.discount > 0 && <p className="hint">Takes off {peso(t.discount)}.{needsPin ? " Over the limit: a manager PIN is asked at payment." : ""}</p>}
+          <div className="opts">
+            <button type="submit" className="btn warm" style={{ flex: 1 }} disabled={needsId && !idNo.trim()}>Done</button>
+          </div>
+        </Modal>
+      )}
 
       {drawer && (
         <Modal title="Cash drawer" wide onClose={() => setDrawer(false)}>

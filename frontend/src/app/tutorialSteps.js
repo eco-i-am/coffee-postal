@@ -1,7 +1,9 @@
 // The sign-in tour. It walks through the pages in the left menu: what each page is for, then the buttons on it and what they do.
 // A step shows only when the account can open that page, so a cashier never reads about HQ screens and a
 // clock-in-only account just sees time in / out. Button names must match the screens as built; keep it short, plain words.
-//   step = { id, title, page (menu name), body: [..], buttons: [{ label, does }], to (path), action }
+//   step = { id, title, page (menu name), body: [..], buttons: [{ label, does, sel? }], to (path), action }
+// The guided tour opens each page (to) and spotlights the real button whose text matches a label ("A / B" and "A, B" mean
+// several buttons). Where the words on screen differ from the label, give a CSS selector as the third argument of B.
 
 export function stepsFor(me, can) {
   const admin = me.scope === "ADMIN";
@@ -9,7 +11,7 @@ export function stepsFor(me, can) {
   const where = admin ? "HQ" : me.branchName || "your branch";
   const s = [];
   const counterOnlyAccount = can("pos_view") && !can("branch_reports_view");   // cashiers give feedback at the till and do not read it
-  const B = (label, does) => ({ label, does });
+  const B = (label, does, sel) => (sel ? { label, does, sel } : { label, does });
 
   s.push({
     id: "welcome",
@@ -46,7 +48,7 @@ export function stepsFor(me, can) {
         "No internet? The punch is saved on the tablet and sent when the connection returns. Forgot to time out? Only a manager can correct a punch.",
       ],
       buttons: [
-        B("Number keys", "Type your 6-digit PIN."),
+        B("Number keys", "Type your 6-digit PIN.", ".keypad"),
         B("Time in / Time out", "Records the punch with your photo."),
         B("Clear", "Wipes the PIN if you mistyped."),
         B("Clock-only mode", "Managers only. Turns the tablet into a clock with no menu. Leaving it takes a manager PIN."),
@@ -82,10 +84,11 @@ export function stepsFor(me, can) {
         "Tap what the customer wants. Pick the size and any add-ons, choose Dine-in, Takeout or Delivery, then take payment.",
       ],
       buttons: [
-        B("Product tiles", "Tap to add a drink or food item to the order on the right."),
-        B("+ / Clear", "Change the quantity of a line, or empty the order."),
-        B("Discount (dropdown)", "Picks a discount for the order. One over its limit asks for a manager PIN."),
-        B("Charge", "Opens payment: Cash, GCash, Maya or Card, then prints or shows the receipt."),
+        B("Categories", "Pick a group on the left. Favourites shows what this tablet sells most, so the usual orders are one tap.", ".catrail"),
+        B("Product tiles","Tap to add a drink or food item to the order on the right.", ".pos .menu"),
+        B("+ / Clear", "Change the quantity of a line, or empty the order.", ".cart .hd button"),
+        B("Discount", "Opens the discount choices. Senior / PWD asks for the ID number. One over its limit asks for a manager PIN.", ".discbtn"),
+        B("Charge", "Opens payment: Cash, GCash, Maya or Card, then prints or shows the receipt.", ".chargebtn"),
         B("Stars on the receipt", "Ask the customer for a rating from 1 to 5. It goes to Feedback."),
         B("QR code on the receipt", "Customers scan it with their phone to rate their visit, with no sign-in."),
       ],
