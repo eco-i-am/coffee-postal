@@ -85,8 +85,10 @@ export function stepsFor(me, can) {
       ],
       buttons: [
         B("Categories", "Pick a group on the left. Favourites shows what this tablet sells most, so the usual orders are one tap.", ".catrail"),
-        B("Product tiles","Tap to add a drink or food item to the order on the right.", ".pos .menu"),
-        B("+ / Clear", "Change the quantity of a line, or empty the order.", ".cart .hd button"),
+        B("Product tiles", "Tap to add a drink or food item to the order on the right.", ".pos .menu"),
+        B("Order type", "Choose Dine-in, Takeout or Delivery before you charge.", ".bigseg"),
+        B("+ Add name or table", "Optional. Type a customer name or table number so the order is easy to find later.", ".linkbtn"),
+        B("+ / Clear", "Change the quantity of a line, or empty the order. Clear asks you to confirm first.", ".cart .hd button"),
         B("Discount", "Opens the discount choices. Senior / PWD asks for the ID number. One over its limit asks for a manager PIN.", ".discbtn"),
         B("Charge", "Opens payment: Cash, GCash, Maya or Card, then prints or shows the receipt.", ".chargebtn"),
         B("Stars on the receipt", "Ask the customer for a rating from 1 to 5. It goes to Feedback."),
