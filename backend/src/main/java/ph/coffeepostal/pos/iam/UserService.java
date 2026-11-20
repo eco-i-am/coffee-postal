@@ -162,6 +162,28 @@ public class UserService {
             "{\"roleId\":" + u.roleId() + ",\"status\":\"" + u.status() + "\"}", "{\"roleId\":" + roleId + ",\"status\":\"" + status + "\"}", null);
     }
 
+    /**
+     * Permanently removes an account that has never done anything. Someone with sales, shifts, or other records cannot be deleted
+     * (the records would lose their owner): the message says to disable them instead, which keeps the history.
+     */
+    @Transactional
+    public void delete(String actor, Long branchScope, long id) {
+        UserRow u = reachable(actor, branchScope, id);
+        if (u.username().equalsIgnoreCase(actor)) throw new ApiException(HttpStatus.FORBIDDEN, "You cannot delete your own account.");
+        if (RoleService.SUPER_ADMIN.equals(u.role()) && "ACTIVE".equals(u.status()) && activeSuperAdmins() <= 1) {
+            throw new ApiException(HttpStatus.CONFLICT, "This is the last active Super Admin. Make another one first.");
+        }
+        try {
+            jdbc.update("UPDATE login_history SET user_id = NULL WHERE user_id = ?", id);   // the history keeps the username
+            jdbc.update("DELETE FROM user_branches WHERE user_id = ?", id);
+            jdbc.update("DELETE FROM users WHERE id = ?", id);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new ApiException(HttpStatus.CONFLICT, u.fullName() + " has sales, shifts or other records, so they cannot be deleted. Disable them instead: they can no longer sign in and the history stays.");
+        }
+        authVersion.bumpUser(u.username());
+        audit.record(actor, u.branchId(), "USER_DELETE", "user", String.valueOf(id), "{\"username\":\"" + u.username().replace("\"", "'") + "\",\"role\":\"" + u.role().replace("\"", "'") + "\"}", null, null);
+    }
+
     @Transactional
     public void resetPassword(String actor, Long branchScope, long id, String password) {
         UserRow u = reachable(actor, branchScope, id);

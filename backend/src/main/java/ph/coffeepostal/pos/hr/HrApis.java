@@ -121,6 +121,16 @@ final class HrApis {
             return Map.of("id", id);
         }
 
+        @DeleteMapping("/{id}")
+        @PreAuthorize("hasAuthority('PERM_branch_employees_delete')")
+        Map<String, Object> remove(@PathVariable long id, Principal who) {
+            var me = orders.whoIs(who.getName());
+            mine(id, me.branchId());
+            employees.delete(id);
+            audit.record(who.getName(), me.branchId(), "EMPLOYEE_DELETE", "employee", String.valueOf(id), null, null, null);
+            return Map.of("id", id);
+        }
+
         @PostMapping("/{id}/pin")
         @PreAuthorize("hasAuthority('PERM_branch_employees_edit')")
         Map<String, Object> pin(@PathVariable long id, @Valid @RequestBody PinReq r, Principal who) {
@@ -238,6 +248,14 @@ final class HrApis {
         Map<String, Object> edit(@PathVariable long id, @Valid @RequestBody EmployeeEditReq r, Principal who) {
             employees.update(id, r.fullName(), r.position(), r.status());
             audit.record(who.getName(), null, "EMPLOYEE_UPDATE", "employee", String.valueOf(id), null, "{\"status\":\"" + r.status() + "\"}", null);
+            return Map.of("id", id);
+        }
+
+        @DeleteMapping("/employees/{id}")
+        @PreAuthorize("hasAuthority('PERM_admin_employees_delete')")
+        Map<String, Object> remove(@PathVariable long id, Principal who) {
+            employees.delete(id);
+            audit.record(who.getName(), null, "EMPLOYEE_DELETE", "employee", String.valueOf(id), null, null, null);
             return Map.of("id", id);
         }
 

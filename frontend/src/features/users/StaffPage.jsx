@@ -58,11 +58,22 @@ export default function StaffPage({ side }) {
     e.preventDefault();
     const f = dlg.form;
     if (dlg.kind === "password") return run(() => api(`${base}/${f.id}/password`, { method: "POST", body: { password: f.password } }), `Password reset for ${f.fullName}. They will need to sign in again.`);
+    if (dlg.kind === "delete") return run(() => api(`${base}/${f.id}`, { method: "DELETE" }), `${f.fullName} was deleted.`);
     if (dlg.kind === "pin") return run(() => api(`${base}/${f.id}/pin`, { method: "POST", body: { pin: f.pin } }), `PIN set for ${f.fullName}.`);
     const body = { username: f.username, fullName: f.fullName, email: f.email, roleId: f.roleId ? Number(f.roleId) : null,
       branchId: f.branchId ? Number(f.branchId) : null, status: f.status, password: f.password, pin: f.pin };
     if (f.id) return run(() => api(`${base}/${f.id}`, { method: "PUT", body }), `${f.fullName} saved.`);
     return run(() => api(base, { method: "POST", body }), `${f.fullName} added.`);
+  }
+
+  // one click: a disabled person can no longer sign in, and comes back the same way. Their history stays.
+  async function setStatus(u, status) {
+    setMsg("");
+    try {
+      await api(`${base}/${u.id}`, { method: "PUT", body: { fullName: u.fullName, email: u.email || "", roleId: u.roleId, branchId: u.branchId || null, status } });
+      setMsg(status === "ACTIVE" ? `${u.fullName} can sign in again.` : `${u.fullName} is disabled and can no longer sign in.`);
+      users.reload();
+    } catch (e) { setMsg(e.message); }
   }
 
   async function unlock(u) {
@@ -103,6 +114,8 @@ export default function StaffPage({ side }) {
                     {can(`${mod}_edit`) && <button className="btn ghost sm" onClick={() => open("password", { id: u.id, fullName: u.fullName, password: "" })}>Password</button>}
                     {can(`${mod}_edit`) && <button className="btn ghost sm" onClick={() => open("pin", { id: u.id, fullName: u.fullName, pin: "" })}>{u.hasPin ? "Change PIN" : "Set PIN"}</button>}
                     {can(`${mod}_edit`) && u.locked && <button className="btn ghost sm" onClick={() => unlock(u)}>Unlock</button>}
+                    {can(`${mod}_edit`) && u.username !== me.username && <button className="btn ghost sm" onClick={() => setStatus(u, u.status === "ACTIVE" ? "DISABLED" : "ACTIVE")}>{u.status === "ACTIVE" ? "Disable" : "Enable"}</button>}
+                    {can(`${mod}_delete`) && u.username !== me.username && <button className="btn ghost sm" onClick={() => open("delete", { id: u.id, fullName: u.fullName })}>Delete</button>}
                   </td>
                 </tr>
               ))}
@@ -119,6 +132,12 @@ export default function StaffPage({ side }) {
               <h2>New password for {f.fullName}</h2>
               <p className="hint">They are signed out everywhere and use this next time. At least 8 characters with a letter and a number.</p>
               <Field id="np" label="New password" error={fields.password}><input id="np" type="text" autoComplete="off" value={f.password} onChange={setF("password")} /></Field>
+            </>
+          )}
+          {dlg.kind === "delete" && (
+            <>
+              <h2>Delete {f.fullName}?</h2>
+              <p className="hint">This removes the account for good and cannot be undone. If they have sales, shifts or other records it will not go through, and you should disable them instead.</p>
             </>
           )}
           {dlg.kind === "pin" && (
@@ -165,7 +184,7 @@ export default function StaffPage({ side }) {
           {err && !Object.keys(fields).length && <p className="err" role="alert">{err}</p>}
           <div className="opts">
             <button type="button" className="btn ghost" onClick={close}>Cancel</button>
-            <button type="submit" className="btn warm" style={{ flex: 1 }} disabled={busy}>Save</button>
+            <button type="submit" className={`btn ${dlg.kind === "delete" ? "danger" : "warm"}`} style={{ flex: 1 }} disabled={busy}>{dlg.kind === "delete" ? "Delete for good" : "Save"}</button>
           </div>
         </Dialog>
       )}

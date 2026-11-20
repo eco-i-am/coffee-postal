@@ -44,6 +44,10 @@ class AdminUserApi {
     @PreAuthorize("hasAuthority('PERM_users_admin_edit')")
     void update(@PathVariable long id, @RequestBody UserService.Save s, Principal who) { users.update(who.getName(), null, id, s); }
 
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERM_users_admin_delete')")
+    void delete(@PathVariable long id, Principal who) { users.delete(who.getName(), null, id); }
+
     @PostMapping("/{id}/password")
     @PreAuthorize("hasAuthority('PERM_users_admin_edit')")
     void password(@PathVariable long id, @RequestBody SecretBody b, Principal who) { users.resetPassword(who.getName(), null, id, b.password()); }
@@ -90,6 +94,10 @@ class BranchUserApi {
     @PutMapping("/{id}")
     @PreAuthorize("hasAuthority('PERM_branch_users_edit')")
     void update(@PathVariable long id, @RequestBody UserService.Save s, Principal who) { users.update(who.getName(), branch(who), id, s); }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasAuthority('PERM_branch_users_delete')")
+    void delete(@PathVariable long id, Principal who) { users.delete(who.getName(), branch(who), id); }
 
     @PostMapping("/{id}/password")
     @PreAuthorize("hasAuthority('PERM_branch_users_edit')")

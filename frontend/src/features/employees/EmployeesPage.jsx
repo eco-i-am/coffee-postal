@@ -90,6 +90,16 @@ function StaffTab({ hq, perm, branchId, branches, can, addOpen, setAddOpen }) {
     } catch (err) { setFields(err.fields || {}); setMsg(err.message); }
   }
 
+  const [removing, setRemoving] = useState(null);
+  async function remove() {
+    try {
+      await api(`${base}/${removing.id}`, { method: "DELETE" });
+      setMsg(`${removing.fullName} was deleted.`);
+      setRemoving(null);
+      reload();
+    } catch (err) { setMsg(err.message); setRemoving(null); }
+  }
+
   async function save(emp, patch) {
     setMsg("");
     try {
@@ -128,12 +138,13 @@ function StaffTab({ hq, perm, branchId, branches, can, addOpen, setAddOpen }) {
                     <td><b>{e.fullName}</b></td>{hq && <td>{e.branch || "HQ"}</td>}<td>{e.position}</td>
                     <td>{e.branchId == null ? "n/a" : e.hasPin ? "Set" : <span className="tag r">None</span>}</td>
                     <td>{e.branchId == null ? "n/a" : e.faceEnrolled ? <span className="tag g">On file</span> : <span className="tag">None</span>}</td>
-                    <td><span className={`tag ${e.status === "ACTIVE" ? "g" : "r"}`}>{e.status === "ACTIVE" ? "Active" : "Left"}</span></td>
+                    <td><span className={`tag ${e.status === "ACTIVE" ? "g" : "r"}`}>{e.status === "ACTIVE" ? "Active" : "Disabled"}</span></td>
                     <td className="rowbtns">
                       {can(`${perm}_edit`) && <button className="btn ghost sm" type="button" onClick={() => { setEditing(e); setModal({ fullName: e.fullName, position: e.position || "", pin: "", err: "" }); }}>Edit</button>}
                       {can(`${perm}_edit`) && e.branchId != null && e.status === "ACTIVE" && <button className="btn ghost sm" type="button" onClick={() => { setMsg(""); setFaceFor(e); }}>Face</button>}
                       {can(`${perm}_edit`) && e.branchId != null && <button className="btn ghost sm" type="button" onClick={() => { setPinFor(e); setModal({ fullName: "", position: "", pin: "", err: "" }); }}>New PIN</button>}
-                      {can(`${perm}_edit`) && <button className="btn ghost sm" type="button" onClick={() => save(e, { status: e.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" })}>{e.status === "ACTIVE" ? "Left" : "Back"}</button>}
+                      {can(`${perm}_edit`) && <button className="btn ghost sm" type="button" onClick={() => save(e, { status: e.status === "ACTIVE" ? "INACTIVE" : "ACTIVE" })}>{e.status === "ACTIVE" ? "Disable" : "Enable"}</button>}
+                      {can(`${perm}_delete`) && <button className="btn ghost sm" type="button" onClick={() => { setMsg(""); setRemoving(e); }}>Delete</button>}
                     </td>
                   </tr>
                 ))}
@@ -168,6 +179,15 @@ function StaffTab({ hq, perm, branchId, branches, can, addOpen, setAddOpen }) {
             {msg && <p className="err" role="alert">{msg}</p>}
             <div className="opts"><button type="button" className="btn ghost" onClick={() => setAddOpen(false)}>Cancel</button><button className="btn warm" style={{ flex: 1 }} type="submit">Add employee</button></div>
           </form>
+        </Modal>
+      )}
+      {removing && (
+        <Modal title={`Delete ${removing.fullName}?`} onClose={() => setRemoving(null)}>
+          <p className="hint">This removes them for good and cannot be undone. If they have time in and out records it will not go through, and you should disable them instead.</p>
+          <div className="opts">
+            <button type="button" className="btn ghost" onClick={() => setRemoving(null)}>Cancel</button>
+            <button type="button" className="btn danger" style={{ flex: 1 }} onClick={remove}>Delete for good</button>
+          </div>
         </Modal>
       )}
       {faceFor && <FaceEnroll employee={faceFor} base={base} onClose={() => setFaceFor(null)} onDone={(m) => { setFaceFor(null); setMsg(m); reload(); }} />}

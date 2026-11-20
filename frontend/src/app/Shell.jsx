@@ -48,6 +48,7 @@ function navFor(me, can) {
 export default function Shell() {
   const { me, can, signOut } = useAuth();
   const [changing, setChanging] = useState(false);
+  const [acct, setAcct] = useState(false);   // the account menu in the top bar
   // a counter account (cashier) gets the menu as a slim bar across the top, so the till has the whole screen; anyone can switch
   const counter = me.scope !== "ADMIN" && can("pos_view") && !can("branch_reports_view");
   const menuKey = `cp.menu.v1:${me.username}`;
@@ -69,22 +70,22 @@ export default function Shell() {
   if (kiosk && where.pathname !== "/branch/clock") return <Navigate to="/branch/clock" replace />;
   if (kiosk) return <main className="kiosk"><Outlet /></main>;
 
-  return (
-    <div className={`app${top ? " top" : ""}`}>
-      <aside className="side">
-        <div className="brand">
-          <svg width="42" height="46" viewBox="0 0 40 44" aria-hidden="true">
-            <path d="M20 3C29 3 35 10 35 18C35 28 20 41 20 41C20 41 5 28 5 18C5 10 11 3 20 3Z" fill="#FE8282" />
-            <ellipse cx="20" cy="15" rx="8" ry="6" fill="#FFC74A" transform="rotate(-25 20 15)" />
-            <path d="M14 17c4-1 8-5 12-6" stroke="#FE8282" strokeWidth="1.6" fill="none" />
-          </svg>
-          <div>
-            <b>Coffee<br />Postal</b>
-            <small>Operating System</small>
-          </div>
-        </div>
-        <nav className="nav" aria-label="Main">
-          {navFor(me, can).map((n) =>
+  const brand = (
+  <div className="brand">
+    <svg width="42" height="46" viewBox="0 0 40 44" aria-hidden="true">
+      <path d="M20 3C29 3 35 10 35 18C35 28 20 41 20 41C20 41 5 28 5 18C5 10 11 3 20 3Z" fill="#FE8282" />
+      <ellipse cx="20" cy="15" rx="8" ry="6" fill="#FFC74A" transform="rotate(-25 20 15)" />
+      <path d="M14 17c4-1 8-5 12-6" stroke="#FE8282" strokeWidth="1.6" fill="none" />
+    </svg>
+    <div>
+      <b>Coffee<br />Postal</b>
+      <small>Operating System</small>
+    </div>
+  </div>
+  );
+  const links = (
+    <>
+      {navFor(me, can).map((n) =>
             n.soon ? (
               <span key={n.label} className="soon">
                 <span>{n.label}</span>
@@ -94,6 +95,45 @@ export default function Shell() {
               <NavLink key={n.to} to={n.to} end={n.end}>{n.label}</NavLink>
             )
           )}
+    </>
+  );
+  const closeAcct = () => setAcct(false);
+  const topbar = (
+    <header className="topbar">
+      {brand}
+      <nav className="tnav" aria-label="Main">{links}</nav>
+      {(!sync.online || sync.pending > 0) && (
+        <p className="syncchip" role="status">{!sync.online ? "Offline" : "Online"}{sync.pending > 0 ? ` · ${sync.pending} to upload` : ""}</p>
+      )}
+      <div className="acct">
+        <button type="button" className="acctbtn" aria-haspopup="menu" aria-expanded={acct} onClick={() => setAcct(!acct)}>
+          <span className="av" aria-hidden="true">{(me.fullName || me.username).slice(0, 1).toUpperCase()}</span>
+          <span className="acctname"><b>{me.fullName || me.username}</b><small>{me.role}</small></span>
+          <span aria-hidden="true">&#9662;</span>
+        </button>
+        {acct && (
+          <>
+            <div className="acctscrim" onClick={closeAcct} />
+            <div className="acctmenu" role="menu">
+              <p className="acctwho">{me.branchName || "Coffee Postal"}</p>
+              <button type="button" role="menuitem" onClick={() => { closeAcct(); moveMenu(); }}>Menu on the side</button>
+              <button type="button" role="menuitem" onClick={() => { closeAcct(); setTouring(true); }}>Quick tour</button>
+              <button type="button" role="menuitem" onClick={() => { closeAcct(); setChanging(true); }}>Change password</button>
+              <button type="button" role="menuitem" className="danger" onClick={signOut}>Sign out</button>
+            </div>
+          </>
+        )}
+      </div>
+    </header>
+  );
+
+  return (
+    <div className={`app${top ? " top" : ""}`}>
+      {top && topbar}
+      {!top && <aside className="side">
+        {brand}
+        <nav className="nav" aria-label="Main">
+          {links}
         </nav>
         <div className="demo">
           {(!sync.online || sync.pending > 0) && (
@@ -111,7 +151,7 @@ export default function Shell() {
             <button className="out" type="button" onClick={signOut}>Sign out</button>
           </div>
         </div>
-      </aside>
+      </aside>}
       <main>
         <div className="page"><Outlet /></div>
       </main>

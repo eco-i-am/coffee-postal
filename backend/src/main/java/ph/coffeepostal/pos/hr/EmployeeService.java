@@ -54,6 +54,17 @@ public class EmployeeService {
         }
     }
 
+    /** Permanently removes an employee who has no time records. Anyone with punches must be disabled instead, so their hours stay on record. */
+    public void delete(long id) {
+        int n;
+        try {
+            n = jdbc.update("DELETE FROM employees WHERE id = ?", id);
+        } catch (org.springframework.dao.DataIntegrityViolationException e) {
+            throw new ApiException(HttpStatus.CONFLICT, "This person has time in and out records, so they cannot be deleted. Disable them instead: they leave the clock and the history stays.");
+        }
+        if (n == 0) throw new ApiException(HttpStatus.NOT_FOUND, "That employee no longer exists.");
+    }
+
     @Transactional
     public void update(long id, String fullName, String position, String status) {
         if (!"ACTIVE".equals(status) && !"INACTIVE".equals(status)) throw new ApiException(HttpStatus.BAD_REQUEST, "Pick active or inactive.");
