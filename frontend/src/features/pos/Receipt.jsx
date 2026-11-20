@@ -39,14 +39,15 @@ function Rate({ orderNo }) {
   );
 }
 
-export default function Receipt({ res, method, tendered, cart, otype, discName, idNo, vatRegistered = true, who, onDone }) {
+export default function Receipt({ practice, res, method, tendered, cart, otype, discName, idNo, vatRegistered = true, who, onDone }) {
   const { can } = useAuth();
   const rt = useReceiptText();
   const rateToken = useRateToken();
   const time = new Date().toLocaleTimeString("en-PH", { hour: "numeric", minute: "2-digit" });
   return (
     <>
-      <h2>{res.offline ? `Paid. Saved as ${res.ref}` : `Order #${res.orderNo} paid`}</h2>
+      <h2>{practice ? "Practice order paid" : res.offline ? `Paid. Saved as ${res.ref}` : `Order #${res.orderNo} paid`}</h2>
+      {practice && <p className="notice practicebar" role="status">PRACTICE. Not a real sale, so there is nothing to print or rate.</p>}
       {res.offline && <p className="notice offline" role="status">No internet. This order is saved on this device and gets its order number when it uploads.</p>}
       <div className="receipt printable">
         <div className="c"><b>{rt.companyName}</b><br />{time} &middot; {TYPE_NAMES[otype]}{who && <><br />For: <b>{who}</b></>}<hr /></div>
@@ -67,11 +68,11 @@ export default function Receipt({ res, method, tendered, cart, otype, discName, 
         {vatRegistered && <div className="r"><span>VATable</span><span>{peso(res.vatable)}</span></div>}
         {vatRegistered && <div className="r"><span>VAT 12%</span><span>{peso(res.vat)}</span></div>}
         <div className="c"><hr />{rt.footer}<br /><i>{rt.note}</i></div>
-        {rateToken && <div className="c rateqr"><hr />Scan to rate your visit<QrCode text={rateUrl(rateToken)} size={96} label="Scan to rate your visit" /></div>}
+        {!practice && rateToken && <div className="c rateqr"><hr />Scan to rate your visit<QrCode text={rateUrl(rateToken)} size={96} label="Scan to rate your visit" /></div>}
       </div>
-      {can("feedback_add") && !res.offline && <Rate orderNo={res.orderNo} />}
+      {!practice && can("feedback_add") && !res.offline && <Rate orderNo={res.orderNo} />}
       <div className="opts noprint">
-        <button className="btn ghost" onClick={() => window.print()}>Print</button>
+        {!practice && <button className="btn ghost" onClick={() => window.print()}>Print</button>}
         <button className="btn warm" style={{ flex: 1 }} onClick={onDone}>New order</button>
       </div>
     </>

@@ -5,10 +5,11 @@ import { useAuth } from "../../app/AuthContext.jsx";
 import { useSync } from "../../app/SyncContext.jsx";
 import { makeEntry } from "../../shared/offline.js";
 import { cartGross } from "./cart.js";
+import { practiceResult } from "./practice.js";
 
 const METHODS = [["CASH", "Cash"], ["GCASH", "GCash"], ["MAYA", "Maya"], ["CARD", "Card"]];
 
-export default function PayModal({ cart, otype, who, disc, rule, vatRegistered, idNo, needsPin, orderId, total, onBack, onPaid }) {
+export default function PayModal({ practice, cart, otype, who, disc, rule, vatRegistered, idNo, needsPin, orderId, total, onBack, onPaid }) {
   const { me } = useAuth();
   const sync = useSync();
   const [method, setMethod] = useState("CASH");
@@ -26,6 +27,10 @@ export default function PayModal({ cart, otype, who, disc, rule, vatRegistered, 
   async function complete() {
     setBusy(true);
     setErr("");
+    if (practice) {   // a pretend sale: never sent to the server or saved on this device
+      setTimeout(() => onPaid(practiceResult(cart, rule, method, tender), method, cash ? tender : total), 300);
+      return;
+    }
     // the browser only says WHAT was sold; the server prices it. The id makes a retry safe.
     const body = {
       id: orderId,

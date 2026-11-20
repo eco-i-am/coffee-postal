@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCardPosition } from "./useCardPosition.js";
 import { useNavigate } from "react-router-dom";
 import { stepsFor } from "./tutorialSteps.js";
 import { boxOf, locate } from "./tourTarget.js";
@@ -17,7 +18,6 @@ export default function Tutorial({ me, can, onClose, onChangePassword }) {
   const [missing, setMissing] = useState([]); // this page's buttons that are not
   const [ready, setReady] = useState(false); // the page has opened and its buttons are looked up
   const [rect, setRect] = useState(null);   // the spotlight box
-  const [pos, setPos] = useState(null);     // where the card sits next to it
   const nav = useNavigate();
   const nextRef = useRef(null);
   const cardRef = useRef(null);
@@ -28,7 +28,7 @@ export default function Tutorial({ me, can, onClose, onChangePassword }) {
   const isLastStop = bi >= found.length - 1;
 
   function go(nextSi, nextBi) {
-    if (nextSi !== si) { setFound([]); setMissing([]); setReady(false); setRect(null); setPos(null); }
+    if (nextSi !== si) { setFound([]); setMissing([]); setReady(false); setRect(null); }
     setSi(nextSi); setBi(nextBi);
   }
   const next = useCallback(() => {
@@ -94,21 +94,7 @@ export default function Tutorial({ me, can, onClose, onChangePassword }) {
     return () => { clearInterval(timer); window.removeEventListener("resize", measure); window.removeEventListener("scroll", measure, true); };
   }, [si, bi, ready, found, step, stop]);
 
-  // put the card beside the spotlight: below, else above, else to the side, else along the bottom of the screen
-  useLayoutEffect(() => {
-    const c = cardRef.current;
-    if (!c || !rect) { setPos(null); return; }
-    const vw = window.innerWidth, vh = window.innerHeight, w = c.offsetWidth, h = c.offsetHeight, gap = 16, m = 12;
-    const clampX = (x) => Math.max(m, Math.min(x, vw - w - m));
-    const clampY = (y) => Math.max(m, Math.min(y, vh - h - m));
-    let top, left;
-    if (vh - (rect.top + rect.height) - gap - m >= h) { top = rect.top + rect.height + gap; left = clampX(rect.left); }
-    else if (rect.top - gap - m >= h) { top = rect.top - gap - h; left = clampX(rect.left); }
-    else if (vw - (rect.left + rect.width) - gap - m >= w) { left = rect.left + rect.width + gap; top = clampY(rect.top); }
-    else if (rect.left - gap - m >= w) { left = rect.left - gap - w; top = clampY(rect.top); }
-    else { top = vh - h - m; left = clampX((vw - w) / 2); }
-    setPos((old) => (old && old.top === top && old.left === left ? old : { top, left }));
-  });
+  const pos = useCardPosition(cardRef, rect);   // the card sits beside the spotlight
 
   useEffect(() => { if (ready) nextRef.current?.focus(); }, [si, bi, ready]);
   useEffect(() => {
@@ -123,6 +109,7 @@ export default function Tutorial({ me, can, onClose, onChangePassword }) {
 
   function runAction() {
     if (step.action?.kind === "password") { onClose(); onChangePassword(); }
+    else if (step.action?.kind === "practice") { onClose(); nav("/pos/practice"); }
   }
 
   const buttonNote = bi >= 0 ? ` · Button ${bi + 1} of ${found.length}` : "";

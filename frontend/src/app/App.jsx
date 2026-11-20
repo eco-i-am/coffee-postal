@@ -69,6 +69,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/branch" element={<Dashboard kind="branch" />} />
           <Route path="/pos" element={<PosPage />} />
+          <Route path="/pos/practice" element={<PosPage practice />} />
           <Route path="/branch/orders" element={<OrdersPage />} />
           <Route path="/branch/payables" element={<InvoiceList side="branch" />} />
           <Route path="/branch/reports" element={<ReportsPage side="branch" />} />

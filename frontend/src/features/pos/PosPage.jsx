@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { api } from "../../shared/api.js";
 import { useAuth } from "../../app/AuthContext.jsx";
 import { loadMenu as loadSavedMenu, saveMenu } from "../../shared/offline.js";
@@ -16,14 +16,19 @@ import Modal from "../../shared/Modal.jsx";
 import ClockPage from "../clock/ClockPage.jsx";
 import { OpenShift, ShiftPanel } from "../branch/ShiftParts.jsx";
 import MyReport from "../branch/MyReport.jsx";
+import PracticeCoach from "./PracticeCoach.jsx";
+import { PRACTICE_MENU, practiceResult } from "./practice.js";
 
 export const TYPES = [["DINE_IN", "Dine-in"], ["TAKEOUT", "Takeout"], ["DELIVERY", "Delivery"]];
 
-export default function PosPage() {
+/** `practice`: a pretend sale on a made-up menu, coached step by step. It never reaches the server or the device storage. */
+export default function PosPage({ practice = false }) {
   const { me, can } = useAuth();
+  const navigate = useNavigate();
   const [menuSavedAt, setMenuSavedAt] = useState(null);
   // the menu is saved on every successful load, and used when there is no internet
   const loadMenu = useCallback(async () => {
+    if (practice) return PRACTICE_MENU;
     try {
       const m = await api("/api/pos/menu", { timeoutMs: 8000 });
       saveMenu(me.username, m);
@@ -34,20 +39,21 @@ export default function PosPage() {
       if (saved) { setMenuSavedAt(saved.savedAt); return saved.menu; }
       throw e;
     }
-  }, [me.username]);
+  }, [me.username, practice]);
   const { data: menu, error, loading } = useLoad(loadMenu);
-  const loadShift = useCallback(() => api("/api/branch/shift").catch(() => null), []);
+  const loadShift = useCallback(() => (practice ? Promise.resolve(null) : api("/api/branch/shift").catch(() => null)), [practice]);
   const { data: shiftInfo, reload: reloadShift } = useLoad(loadShift);
   const [drawer, setDrawer] = useState(false);   // the cash drawer dialog
 
   const imgs = useImages();
   // Favourites: the items this device taps most, so the usual orders are one tap away (kept on the tablet, works offline)
   const tapsKey = `cp.pos.taps.v1:${me.username}`;
-  const [taps, setTaps] = useState(() => { try { return JSON.parse(localStorage.getItem(tapsKey) || "{}"); } catch { return {}; } });
+  const [taps, setTaps] = useState(() => { if (practice) return {}; try { return JSON.parse(localStorage.getItem(tapsKey) || "{}"); } catch { return {}; } });
   const [cat, setCat] = useState(() => (Object.keys(taps).length ? "fav" : "All"));
   const [discOpen, setDiscOpen] = useState(false);   // the discount panel
   const [nameOpen, setNameOpen] = useState(false);   // the optional name or table line
   const [confirmClear, setConfirmClear] = useState(false);
+  const [round, setRound] = useState(0);   // practice: bumps to start the coach again
   const [q, setQ] = useState("");   // search the menu by name
   const [cart, setCart] = useState([]);
   const [otype, setOtype] = useState("DINE_IN");
@@ -80,6 +86,7 @@ export default function PosPage() {
 
   // count what was actually sold, once the order is paid, so the Favourites tiles never move while an order is being taken
   function countSold(lines) {
+    if (practice) return;
     setTaps((old) => {
       const next = { ...old };
       for (const l of lines) next[l.productId] = (next[l.productId] || 0) + l.qty;
@@ -90,6 +97,10 @@ export default function PosPage() {
 
   function clearOrder() {
     setCart([]); setDisc("NONE"); setIdNo(""); setWho(""); setOrderId(null); setConfirmClear(false); setNameOpen(false);
+  }
+
+  function restartPractice() {
+    clearOrder(); setCat("All"); setOtype("DINE_IN"); setModal(null); setQ(""); setRound((r) => r + 1);
   }
 
   function tap(item) {
@@ -123,16 +134,19 @@ export default function PosPage() {
     <section className="fitpage">
       <header className="pghead poshead">
         <div>
-          <h1>Point of Sale</h1>
-          <p>Tap an item to start an order.{vatRegistered ? " Prices include 12% VAT." : ""}</p>
+          <h1>{practice ? "Practice sale" : "Point of Sale"}</h1>
+          <p>{practice ? "A pretend sale to learn on. Nothing here is real." : `Tap an item to start an order.${vatRegistered ? " Prices include 12% VAT." : ""}`}</p>
         </div>
         <input className="searchbox possearch" type="search" aria-label="Search the menu" placeholder="Search the menu" value={q} onChange={(e) => setQ(e.target.value)}
           onKeyDown={(e) => { if (e.key === "Enter" && items.length === 1) { tap(items[0]); setQ(""); } else if (e.key === "Escape") setQ(""); }} />
-        {can("cash_inout_view") && <button type="button" className="btn ghost sm clockbtn" onClick={() => setDrawer(true)}>Cash drawer</button>}
-        {can("time_clock_add") && <button type="button" className="btn ghost sm clockbtn" onClick={() => setClocking(true)}>Time In / Out</button>}
+        {practice && <button type="button" className="btn ghost sm clockbtn" onClick={() => navigate("/pos")}>Leave practice</button>}
+        {!practice && <button type="button" className="btn ghost sm clockbtn" onClick={() => navigate("/pos/practice")}>Practice</button>}
+        {!practice && can("cash_inout_view") && <button type="button" className="btn ghost sm clockbtn" onClick={() => setDrawer(true)}>Cash drawer</button>}
+        {!practice && can("time_clock_add") && <button type="button" className="btn ghost sm clockbtn" onClick={() => setClocking(true)}>Time In / Out</button>}
       </header>
       {error && <p className="notice" role="alert">{error}</p>}
-      <SyncPanel menuSavedAt={menuSavedAt} />
+      {!practice && <SyncPanel menuSavedAt={menuSavedAt} />}
+      {practice && <p className="notice practicebar" role="status">PRACTICE MODE. This is a pretend sale. Nothing is saved, charged or counted.</p>}
       {shiftInfo && !shiftInfo.shift && (
         <p className="notice" role="status">No shift is open, so cash sales will not be counted in your drawer. <Link to="/branch/cash">Open your shift</Link></p>
       )}
@@ -211,6 +225,11 @@ export default function PosPage() {
         </div>
       </div>
 
+      {practice && menu && (
+        <PracticeCoach key={round} onRestart={restartPractice} onExit={() => navigate("/pos")} onReal={() => navigate("/pos")}
+          state={{ cat, cartCount, otype, disc, discReady: !needsId || !!idNo.trim(), discOpen, modal: modal?.kind || null }} />
+      )}
+
       {discOpen && (
         <Modal title="Discount" onClose={() => setDiscOpen(false)} onSubmit={(e) => { e.preventDefault(); if (!needsId || idNo.trim()) setDiscOpen(false); }}>
           <div className="discpick" role="group" aria-label="Discount">
@@ -254,10 +273,10 @@ export default function PosPage() {
                 onAdd={(size, addons) => { edit((c) => addToCart(c, modal.item, size, addons)); setModal(null); }} />
             )}
             {modal.kind === "pay" && (
-              <PayModal cart={cart} otype={otype} who={who.trim()} disc={disc} rule={rule} vatRegistered={vatRegistered} idNo={needsId ? idNo.trim() : ""} needsPin={needsPin} orderId={orderId} total={t.pay}
+              <PayModal practice={practice} cart={cart} otype={otype} who={who.trim()} disc={disc} rule={rule} vatRegistered={vatRegistered} idNo={needsId ? idNo.trim() : ""} needsPin={needsPin} orderId={orderId} total={t.pay}
                 onBack={() => setModal(null)} onPaid={paid} />
             )}
-            {modal.kind === "receipt" && <Receipt {...modal.data} onDone={() => setModal(null)} />}
+            {modal.kind === "receipt" && <Receipt {...modal.data} practice={practice} onDone={() => setModal(null)} />}
           </div>
         </div>
       )}

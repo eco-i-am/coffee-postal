@@ -91,9 +91,11 @@ export function stepsFor(me, can) {
         B("+ / Clear", "Change the quantity of a line, or empty the order. Clear asks you to confirm first.", ".cart .hd button"),
         B("Discount", "Opens the discount choices. Senior / PWD asks for the ID number. One over its limit asks for a manager PIN.", ".discbtn"),
         B("Charge", "Opens payment: Cash, GCash, Maya or Card, then prints or shows the receipt.", ".chargebtn"),
+        B("Practice", "Opens a pretend sale on a made-up menu, with tips as you go. Nothing is real. Do it as often as you like.", ".poshead .clockbtn"),
         B("Stars on the receipt", "Ask the customer for a rating from 1 to 5. It goes to Feedback."),
         B("QR code on the receipt", "Customers scan it with their phone to rate their visit, with no sign-in."),
       ],
+      action: { label: "Practice a sale now", kind: "practice" },
       to: "/pos",
     });
     s.push({
