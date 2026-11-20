@@ -57,7 +57,7 @@ export default function RolesPage() {
       {roles.error && <p className="err" role="alert">{roles.error}</p>}
       <div className="sec tw">
         <table>
-          <thead><tr><th>Role</th><th>For</th><th className="n">Screens</th><th className="n">Staff</th><th></th></tr></thead>
+          <thead><tr><th>Role</th><th>For</th><th className="n">Screens</th><th className="n">Users</th><th></th></tr></thead>
           <tbody>
             {(roles.data || []).map((r) => (
               <tr key={r.id}>
@@ -67,7 +67,7 @@ export default function RolesPage() {
                 <td className="n">{r.users}</td>
                 <td className="rowbtns">
                   <button className="btn ghost sm" onClick={() => openRole(r)}>{r.locked || !can("roles_edit") ? "View" : "Edit"}</button>
-                  {can("roles_delete") && !r.locked && <button className="btn ghost sm" disabled={r.users > 0} title={r.users > 0 ? "Move its staff to another role first" : ""} onClick={() => remove(r)}>Delete</button>}
+                  {can("roles_delete") && !r.locked && <button className="btn ghost sm" disabled={r.users > 0} title={r.users > 0 ? "Move its users to another role first" : ""} onClick={() => remove(r)}>Delete</button>}
                 </td>
               </tr>
             ))}

@@ -15,8 +15,12 @@ export default function LoginPage() {
     e.preventDefault();
     setBusy(true);
     setError("");
+    // read what is in the boxes now: a browser that autofills a saved password may not tell React about it
+    const form = e.currentTarget.elements;
+    const u = (form.username?.value ?? username).trim();
+    const p = form.password?.value ?? password;
     try {
-      await signIn(username.trim(), password);
+      await signIn(u, p);
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 401
@@ -47,11 +51,11 @@ export default function LoginPage() {
           <p className="sub">Sign in to start your shift.</p>
           <div className="addr">
             <label htmlFor="username">Username</label>
-            <input id="username" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus required />
+            <input id="username" name="username" value={username} onChange={(e) => setUsername(e.target.value)} autoComplete="username" autoFocus required />
           </div>
           <div className="addr">
             <label htmlFor="password">Password</label>
-            <PasswordInput id="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+            <PasswordInput id="password" name="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
           </div>
           {error && <p className="err" role="alert">{error}</p>}
           <button className="btn" style={{ width: "100%" }} type="submit" disabled={busy}>

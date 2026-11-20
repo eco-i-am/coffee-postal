@@ -457,7 +457,7 @@ td.thc{width:48px;padding:3px 6px}
 @media(max-width:760px){.clockpage.embedded .clock{grid-template-columns:1fr;height:auto}.clockpage.embedded .namegrid{max-height:240px}}
 
 /* Menu as a slim bar across the top (default for cashiers) */
-.app.top{grid-template-columns:1fr}
+.app.menutop{grid-template-columns:1fr}
 .topbar{display:flex;align-items:center;gap:14px;background:var(--midnight);color:var(--star);padding:6px 14px;min-height:56px;border-bottom:6px solid transparent;border-image:var(--air) 6;position:relative;z-index:5}
 .topbar .brand{flex:0 0 auto;gap:8px}
 .topbar .brand svg{width:26px;height:28px}
@@ -483,8 +483,8 @@ td.thc{width:48px;padding:3px 6px}
 .acctmenu button:hover{background:#f6f1ea}
 .acctmenu .danger{color:#b3261e}
 @media(min-width:761px){
-  .app.top{grid-template-rows:auto 1fr}
-  .app.top main{height:auto;min-height:0}
+  .app.menutop{grid-template-rows:auto 1fr}
+  .app.menutop main{height:auto;min-height:0}
 }
 @media(max-width:760px){
   .topbar{flex-wrap:wrap;gap:6px 10px}

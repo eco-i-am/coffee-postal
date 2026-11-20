@@ -89,8 +89,8 @@ export default function StaffPage({ side }) {
   return (
     <section>
       <header className="pghead">
-        <div><h1>Staff</h1><p>{hq ? "Everyone who can sign in to the system." : "People who work at this branch."}</p></div>
-        {can(`${mod}_add`) && <button className="btn warm" onClick={() => open("edit", { ...BLANK })}>Add staff</button>}
+        <div><h1>Users</h1><p>{hq ? "Everyone who can sign in to the system." : "People who work at this branch."}</p></div>
+        {can(`${mod}_add`) && <button className="btn warm" onClick={() => open("edit", { ...BLANK })}>Add user</button>}
       </header>
       {msg && <p className="notice" role="status">{msg}</p>}
       {users.error && <p className="err" role="alert">{users.error}</p>}
@@ -119,7 +119,7 @@ export default function StaffPage({ side }) {
                   </td>
                 </tr>
               ))}
-              {list && list.length === 0 && <tr><td colSpan="6" className="emptyrow">No staff yet.</td></tr>}
+              {list && list.length === 0 && <tr><td colSpan="6" className="emptyrow">No users yet.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -149,7 +149,7 @@ export default function StaffPage({ side }) {
           )}
           {dlg.kind === "edit" && (
             <>
-              <h2>{f.id ? `Edit ${f.fullName}` : "Add staff"}</h2>
+              <h2>{f.id ? `Edit ${f.fullName}` : "Add user"}</h2>
               <Field id="fn" label="Full name" error={fields.fullName}><input id="fn" value={f.fullName} onChange={setF("fullName")} /></Field>
               {!f.id && <Field id="un" label="Username" error={fields.username}><input id="un" autoComplete="off" value={f.username} onChange={setF("username")} placeholder="ana.cruz" /></Field>}
               <Field id="em" label="Email (optional)" error={fields.email}><input id="em" type="email" value={f.email} onChange={setF("email")} /></Field>

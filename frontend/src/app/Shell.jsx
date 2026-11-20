@@ -22,7 +22,7 @@ function navFor(me, can) {
       can("admin_transfers_view") && { to: "/admin/transfers", label: "Transfers" },
       can("accounting_view") && { to: "/admin/expenses", label: "Expenses" },
       (can("suppliers_view") || can("supplier_po_view")) && { to: "/admin/suppliers", label: "Suppliers" },
-      can("users_admin_view") && { to: "/admin/users", label: "Staff" },
+      can("users_admin_view") && { to: "/admin/users", label: "Users" },
       can("roles_view") && { to: "/admin/roles", label: "Roles" },
       can("logs_view") && { to: "/admin/logs", label: "Logs" },
     ].filter(Boolean);
@@ -41,7 +41,7 @@ function navFor(me, can) {
     can("time_clock_view") && { to: "/branch/clock", label: "Time In / Out" },
     can("branch_employees_view") && { to: "/branch/employees", label: "Employees" },
     can("branch_reports_view") && { to: "/branch/reports", label: "Reports" },
-    can("branch_users_view") && { to: "/branch/users", label: "Staff" },
+    can("branch_users_view") && { to: "/branch/users", label: "Users" },
   ].filter(Boolean);
 }
 
@@ -128,7 +128,7 @@ export default function Shell() {
   );
 
   return (
-    <div className={`app${top ? " top" : ""}`}>
+    <div className={`app${top ? " menutop" : ""}`}>
       {top && topbar}
       {!top && <aside className="side">
         {brand}

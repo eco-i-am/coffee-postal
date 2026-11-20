@@ -16,7 +16,7 @@ export function prettyJson(s) {
 }
 
 const ACTION_NAMES = {
-  USER_CREATE: "Staff added", USER_UPDATE: "Staff edited", USER_PASSWORD_RESET: "Password reset", USER_PIN_SET: "PIN set",
+  USER_CREATE: "User added", USER_UPDATE: "User edited", USER_PASSWORD_RESET: "Password reset", USER_PIN_SET: "PIN set",
   USER_UNLOCK: "Account unlocked", PASSWORD_CHANGE: "Own password changed", ROLE_CREATE: "Role added", ROLE_UPDATE: "Role edited", ROLE_DELETE: "Role deleted",
 };
 /** A friendly name for an action code, or the code itself in a readable form. */

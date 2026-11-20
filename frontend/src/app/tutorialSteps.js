@@ -233,7 +233,7 @@ export function stepsFor(me, can) {
     s.push({
       id: "branch-staff",
       title: "Who can log in",
-      page: "Staff",
+      page: "Users",
       body: ["Logins for this branch. Each person gets a role that decides what they can see and do."],
       to: "/branch/users",
     });
@@ -406,8 +406,8 @@ export function stepsFor(me, can) {
     if (can("users_admin_view")) {
       s.push({
         id: "hq-staff",
-        title: "Staff logins",
-        page: "Staff",
+        title: "User logins",
+        page: "Users",
         body: ["Who can sign in, and to which branch. Each person has a role."],
         to: "/admin/users",
       });
