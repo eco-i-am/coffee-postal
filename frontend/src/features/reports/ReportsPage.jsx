@@ -6,6 +6,7 @@ import { PRESETS, presetRange, daysBetween } from "../../shared/dates.js";
 import { DISCOUNT_NAMES, METHOD_NAMES, PO_STATUS, dateTimeOf, fmtQty, poNo, todayManila } from "../../shared/format.js";
 import { pesoCell } from "../../shared/csv.js";
 import { Kpi, ExportButton, RangeBar, useReport, State } from "./widgets.jsx";
+import { PaymentsTab, DiscountsTab, OrderTypesTab, CashiersTab, EmployeesTab, OutsourceTab, PoPaymentsTab } from "./ExtraTabs.jsx";
 
 function SalesTab({ base, range, branchQ }) {
   const r = useReport(`${base}/sales`, range, branchQ);
@@ -282,8 +283,8 @@ export default function ReportsPage({ side }) {
   const base = hq ? "/api/admin/reports" : "/api/branch/reports";
   const branchQ = hq && branchId ? `&branchId=${branchId}` : "";
   const tabs = hq
-    ? [["sales", "Sales"], ["products", "Products"], ["pl", "Profit & loss"], ["branches", "Branches"], ["stock", "Stock"], ["branch-pos", "Branch POs"], ["po-items", "PO items"], ["prices", "Prices"], ["aging", "Receivables aging"]]
-    : [["sales", "Sales"], ["products", "Products"], ["pl", "Profit & loss"], ["stock", "Stock"], ["branch-pos", "Branch POs"], ["po-items", "PO items"], ["prices", "Prices"]];
+    ? [["sales", "Sales"], ["products", "Products"], ["pl", "Profit & loss"], ["branches", "Branches"], ["stock", "Stock"], ["branch-pos", "Branch POs"], ["po-items", "PO items"], ["prices", "Prices"], ["aging", "Receivables aging"], ["payments", "Payments"], ["discounts", "Discounts"], ["order-types", "Order types"], ["cashiers", "Cashiers"], ["employees", "Attendance"], ["outsource", "Outsource"], ["po-payments", "PO payments"]]
+    : [["sales", "Sales"], ["products", "Products"], ["pl", "Profit & loss"], ["stock", "Stock"], ["branch-pos", "Branch POs"], ["po-items", "PO items"], ["prices", "Prices"], ["payments", "Payments"], ["discounts", "Discounts"], ["order-types", "Order types"], ["cashiers", "Cashiers"], ["employees", "Attendance"], ["outsource", "Outsource"], ["po-payments", "PO payments"]];
   const needsRange = tab !== "aging" && tab !== "prices";
   const tooLong = daysBetween(range.from, range.to) > 366;
 
@@ -295,7 +296,7 @@ export default function ReportsPage({ side }) {
       </div>
       <div className="filters">
         {needsRange && <RangeBar range={range} setRange={setRange} />}
-        {hq && ["sales", "products", "pl", "stock", "branch-pos", "po-items", "prices"].includes(tab) && (
+        {hq && ["sales", "products", "pl", "stock", "branch-pos", "po-items", "prices", "payments", "discounts", "order-types", "cashiers", "employees", "outsource", "po-payments"].includes(tab) && (
           <label className="datepick">Branch
             <select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
               <option value="">All branches</option>
@@ -311,6 +312,13 @@ export default function ReportsPage({ side }) {
       {!tooLong && tab === "stock" && <StockTab base={base} range={range} branchQ={branchQ} needsBranch={false} />}
       {!tooLong && tab === "branch-pos" && <BranchPoTab base={base} range={range} branchQ={branchQ} hq={hq} />}
       {!tooLong && tab === "po-items" && <PoItemsTab base={base} range={range} branchQ={branchQ} />}
+      {!tooLong && tab === "payments" && <PaymentsTab base={base} range={range} branchQ={branchQ} />}
+      {!tooLong && tab === "discounts" && <DiscountsTab base={base} range={range} branchQ={branchQ} hq={hq} />}
+      {!tooLong && tab === "order-types" && <OrderTypesTab base={base} range={range} branchQ={branchQ} />}
+      {!tooLong && tab === "cashiers" && <CashiersTab base={base} range={range} branchQ={branchQ} />}
+      {!tooLong && tab === "employees" && <EmployeesTab base={base} range={range} branchQ={branchQ} hq={hq} />}
+      {!tooLong && tab === "outsource" && <OutsourceTab base={base} range={range} branchQ={branchQ} hq={hq} />}
+      {!tooLong && tab === "po-payments" && <PoPaymentsTab base={base} range={range} branchQ={branchQ} hq={hq} />}
       {tab === "prices" && <PricesTab base={base} branchQ={branchQ} hq={hq} branchId={branchId} />}
       {!tooLong && tab === "branches" && <BranchesTab range={range} />}
       {tab === "aging" && <AgingTab />}

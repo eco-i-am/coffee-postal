@@ -7,6 +7,7 @@ import { useAuth } from "../../app/AuthContext.jsx";
 import { useSync } from "../../app/SyncContext.jsx";
 import ReadingSheet from "./ReadingSheet.jsx";
 import DenomCounter from "../../shared/DenomCounter.jsx";
+import MyReport from "./MyReport.jsx";
 
 const loadShift = () => api("/api/branch/shift");
 const loadHistory = () => api("/api/branch/shifts");
@@ -184,6 +185,8 @@ export default function CashPage() {
           </div>
         </>
       )}
+
+      {can("pos_view") && !can("cashier_reports_view") && <MyReport />}
 
       {history.data && (
         <div className="sec tw">

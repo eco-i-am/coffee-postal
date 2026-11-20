@@ -213,7 +213,18 @@ export function stepsFor(me, can) {
       id: "branch-reports",
       title: "Branch reports",
       page: "Reports",
-      body: ["Sales, products, profit and loss, stock and more for this branch. Pick a date range, then download as CSV, Excel or PDF."],
+      body: ["How this branch is doing. Pick a date range, then download any report."],
+      buttons: [
+        B("Sales, Products, Profit & loss, Stock", "The money and stock picture for this branch."),
+        B("Payments", "Cash, GCash, Maya and card taken, paid and refunded, by day."),
+        B("Discounts", "Every discounted order: who gave it, the ID number and who approved it."),
+        B("Order types", "Dine-in, takeout and delivery side by side."),
+        B("Cashiers", "Each cashier's sales, refunds, discounts and drawer over or short."),
+        B("Attendance", "Days, shifts and hours from the time clock, and punches that need a look."),
+        B("Outsource", "Everything bought from outside suppliers."),
+        B("PO payments", "What was paid against purchase order invoices."),
+        B("CSV / Excel / PDF", "Download what is on screen."),
+      ],
       to: "/branch/reports",
     });
   }
@@ -324,7 +335,18 @@ export function stepsFor(me, can) {
         id: "hq-reports",
         title: "Reports",
         page: "Reports",
-        body: ["Sales, stock, profit and loss and more, for one branch or all. Every report downloads as CSV, Excel or PDF."],
+        body: ["Sales, stock, money and people, for one branch or all. Pick a date range and a branch, then download any report."],
+        buttons: [
+          B("Sales, Products, Profit & loss, Stock", "The money and stock picture, for one branch or all."),
+          B("Payments", "Cash, GCash, Maya and card taken, paid and refunded, by day."),
+          B("Discounts", "Every discounted order: who gave it, the ID number and who approved it."),
+          B("Order types", "Dine-in, takeout and delivery side by side."),
+          B("Cashiers", "Each cashier's sales, refunds, discounts and drawer over or short."),
+          B("Attendance", "Days, shifts and hours from the time clock, and punches that need a look."),
+          B("Outsource", "Everything bought from outside suppliers."),
+          B("PO payments", "What was paid against purchase order invoices."),
+          B("CSV / Excel / PDF", "Download what is on screen."),
+        ],
         to: "/admin/reports",
       });
     }
