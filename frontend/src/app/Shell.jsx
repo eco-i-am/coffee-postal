@@ -1,11 +1,15 @@
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
+import { api } from "../shared/api.js";
 import { inKiosk } from "../shared/kiosk.js";
 import ChangePassword from "./ChangePassword.jsx";
 import Tutorial from "./Tutorial.jsx";
 import { markTourSeen, tourSeen } from "./tutorialSteps.js";
 import { useSync } from "./SyncContext.jsx";
 import { useAuth } from "./AuthContext.jsx";
+
+// the counter (cashier) only gives feedback at the till; reading it is for the people who run the branch
+const counterOnly = (can) => can("pos_view") && !can("branch_reports_view");
 
 function navFor(me, can) {
   if (me.scope === "ADMIN") {
@@ -24,6 +28,11 @@ function navFor(me, can) {
       (can("suppliers_view") || can("supplier_po_view")) && { to: "/admin/suppliers", label: "Suppliers" },
       can("users_admin_view") && { to: "/admin/users", label: "Users" },
       can("roles_view") && { to: "/admin/roles", label: "Roles" },
+      can("announcements_view") && { to: "/admin/announcements", label: "Announcements" },
+      can("support_view") && { to: "/admin/support", label: "Support Chat" },
+      can("feedback_admin_view") && { to: "/admin/feedback", label: "Feedback" },
+      can("training_admin_view") && { to: "/admin/training", label: "Training" },
+      can("settings_admin_view") && { to: "/admin/settings", label: "Settings" },
       can("logs_view") && { to: "/admin/logs", label: "Logs" },
     ].filter(Boolean);
   }
@@ -41,6 +50,12 @@ function navFor(me, can) {
     can("time_clock_view") && { to: "/branch/clock", label: "Time In / Out" },
     can("branch_employees_view") && { to: "/branch/employees", label: "Employees" },
     can("branch_reports_view") && { to: "/branch/reports", label: "Reports" },
+    can("branch_announcements_view") && { to: "/branch/announcements", label: "Announcements" },
+    can("branch_support_view") && { to: "/branch/support", label: "Support Chat" },
+    can("feedback_view") && !counterOnly(can) && { to: "/branch/feedback", label: "Feedback" },
+    can("branch_customers_view") && { to: "/branch/customers", label: "Customers" },
+    can("branch_training_view") && { to: "/branch/training", label: "Training" },
+    can("branch_settings_view") && { to: "/branch/settings", label: "Settings" },
     can("branch_users_view") && { to: "/branch/users", label: "Users" },
   ].filter(Boolean);
 }
@@ -59,6 +74,24 @@ export default function Shell() {
   const kiosk = inKiosk(me, can);
   const [touring, setTouring] = useState(() => !kiosk && !tourSeen(me));
   const sync = useSync();
+  // unread counts shown beside menu items: announcements not opened, support messages not read
+  const [badges, setBadges] = useState({});
+  const hqUser = me.scope === "ADMIN";
+  const wantsAnn = !hqUser && can("branch_announcements_view");
+  const wantsSupport = hqUser ? can("support_view") : can("branch_support_view");
+  useEffect(() => {
+    if (!wantsAnn && !wantsSupport) return undefined;
+    let alive = true;
+    const set = (k, n) => { if (alive) setBadges((b) => (b[k] === n ? b : { ...b, [k]: n })); };
+    const count = () => {
+      if (wantsAnn) api("/api/branch/announcements").then((l) => set("/branch/announcements", l.filter((a) => !a.read).length)).catch(() => {});
+      if (wantsSupport) api(`${hqUser ? "/api/admin" : "/api/branch"}/support/unread`).then((r) => set(hqUser ? "/admin/support" : "/branch/support", r.count)).catch(() => {});
+    };
+    count();
+    const timer = setInterval(count, 60000);
+    window.addEventListener("cp-announcements", count);
+    return () => { alive = false; clearInterval(timer); window.removeEventListener("cp-announcements", count); };
+  }, [wantsAnn, wantsSupport, hqUser, where.pathname]);
   const [, bump] = useState(0);
   useEffect(() => {   // clock-only mode switched on or off from the clock page
     const f = () => bump((n) => n + 1);
@@ -85,7 +118,7 @@ export default function Shell() {
                 <small>soon</small>
               </span>
             ) : (
-              <NavLink key={n.to} to={n.to} end={n.end}>{n.label}</NavLink>
+              <NavLink key={n.to} to={n.to} end={n.end}>{n.label}{badges[n.to] > 0 && <span className="navbadge" aria-label={`${badges[n.to]} unread`}>{badges[n.to]}</span>}</NavLink>
             )
           )}
     </>

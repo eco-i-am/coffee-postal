@@ -23,6 +23,12 @@ import BranchPoAdminPage from "../features/admin/BranchPoAdminPage.jsx";
 import SuppliersPage from "../features/admin/SuppliersPage.jsx";
 import OutsourcePage from "../features/branch/OutsourcePage.jsx";
 import ExpensesPage from "../features/expenses/ExpensesPage.jsx";
+import AnnouncementsPage from "../features/engagement/AnnouncementsPage.jsx";
+import SupportPage from "../features/engagement/SupportPage.jsx";
+import FeedbackPage from "../features/engagement/FeedbackPage.jsx";
+import CustomersPage from "../features/engagement/CustomersPage.jsx";
+import TrainingPage from "../features/engagement/TrainingPage.jsx";
+import SettingsPage from "../features/engagement/SettingsPage.jsx";
 import TransfersPage from "../features/inventory/TransfersPage.jsx";
 import ClockPage from "../features/clock/ClockPage.jsx";
 import EmployeesPage from "../features/employees/EmployeesPage.jsx";
@@ -70,6 +76,12 @@ export default function App() {
           <Route path="/branch/transfers" element={<TransfersPage side="branch" />} />
           <Route path="/branch/outsource" element={<OutsourcePage />} />
           <Route path="/branch/expenses" element={<ExpensesPage side="branch" />} />
+          <Route path="/branch/announcements" element={<AnnouncementsPage side="branch" />} />
+          <Route path="/branch/support" element={<SupportPage side="branch" />} />
+          <Route path="/branch/feedback" element={<FeedbackPage side="branch" />} />
+          <Route path="/branch/customers" element={<CustomersPage />} />
+          <Route path="/branch/training" element={<TrainingPage side="branch" />} />
+          <Route path="/branch/settings" element={<SettingsPage side="branch" />} />
           <Route path="/branch/employees" element={<EmployeesPage side="branch" />} />
           <Route path="/branch/inventory" element={<InventoryPage />} />
           <Route path="/branch/purchase-orders" element={<PurchaseOrdersPage />} />
@@ -87,6 +99,11 @@ export default function App() {
             <Route path="/admin/transfers" element={<TransfersPage side="hq" />} />
             <Route path="/admin/suppliers" element={<SuppliersPage />} />
             <Route path="/admin/expenses" element={<ExpensesPage side="hq" />} />
+            <Route path="/admin/announcements" element={<AnnouncementsPage side="hq" />} />
+            <Route path="/admin/support" element={<SupportPage side="hq" />} />
+            <Route path="/admin/feedback" element={<FeedbackPage side="hq" />} />
+            <Route path="/admin/training" element={<TrainingPage side="hq" />} />
+            <Route path="/admin/settings" element={<SettingsPage side="hq" />} />
             <Route path="/admin/employees" element={<EmployeesPage side="hq" />} />
             <Route path="/admin/branch-po" element={<BranchPoAdminPage />} />
           </Route>

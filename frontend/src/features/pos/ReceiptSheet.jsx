@@ -1,4 +1,5 @@
 import { peso } from "../../shared/money.js";
+import { useReceiptText } from "../../shared/receiptText.js";
 import { dateTimeOf } from "../../shared/format.js";
 
 const TYPE_NAMES = { DINE_IN: "Dine-in", TAKEOUT: "Takeout", DELIVERY: "Delivery" };
@@ -6,11 +7,12 @@ const METHOD_NAMES = { CASH: "Cash", GCASH: "GCash", MAYA: "Maya", CARD: "Card" 
 
 /** A receipt printed from the saved order (a reprint). Prints on an 80 mm roll; see the print rules in app.css. */
 export default function ReceiptSheet({ r, onClose }) {
+  const rt = useReceiptText();
   return (
     <>
       <div className="receipt printable">
         <div className="c">
-          <b>COFFEE POSTAL</b><br />
+          <b>{rt.companyName}</b><br />
           {r.branch}<br />
           {r.address && <>{r.address}<br /></>}
           {r.phone && <>{r.phone}<br /></>}
@@ -43,7 +45,7 @@ export default function ReceiptSheet({ r, onClose }) {
             <div className="r"><span>VAT 12%</span><span>{peso(r.vat)}</span></div>
           </>
         )}
-        <div className="c"><hr />Thank you!<br /><i>Not an official receipt.</i></div>
+        <div className="c"><hr />{rt.footer}<br /><i>{rt.note}</i></div>
       </div>
       <div className="opts noprint">
         <button type="button" className="btn ghost" onClick={onClose}>Close</button>
