@@ -49,11 +49,11 @@ export default function Shell() {
   const { me, can, signOut } = useAuth();
   const [changing, setChanging] = useState(false);
   const [acct, setAcct] = useState(false);   // the account menu in the top bar
-  // a counter account (cashier) gets the menu as a slim bar across the top, so the till has the whole screen; anyone can switch
+  // a counter account (cashier) gets the menu as a slim bar across the top, so the till has the whole screen; other roles can switch
   const counter = me.scope !== "ADMIN" && can("pos_view") && !can("branch_reports_view");
   const menuKey = `cp.menu.v1:${me.username}`;
   const [menuAt, setMenuAt] = useState(() => { try { return localStorage.getItem(menuKey); } catch { return null; } });
-  const top = (menuAt || (counter ? "top" : "side")) === "top";
+  const top = counter || menuAt === "top";   // cashiers always get the top bar; everyone else can choose
   const moveMenu = () => { const next = top ? "side" : "top"; setMenuAt(next); try { localStorage.setItem(menuKey, next); } catch { /* ignore */ } };
   const where = useLocation();
   const kiosk = inKiosk(me, can);
@@ -116,7 +116,7 @@ export default function Shell() {
             <div className="acctscrim" onClick={closeAcct} />
             <div className="acctmenu" role="menu">
               <p className="acctwho">{me.branchName || "Coffee Postal"}</p>
-              <button type="button" role="menuitem" onClick={() => { closeAcct(); moveMenu(); }}>Menu on the side</button>
+              {!counter && <button type="button" role="menuitem" onClick={() => { closeAcct(); moveMenu(); }}>Menu on the side</button>}
               <button type="button" role="menuitem" onClick={() => { closeAcct(); setTouring(true); }}>Quick tour</button>
               <button type="button" role="menuitem" onClick={() => { closeAcct(); setChanging(true); }}>Change password</button>
               <button type="button" role="menuitem" className="danger" onClick={signOut}>Sign out</button>
